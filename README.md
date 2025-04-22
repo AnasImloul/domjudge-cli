@@ -1,6 +1,6 @@
 # dom-cli
 
-`dom-cli` is a command-line tool for setting up and managing coding contests in DOMjudge. Inspired by Terraform’s declarative approach to infrastructure, `dom-cli` enables you to define one or more contests along with their problems, teams, and outputs using simple configuration files. With its incremental update mechanism, you can modify contest settings without restarting the DOMjudge server, thereby preserving volatile data and avoiding lengthy re-deployments.
+`dom-cli` is a command-line tool for setting up and managing coding contests in DOMjudge. `dom-cli` enables you to define one or more contests along with their problems, teams, and outputs using simple configuration files. With its incremental update mechanism, you can modify contest settings without restarting the DOMjudge server, thereby preserving volatile data and avoiding lengthy re-deployments.
 
 ## Key Features
 
@@ -59,7 +59,8 @@ outputs:
   team_passwords:
     description: "Display team passwords for all contests"
     value: "contests.*.teams.passwords"
-    file: "passwd.txt"
+    format: "json"
+    file: "passwords.json"
 ```
 
 ### Explanation of the Config Structure
