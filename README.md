@@ -7,8 +7,7 @@
 - Declarative Multiple Contest Definitions: Define multiple contests within a single YAML config file.
 - Grouped Contest Resources: Each contest entry includes its own problems, teams, and contest-specific configuration for clearer and more intuitive management.
 - Incremental Updates: Apply only the changes that have been made without restarting the DOMjudge server.
-- Terraform-Inspired Resource Management: Use a familiar, structured approach to control and deploy contest infrastructure.
-- Flexible Input Formats: Supports YAML for configurations and TSV for team definitions.
+- Flexible Input Formats: Supports YAML for configurations and TSV/CSV for team definitions.
 
 ## Installation
 
