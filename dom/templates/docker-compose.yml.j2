@@ -1,0 +1,53 @@
+networks:
+  dom-cli-domjudge:
+    name: dom-cli-domjudge
+
+services:
+  mariadb:
+    container_name: dom-cli-mariadb
+    image: mariadb:11.7.2
+    environment:
+      - MYSQL_ROOT_PASSWORD=domjudge
+      - MYSQL_DATABASE=domjudge
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=domjudge
+    networks:
+      - dom-cli-domjudge
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+
+  domserver:
+    container_name: dom-cli-domserver
+    image: domjudge/domserver:8.3.1
+    environment:
+      - MYSQL_HOST=dom-cli-mariadb
+      - MYSQL_ROOT_PASSWORD=domjudge
+      - MYSQL_DATABASE=domjudge
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=domjudge
+    networks:
+      - dom-cli-domjudge
+    ports:
+      - "{{ platform_port }}:80"
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+{% for i in range(judgehost_count) %}
+  judgehost-{{i+1}}:
+    container_name: dom-cli-judgehost-{{i+1}}
+    image: domjudge/judgehost:8.3.1
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    environment:
+      - DAEMON_ID={{i+1}}
+      - DOMSERVER_BASEURL=http://dom-cli-domserver/
+      - JUDGEDAEMON_PASSWORD={{ judgedaemon_password }}
+    networks:
+      - dom-cli-domjudge
+    depends_on:
+      - domserver
+    restart: unless-stopped
+{% endfor %}

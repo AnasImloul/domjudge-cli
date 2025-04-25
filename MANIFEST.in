@@ -1,0 +1,1 @@
+recursive-include dom/templates *.j2

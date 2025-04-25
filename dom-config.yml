@@ -1,0 +1,31 @@
+infra:
+  judges: 4
+  platform_port: 80
+  judgehost_count: 8
+
+contests:
+  - name: "JNJD Programming Contest 2024"
+    formal_name: "JNJD2024"
+    id: "2"
+    penalty_time: 20
+    start_time: "2024-05-12T11:00:00+07:00"
+    end_time: "2024-05-12T15:00:00+07:00"
+    duration: "4:00:00.000"
+    scoreboard_freeze_duration: "1:00:00.000"
+    external_id: "JNJD2024"
+    shortname: "JNJD2024"
+    allow_submit: true
+    problems:
+      from: 'problems-jnjd.yml'
+    teams:
+      from: 'teams-jnjd.tsv'
+      rows: "2-75"
+      name: "$1"
+
+# Global outputs can extract details from one or more contests
+outputs:
+  team_passwords:
+    description: "Display team passwords for all contests"
+    value: "contests.*.teams.passwords"
+    format: "json"
+    file: "passwords.json"
