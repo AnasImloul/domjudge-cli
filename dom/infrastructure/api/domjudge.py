@@ -1,7 +1,14 @@
 import base64
 import requests
-from dom.types.api import models
+import os
+from requests.auth import HTTPBasicAuth
+import tempfile
+from pathlib import Path
 
+from dom.core.services.problem.converter.models import ProblemPackage
+from dom.types.api import models
+from io import BytesIO
+from dom.types.config import ProblemsConfig, Problem
 
 class DomjudgeAPI:
     def __init__(self, base_url: str, username: str, password: str):
@@ -9,69 +16,117 @@ class DomjudgeAPI:
         self.username = username
         self.password = password
         self.session = requests.Session()
-
-        # Encode username:password into Base64 for Basic Auth
-        credentials = f"{self.username}:{self.password}"
-        credentials_bytes = credentials.encode('utf-8')
-        base64_credentials = base64.b64encode(credentials_bytes).decode('utf-8')
-
-        self.session.headers.update({
-            "Authorization": f"Basic {base64_credentials}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        })
+        self.session.auth = HTTPBasicAuth(username=username, password=password)
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{path}"
 
     def get_user(self, user_id: int) -> models.User:
-        """
-        GET /api/v4/users/{user_id}/
-        """
         response = self.session.get(self._url(f"/api/v4/users/{user_id}/"))
         response.raise_for_status()
         return models.User(**response.json())
 
     def list_contests(self) -> list:
-        """
-        GET /api/v4/contests
-        """
         response = self.session.get(self._url("/api/v4/contests"))
         response.raise_for_status()
         return response.json()
 
-    def create_contest(self, contest_data: dict) -> dict:
-        """
-        POST /api/v4/contests
-        """
-        response = self.session.post(self._url("/api/v4/contests"), json=contest_data)
+    def create_contest(self, contest_data: models.Contest) -> tuple[str, bool]:
+        contest_json = contest_data.model_dump_json()
+        file_like = BytesIO(contest_json.encode('utf-8'))
+        files = {
+            'json': ('contest.json', file_like, 'application/json')
+        }
+        try:
+            response = self.session.post(self._url("/api/v4/contests"), files=files)
+            response.raise_for_status()
+            return response.json(), True
+
+        except requests.HTTPError as http_err:
+            if response.status_code == 400:
+                try:
+                    error_detail = response.json()
+                    error_message = error_detail.get('message', '')
+                except Exception:
+                    error_message = response.text
+
+                if "shortname" in error_message:
+                    existing_contests = self.list_contests()
+                    for contest in existing_contests:
+                        if contest.get("shortname") == contest_data.shortname:
+                            print(f"[INFO] Contest '{contest_data.shortname}' already exists.")
+                            return contest["id"], False
+                    print(f"[ERROR] Contest with shortname '{contest_data.shortname}' not found after 400 error.")
+                    raise Exception(f"Contest with shortname '{contest_data.shortname}' exists but could not fetch it.")
+
+            print(f"[ERROR] HTTP {response.status_code}: {response.text}")
+            raise
+
+    def list_contest_problems(self, contest_id: str):
+        response = self.session.get(self._url(f"/api/v4/contests/{contest_id}/problems"))
         response.raise_for_status()
         return response.json()
 
-    def update_contest(self, contest_id: int, contest_data: dict) -> dict:
-        """
-        PUT /api/v4/contests/{contest_id}/
-        """
-        response = self.session.put(self._url(f"/api/v4/contests/{contest_id}/"), json=contest_data)
-        response.raise_for_status()
-        return response.json()
-
-    def delete_contest(self, contest_id: int) -> None:
-        """
-        DELETE /api/v4/contests/{contest_id}/
-        """
-        response = self.session.delete(self._url(f"/api/v4/contests/{contest_id}/"))
-        response.raise_for_status()
-
-    def sync_contests(contests: list) -> None:
+    def list_all_problems(self) -> dict:
+        all_problems = {}
+        contests = self.list_contests()
         for contest in contests:
-            print(f"⚡ Syncing contest: {contest.get('name')}")
-        # Real API communication would go here later
+            contest_id = contest["id"]
+            problems = self.list_contest_problems(contest_id)
+            for problem in problems:
+                externalid = problem.get("externalid")
+                if externalid and externalid not in all_problems:
+                    all_problems[externalid] = problem
+        return all_problems
 
+    def create_or_get_problem(self, problem_package: ProblemPackage) -> str:
+        all_problems = self.list_all_problems()
+        externalid = problem_package.ini.externalid
 
-if __name__ == '__main__':
-    client = DomjudgeAPI(
-        base_url="http://localhost",
-        username="admin",
-        password="--OEKyfW4pQb4ai9"
-    )
+        if externalid in all_problems:
+            problem_id = all_problems[externalid]["id"]
+            print(f"[INFO] Problem with externalid '{externalid}' already exists globally.")
+        else:
+            temp_zip_path = ""
+            try:
+                with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
+                    temp_zip_path = temp_zip.name
+                    problem_package.write_to_zip(Path(temp_zip_path))
+
+                with open(temp_zip_path, 'rb') as f:
+                    files = {
+                        'zip': (f.name, f, 'application/zip')
+                    }
+                    response = self.session.post(self._url("/api/v4/problems"), files=files)
+                    response.raise_for_status()
+
+                    resp_json = response.json()
+                    if "problem_id" not in resp_json:
+                        raise Exception(f"[ERROR] No 'problem_id' in problem creation response: {resp_json}")
+
+                    problem_id = resp_json["problem_id"]
+                    print(f"[INFO] Created new problem with ID {problem_id}.")
+            finally:
+                if os.path.exists(temp_zip_path):
+                    os.remove(temp_zip_path)
+
+        return problem_id
+
+    def add_problem_to_contest(self, contest_id: str, problem_package: ProblemPackage) -> str:
+        problem_id = self.create_or_get_problem(problem_package)
+
+        if problem_id in map(lambda problem: problem["id"], self.list_contest_problems(contest_id)):
+            print(f"[INFO] Problem already linked to contest")
+            return problem_id
+
+        put_response = self.session.put(
+            self._url(f"/api/v4/contests/{contest_id}/problems/{problem_id}"),
+            json={
+                "label": problem_package.yaml.name,
+                "color": problem_package.ini.color
+            }
+        )
+        put_response.raise_for_status()
+        print(f"[INFO] Linked problem ID {problem_id} to contest {contest_id}.")
+
+        return problem_id

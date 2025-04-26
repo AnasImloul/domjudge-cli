@@ -1,13 +1,22 @@
 # dom-cli
 
-`dom-cli` is a command-line tool for setting up and managing coding contests in DOMjudge. `dom-cli` enables you to define one or more contests along with their problems, teams, and outputs using simple configuration files. With its incremental update mechanism, you can modify contest settings without restarting the DOMjudge server, thereby preserving volatile data and avoiding lengthy re-deployments.
+`dom-cli` is a command-line tool for setting up and managing coding contests in **DOMjudge**.  
+It enables you to **declaratively define infrastructure, contests, problems, and teams** using simple configuration files.
+
+With its incremental update mechanism, you can modify contest settings without restarting the DOMjudge server — preserving live data and avoiding lengthy redeployments.
+
+---
 
 ## Key Features
 
-- Declarative Multiple Contest Definitions: Define multiple contests within a single YAML config file.
-- Grouped Contest Resources: Each contest entry includes its own problems, teams, and contest-specific configuration for clearer and more intuitive management.
-- Incremental Updates: Apply only the changes that have been made without restarting the DOMjudge server.
-- Flexible Input Formats: Supports YAML for configurations and TSV/CSV for team definitions.
+- **Declarative Infrastructure and Contest Management:** Use YAML files to describe the full environment.
+- **Infrastructure as Code:** Manage DOMjudge servers and judgehosts with a single command.
+- **Problemset Validation:** Validate your problem solutions against expected outcomes easily.
+- **Incremental Updates:** Apply only the changes needed, no server restarts.
+- **Flexible Input Formats:** Supports YAML for configs and TSV/CSV for team definitions.
+- **Safe Live Operations:** Built for zero-downtime contest management.
+
+---
 
 ## Installation
 
@@ -15,67 +24,120 @@
 pip install dom-cli
 ```
 
+---
+
 ## Usage
 
-Apply your configuration file using the CLI. By default, `dom-cli` will look for a file named `dom-config.yaml` or `dom-config.yml`.
+`dom-cli` is split into **three main command groups**:
+
+| Command Group | Purpose |
+|:--------------|:--------|
+| `dom infra` | Manage Docker infrastructure for DOMjudge (start/stop/update containers) |
+| `dom contest` | Manage contests, teams, submissions, scoreboard |
+| `dom problemset` | Manage and validate problem archives, solutions |
+
+---
+
+### 1. Infrastructure Management
 
 ```bash
-dom apply -f dom-config.yaml
+dom infra up -f dom-config.yaml    # Start mariadb + domserver + judgehosts
+dom infra down                     # Stop and remove containers
+dom infra status                   # Check running containers
 ```
+
+---
+
+### 2. Contest Management
+
+```bash
+dom contest plan -f dom-config.yaml   # Preview contest changes
+dom contest apply -f dom-config.yaml  # Apply contests, teams, problems
+dom contest destroy --confirm         # Destroy contests and teams
+```
+
+---
+
+### 3. Problemset Management
+
+```bash
+dom problemset validate -f problems-jnjd.yml
+```
+
+- Validates all provided solutions (AC, WA, TLE, etc.) against the problem definitions.
+- Ensures problem tags match actual results.
+
+---
 
 ## Configuration Files
 
-The configuration file supports multiple contests by using the `contests` section. Each contest entry contains its own configuration, as well as its associated problems and teams definitions. You can also define global outputs to extract useful data, such as team passwords.
+You manage everything via a single config file, usually called `dom-config.yaml`.
 
-### Example: dom-config.yaml
+Example:
 
 ```yaml
-version: "1.0"
+infra:
+  port: 12345
+  judges: 4
 
-# Define multiple contests in one configuration file
 contests:
   - name: "JNJD2024"
-    formal_name: "JNJD2024"
-    id: "2"
-    penalty_time: 20
+    formal_name: "JNJD Programming Contest 2024"
     start_time: "2024-05-12T11:00:00+07:00"
     end_time: "2024-05-12T15:00:00+07:00"
-    duration: "4:00:00.000"
-    scoreboard_freeze_duration: "1:00:00.000"
-    external_id: "JNJD2024"
-    name: "JNJD Programming Contest 2024"
-    shortname: "JNJD2024"
+    penalty_time: 20
     allow_submit: true
+    
     problems:
-      from: 'problems-jnjd.yml'
+      from: "problems-jnjd.yaml"
+    
     teams:
-      from: 'teams-jnjd.tsv'
+      from: "teams-jnjd.csv"
       rows: "2-75"
       name: "$1"
-
-# Global outputs can extract details from one or more contests
-outputs:
-  team_passwords:
-    description: "Display team passwords for all contests"
-    value: "contests.*.teams.passwords"
-    format: "json"
-    file: "passwords.json"
 ```
+
+---
 
 ### Explanation of the Config Structure
 
-- `version`: The version of your configuration schema.
-- `contests`: A list where each item is a contest definition.
-  - `name`: A unique identifier for the contest entry within the configuration (can be used as a reference).
-  - `contest`: Contains contest-specific settings (start time, penalty settings, duration, etc.).
-  - `problems`: Points to the file (or inline definitions) containing the contest’s problems.
-  - `teams`: Refers to the file (typically TSV) that lists the teams, along with any row filtering and naming template.
-- `outputs`: Define outputs to extract or compute additional information after applying your configuration (e.g., team passwords).
+- `infra`: Configuration for the infrastructure (ports, judgehost count, etc.).
+- `contests`: List of contests to create, each with their own problems and teams.
+- `problems`: Path to external YAML files defining problemsets.
+- `teams`: Path to team information in TSV format.
+
+---
 
 ## Incremental Updates Without Server Restart
 
-One of the main advantages of using `dom-cli` is its ability to apply updates incrementally:
+- **Selective Updates:** Only modified resources are updated.
+- **Live Data Preservation:** No DOMjudge restart needed.
+- **Faster Contest Preparation:** Especially useful during active contests or last-minute changes.
 
-- **Selective Resource Updates:** Only the resources (contests, problems, teams) that have been modified will be updated.
-- **Live System Continuity:** By not restarting the DOMjudge server, volatile contest data remains intact.
-- **Faster Deployments:** The deployment process becomes faster and more efficient, especially during live contests.
+---
+
+# 📜 Example Full Workflow
+
+```bash
+# Set up infrastructure
+dom infra up -f dom-config.yaml
+
+# Plan contest changes
+dom contest plan -f dom-config.yaml
+
+# Apply contests, problems, teams
+dom contest apply -f dom-config.yaml
+
+# Validate problemset before live
+dom problemset validate -f problems-jnjd.yaml
+```
+
+---
+
+# 📢 Notes
+
+- Make sure Docker is installed for `infra` commands.
+- DOMjudge API credentials will be picked up automatically or configured manually.
+- Problemset validation requires providing correct test solutions.
+
+---

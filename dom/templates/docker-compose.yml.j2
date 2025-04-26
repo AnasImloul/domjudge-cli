@@ -7,14 +7,24 @@ services:
     container_name: dom-cli-mariadb
     image: mariadb:11.7.2
     environment:
-      - MYSQL_ROOT_PASSWORD=domjudge
+      - MYSQL_ROOT_PASSWORD={{ db_password }}
       - MYSQL_DATABASE=domjudge
       - MYSQL_USER=domjudge
-      - MYSQL_PASSWORD=domjudge
+      - MYSQL_PASSWORD={{ db_password }}
     networks:
       - dom-cli-domjudge
     ports:
       - "3306:3306"
+    restart: unless-stopped
+
+  mysql-client:
+    container_name: dom-cli-mysql-client
+    image: mysql:8
+    entrypoint: tail -f /dev/null  # So it keeps running and stays idle
+    networks:
+      - dom-cli-domjudge
+    depends_on:
+      - mariadb
     restart: unless-stopped
 
   domserver:
@@ -22,10 +32,10 @@ services:
     image: domjudge/domserver:8.3.1
     environment:
       - MYSQL_HOST=dom-cli-mariadb
-      - MYSQL_ROOT_PASSWORD=domjudge
+      - MYSQL_ROOT_PASSWORD={{ db_password }}
       - MYSQL_DATABASE=domjudge
       - MYSQL_USER=domjudge
-      - MYSQL_PASSWORD=domjudge
+      - MYSQL_PASSWORD={{ db_password }}
     networks:
       - dom-cli-domjudge
     ports:
@@ -37,6 +47,7 @@ services:
 {% for i in range(judgehost_count) %}
   judgehost-{{i+1}}:
     container_name: dom-cli-judgehost-{{i+1}}
+    hostname: judgedaemon-{{i+1}}
     image: domjudge/judgehost:8.3.1
     privileged: true
     volumes:

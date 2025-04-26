@@ -1,1 +1,1 @@
-from .domjudge import sync_contests
+from .domjudge import DomjudgeAPI
