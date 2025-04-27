@@ -1,4 +1,3 @@
-import base64
 import requests
 import os
 from requests.auth import HTTPBasicAuth
@@ -6,11 +5,12 @@ import json
 import tempfile
 from pathlib import Path
 
-from dom.core.services.problem.converter.models import ProblemPackage
+from dom.types.problem import ProblemPackage
 from dom.types.api import models
 from io import BytesIO
 
-class DomjudgeAPI:
+
+class DomJudgeAPI:
     def __init__(self, base_url: str, username: str, password: str):
         self.base_url = base_url.rstrip('/')
         self.username = username

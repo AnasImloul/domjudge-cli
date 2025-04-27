@@ -1,1 +1,1 @@
-from .domjudge import DomjudgeAPI
+from .domjudge import DomJudgeAPI

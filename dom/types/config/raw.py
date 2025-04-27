@@ -1,18 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr
 from typing import List, Union
 from datetime import datetime
 
 
-class InfraConfig(BaseModel):
+class RawInfraConfig(BaseModel):
     port: int = 12345
     judges: int = 1
-    password: str = None
+    password: SecretStr = None
 
     class Config:
         frozen = True
 
 
-class ProblemsConfig(BaseModel):
+class RawProblemsConfig(BaseModel):
     from_: str = Field(alias="from")
 
     class Config:
@@ -20,7 +20,7 @@ class ProblemsConfig(BaseModel):
         populate_by_name = True
 
 
-class Problem(BaseModel):
+class RawProblem(BaseModel):
     archive: str
     platform: str
     color: str
@@ -29,7 +29,7 @@ class Problem(BaseModel):
         frozen = True
 
 
-class TeamsConfig(BaseModel):
+class RawTeamsConfig(BaseModel):
     from_: str = Field(alias="from")
     delimiter: str = None
     rows: str
@@ -40,7 +40,7 @@ class TeamsConfig(BaseModel):
         populate_by_name = True
 
 
-class ContestConfig(BaseModel):
+class RawContestConfig(BaseModel):
     name: str
     shortname: str = None
     formal_name: str = None
@@ -49,16 +49,16 @@ class ContestConfig(BaseModel):
     penalty_time: int = 0
     allow_submit: bool = True
 
-    problems: Union[ProblemsConfig, List[Problem]]
-    teams: TeamsConfig
+    problems: Union[RawProblemsConfig, List[RawProblem]]
+    teams: RawTeamsConfig
 
     class Config:
         frozen = True
 
 
-class DomConfig(BaseModel):
-    infra: InfraConfig = InfraConfig()
-    contests: List[ContestConfig] = []
+class RawDomConfig(BaseModel):
+    infra: RawInfraConfig = RawInfraConfig()
+    contests: List[RawContestConfig] = []
 
     class Config:
         frozen = True

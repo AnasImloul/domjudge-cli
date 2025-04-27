@@ -1,0 +1,3 @@
+from .processed import (
+    DomConfig
+)
