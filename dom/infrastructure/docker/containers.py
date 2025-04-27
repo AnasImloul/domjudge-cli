@@ -5,24 +5,41 @@ import re
 import subprocess
 from dom.utils.hash import generate_bcrypt_password
 
+DOCKER_CMD = None
 
+def docker_prefix() -> List[str]:
+    try:
+        subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        return ["docker"]
+    except subprocess.CalledProcessError:
+        raise PermissionError(
+            "You don't have permission to run 'docker'. "
+            "Please run this command with 'sudo' (e.g., 'sudo dom infra apply') or fix your docker permissions."
+        )
 
 def start_services(services: List[str], compose_file: str) -> None:
-    cmd = ["sudo", "docker", "compose", "-f", compose_file, "up", "-d", "--remove-orphans"] + services
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+    cmd = DOCKER_CMD + ["compose", "-f", compose_file, "up", "-d", "--remove-orphans"] + services
     subprocess.run(cmd, check=True)
-
 
 def stop_all_services(compose_file: str) -> None:
-    cmd = ["sudo", "docker", "compose", "-f", compose_file, "down", "-v"]
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+    cmd = DOCKER_CMD + ["compose", "-f", compose_file, "down", "-v"]
     subprocess.run(cmd, check=True)
 
-
 def wait_for_container_healthy(container_name: str, timeout: int = 60) -> None:
-    """Wait until the specified Docker container is healthy or until timeout."""
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+
     start_time = time.time()
 
     while True:
-        cmd = ["sudo", "docker", "inspect", "--format={{.State.Health.Status}}", container_name]
+        cmd = DOCKER_CMD + ["inspect", "--format={{.State.Health.Status}}", container_name]
         result = subprocess.run(cmd, capture_output=True, text=True)
 
         status = result.stdout.strip()
@@ -37,40 +54,39 @@ def wait_for_container_healthy(container_name: str, timeout: int = 60) -> None:
 
         time.sleep(2)
 
-
 def fetch_judgedaemon_password() -> str:
-    cmd = ["sudo", "docker", "exec", "dom-cli-domserver", "cat", "/opt/domjudge/domserver/etc/restapi.secret"]
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+    cmd = DOCKER_CMD + ["exec", "dom-cli-domserver", "cat", "/opt/domjudge/domserver/etc/restapi.secret"]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-    # Define regex pattern:
-    # Match: any_word whitespace any_url whitespace any_word whitespace password
     pattern = re.compile(r"^\S+\s+\S+\s+\S+\s+(\S+)$", re.MULTILINE)
-
     match = pattern.search(result.stdout.strip())
     if not match:
         raise ValueError("Failed to parse judgedaemon password from output")
 
-    password = match.group(1)
-    return password
+    return match.group(1)
 
 def fetch_admin_init_password() -> str:
-    cmd = ["sudo", "docker", "exec", "dom-cli-domserver", "cat", "/opt/domjudge/domserver/etc/initial_admin_password.secret"]
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+    cmd = DOCKER_CMD + ["exec", "dom-cli-domserver", "cat", "/opt/domjudge/domserver/etc/initial_admin_password.secret"]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
     pattern = re.compile(r"^\S+$", re.MULTILINE)
-
     match = pattern.search(result.stdout.strip())
     if not match:
         raise ValueError("Failed to parse admin initial password from output")
 
-    password = match.group(0)
-    return password
-
+    return match.group(0)
 
 def update_admin_password(new_password: str, db_user: str, db_password: str) -> None:
-    """
-    Securely update the admin password in the DOMjudge database.
-    """
+    global DOCKER_CMD
+    if DOCKER_CMD is None:
+        DOCKER_CMD = docker_prefix()
+
     hashed_password = generate_bcrypt_password(new_password)
 
     sql_query = (
@@ -78,8 +94,8 @@ def update_admin_password(new_password: str, db_user: str, db_password: str) -> 
         f"UPDATE user SET password='{hashed_password}' WHERE username='admin';"
     )
 
-    cmd = [
-        "sudo", "docker", "exec", "-e", f"MYSQL_PWD={db_password}",
+    cmd = DOCKER_CMD + [
+        "exec", "-e", f"MYSQL_PWD={db_password}",
         "dom-cli-mysql-client",
         "mysql",
         "-h", "dom-cli-mariadb",
@@ -89,4 +105,3 @@ def update_admin_password(new_password: str, db_user: str, db_password: str) -> 
 
     subprocess.run(cmd, check=True)
     print("✅ Admin password successfully updated.")
-
