@@ -8,7 +8,7 @@ from dom.infrastructure.docker.containers import (
     fetch_admin_init_password,
     update_admin_password,
 )
-from dom.types.config import DomConfig
+from dom.types.infra import InfraConfig
 from dom.infrastructure.secrets.manager import (
     load_or_default_secret,
     load_secret,
@@ -17,12 +17,11 @@ from dom.infrastructure.secrets.manager import (
 from dom.utils.cli import ensure_dom_directory
 
 
-def apply_infra_and_platform(config: DomConfig) -> None:
-    infra = config.infra
+def apply_infra_and_platform(infra_config: InfraConfig) -> None:
     compose_file = os.path.join(ensure_dom_directory(), "docker-compose.yml")
 
     print("Step 1: Generating initial docker-compose...")
-    generate_docker_compose(config, judge_password="TEMP")
+    generate_docker_compose(infra_config, judge_password="TEMP")
 
     print("Step 2: Starting core services (MariaDB + Domserver + MySQL Client)...")
     start_services(["mariadb", "mysql-client", "domserver"], compose_file)
@@ -34,15 +33,15 @@ def apply_infra_and_platform(config: DomConfig) -> None:
     judge_password = fetch_judgedaemon_password()
 
     print("Step 4: Regenerating docker-compose with real judgedaemon password...")
-    generate_docker_compose(config, judge_password=judge_password)
+    generate_docker_compose(infra_config, judge_password=judge_password)
 
     print("Step 5: Starting judgehosts...")
-    judgehost_services = [f"judgehost-{i + 1}" for i in range(infra.judges)]
+    judgehost_services = [f"judgehost-{i + 1}" for i in range(infra_config.judges)]
     start_services(judgehost_services, compose_file)
 
     print("Step 6: Updating admin password...")
     admin_password = (
-        infra.password
+        infra_config.password.get_secret_value()
         or load_or_default_secret("admin_password")
         or fetch_admin_init_password()
     )

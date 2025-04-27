@@ -1,5 +1,5 @@
 import typer
-from dom.infrastructure.config import load_config
+from dom.core.config.loaders import load_infrastructure_config
 from dom.core.services.infra.apply import apply_infra_and_platform
 from dom.core.services.infra.destroy import destroy_infra_and_platform
 
@@ -12,7 +12,7 @@ def apply_from_config(
     """
     Apply configuration to infrastructure and platform.
     """
-    config = load_config(file)
+    config = load_infrastructure_config(file)
     apply_infra_and_platform(config)
 
 

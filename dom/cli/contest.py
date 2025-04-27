@@ -1,5 +1,5 @@
 import typer
-from dom.infrastructure.config import load_config
+from dom.core.config.loaders import load_config
 from dom.core.services.contest.apply import apply_contests
 
 contest_command = typer.Typer()
