@@ -185,8 +185,5 @@ def import_problem(problem: Problem) -> ProblemPackage:
     else:
         raise ValueError(f"Unsupported problem format: '{problem.format}' (must be 'domjudge' or 'polygon')")
 
-    problem_package.ini.color = get_hex_color(problem.color or "black")
-
-    print(problem_package.ini.color)
-
+    problem_package.ini.color = get_hex_color(problem.color)
     return problem_package
