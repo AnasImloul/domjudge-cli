@@ -8,7 +8,6 @@ from dom.utils.hash import generate_bcrypt_password
 
 
 def start_services(services: List[str], compose_file: str) -> None:
-    print(os.system("ls"))
     cmd = ["sudo", "docker", "compose", "-f", compose_file, "up", "-d", "--remove-orphans"] + services
     subprocess.run(cmd, check=True)
 

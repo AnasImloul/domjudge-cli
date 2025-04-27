@@ -5,8 +5,12 @@ import sys
 import csv
 import re
 
+
 from dom.infrastructure.api.domjudge import DomjudgeAPI
 from dom.types.config import TeamsConfig
+from dom.types.api.models import AddTeam, AddUser
+from dom.infrastructure.secrets import generate_secure_password
+from dom.utils.unicode import clean_team_name
 
 def read_teams_file(file_path: str, delimiter: str = None) -> List[List[str]]:
     if not os.path.exists(file_path):
@@ -67,9 +71,28 @@ def apply_teams_to_contest(client: DomjudgeAPI, contest_id: str, team_config: Te
     for idx, row in enumerate(teams_data, start=1):
         try:
             team_name = generate_team_name(team_config.name, row)
-            # Here you would add the team to the contest, e.g.,
-            # client.add_team_to_contest(contest_id, team_name, other_fields)
-            print(f"[INFO] Contest {contest_id}: Prepared team '{team_name}' from row {idx}.")
+            highest_id = max([int(team["id"]) for team in client.list_contest_teams(contest_id)])
+            team_id = client.add_team_to_contest(
+                contest_id=contest_id,
+                team_data=AddTeam(
+                    id=str(highest_id + 1),
+                    name=clean_team_name(team_name, allow_spaces=False),
+                    display_name=team_name,
+                    group_ids=["3"],
+                )
+            )
+
+            user_id = client.add_user(
+                user_data=AddUser(
+                    username=clean_team_name(team_name, allow_spaces=False),
+                    name=clean_team_name(team_name, allow_spaces=False),
+                    password=generate_secure_password(length=10, seed=team_name),
+                    team_id=team_id,
+                    roles=[
+                        "team"
+                    ]
+                )
+            )
 
         except Exception as e:
             print(f"[ERROR] Contest {contest_id}: Failed to prepare team from row {idx}. Unexpected error: {str(e)}",

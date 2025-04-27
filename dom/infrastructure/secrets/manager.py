@@ -3,6 +3,7 @@ import json
 import secrets
 import string
 from dom.utils.cli import ensure_dom_directory
+import random
 
 SECRETS_FILE = os.path.join(ensure_dom_directory(), "secrets.json")
 
@@ -129,3 +130,21 @@ def load_or_default_secret(key: str, default_value=None):
 def clear_secrets() -> None:
     if os.path.exists(SECRETS_FILE):
         os.remove(SECRETS_FILE)
+
+def generate_secure_password(length: int, seed: str) -> str:
+    # Load the admin_password from secrets
+    admin_password = load_secret("admin_password")
+
+    # Create a combined seed from admin_password + seed
+    combined_seed = admin_password + seed
+
+    # Set the random seed for deterministic behavior
+    random.seed(combined_seed)
+
+    # Choose your password components
+    alphabet = string.ascii_letters + string.digits
+
+    # Build a deterministic password of desired length
+    password = ''.join(random.choice(alphabet) for _ in range(length))
+
+    return password

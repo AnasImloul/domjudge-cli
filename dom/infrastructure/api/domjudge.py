@@ -2,13 +2,13 @@ import base64
 import requests
 import os
 from requests.auth import HTTPBasicAuth
+import json
 import tempfile
 from pathlib import Path
 
 from dom.core.services.problem.converter.models import ProblemPackage
 from dom.types.api import models
 from io import BytesIO
-from dom.types.config import ProblemsConfig, Problem
 
 class DomjudgeAPI:
     def __init__(self, base_url: str, username: str, password: str):
@@ -40,6 +40,7 @@ class DomjudgeAPI:
         try:
             response = self.session.post(self._url("/api/v4/contests"), files=files)
             response.raise_for_status()
+            print(f"[INFO] Created new contest with shortname '{contest_data.shortname}'.")
             return response.json(), True
 
         except requests.HTTPError as http_err:
@@ -61,6 +62,8 @@ class DomjudgeAPI:
 
             print(f"[ERROR] HTTP {response.status_code}: {response.text}")
             raise
+
+
 
     def list_contest_problems(self, contest_id: str):
         response = self.session.get(self._url(f"/api/v4/contests/{contest_id}/problems"))
@@ -130,3 +133,49 @@ class DomjudgeAPI:
         print(f"[INFO] Linked problem ID {problem_id} to contest {contest_id}.")
 
         return problem_id
+
+    def list_contest_teams(self, contest_id: str):
+        response = self.session.get(self._url(f"/api/v4/contests/{contest_id}/teams"))
+        response.raise_for_status()
+        return response.json()
+
+    def list_users(self):
+        response = self.session.get(self._url(f"/api/v4/users"))
+        response.raise_for_status()
+        return response.json()
+
+    def add_team_to_contest(self, contest_id: str, team_data: models.AddTeam) -> str:
+        for team in self.list_contest_teams(contest_id):
+            if team["name"] == team_data.name:
+                print(f"[INFO] Team with name '{team_data.name}' already exists for this contest_id {contest_id}.")
+                return team["id"]
+
+        data = json.loads(team_data.model_dump_json(exclude_unset=True))
+        response = self.session.post(
+            url=self._url(f"/api/v4/contests/{contest_id}/teams"),
+            json=data,
+        )
+        response.raise_for_status()
+        resp_json = response.json()
+        if "id" not in resp_json:
+            raise Exception(f"[ERROR] No 'id' in team creation response: {resp_json}")
+
+        team_id = resp_json["id"]
+        print(f"[INFO] Created new team for contest {contest_id} with name '{team_data.name}'.")
+        return team_id
+
+    def add_user(self, user_data: models.AddUser) -> str:
+        for user in self.list_users():
+            if user["name"] == user_data.username:
+                print(f"[INFO] User with name '{user_data.username}' already exists.")
+                return user["id"]
+
+        data = json.loads(user_data.model_dump_json(exclude_unset=True))
+        data["password"] = user_data.password.get_secret_value()
+        response = self.session.post(
+            url=self._url(f"/api/v4/users"),
+            json=data,
+        )
+        response.raise_for_status()
+        print(f"[INFO] Created new user with name '{user_data.username}'.")
+        return response.json()
