@@ -1,143 +1,182 @@
 # dom-cli
 
-`dom-cli` is a command-line tool for setting up and managing coding contests in **DOMjudge**.  
+`dom-cli` is a command-line tool to set up and manage coding contests on **DOMjudge**.  
 It enables you to **declaratively define infrastructure, contests, problems, and teams** using simple configuration files.
 
-With its incremental update mechanism, you can modify contest settings without restarting the DOMjudge server — preserving live data and avoiding lengthy redeployments.
+Built for **live operations**, it safely applies updates to the platform without requiring downtime.
 
 ---
 
 ## Key Features
 
-- **Declarative Infrastructure and Contest Management:** Use YAML files to describe the full environment.
-- **Infrastructure as Code:** Manage DOMjudge servers and judgehosts with a single command.
-- **Problemset Validation:** Validate your problem solutions against expected outcomes easily.
-- **Incremental Updates:** Apply only the changes needed, no server restarts.
-- **Flexible Input Formats:** Supports YAML for configs and TSV/CSV for team definitions.
-- **Safe Live Operations:** Built for zero-downtime contest management.
+- **Declarative Infrastructure and Contest Management:** Manage everything with YAML files.
+- **Infrastructure as Code:** Deploy DOMjudge servers and judgehosts with a single command.
+- **Incremental Changes:** Update infrastructure or contests without downtime.
+- **Flexible Input Formats:** YAML for configuration; CSV/TSV for teams.
+- **Safe Live Modifications:** Apply contest changes while DOMjudge is running.
+- **Automatic Config Discovery:** If `--file` is not specified, it will automatically use `dom-judge.yaml` or `dom-judge.yml` (whichever exists first in the current directory).
 
 ---
 
 ## Installation
 
-```bash
+```
 pip install dom-cli
 ```
 
 ---
 
-## Usage
+## CLI Usage
 
-`dom-cli` is split into **three main command groups**:
+Run `dom --help` to see available commands:
+
+```
+dom --help
+```
+
+Main command groups:
 
 | Command Group | Purpose |
 |:--------------|:--------|
-| `dom infra` | Manage Docker infrastructure for DOMjudge (start/stop/update containers) |
-| `dom contest` | Manage contests, teams, submissions, scoreboard |
-| `dom problemset` | Manage and validate problem archives, solutions |
+| `dom infra` | Manage infrastructure and platform setup |
+| `dom contest` | Manage contests and related configuration |
 
 ---
 
-### 1. Infrastructure Management
+### 1. Manage Infrastructure
 
-```bash
-dom infra up -f dom-config.yaml    # Start mariadb + domserver + judgehosts
-dom infra down                     # Stop and remove containers
-dom infra status                   # Check running containers
+Apply or destroy infrastructure resources.
+
+- **Apply Infrastructure:**
+
 ```
+dom infra apply --file dom-judge.yaml
+```
+
+- **Destroy Infrastructure:**
+
+```
+dom infra destroy --confirm
+```
+
+If no `--file` is provided, defaults to `dom-judge.yaml` or `dom-judge.yml`.
 
 ---
 
-### 2. Contest Management
+### 2. Manage Contests
 
-```bash
-dom contest plan -f dom-config.yaml   # Preview contest changes
-dom contest apply -f dom-config.yaml  # Apply contests, teams, problems
-dom contest destroy --confirm         # Destroy contests and teams
+Apply contest settings to a running platform.
+
+- **Apply Contest Configuration:**
+
+```
+dom contest apply --file dom-judge.yaml
 ```
 
----
-
-### 3. Problemset Management
-
-```bash
-dom problemset validate -f problems-jnjd.yml
-```
-
-- Validates all provided solutions (AC, WA, TLE, etc.) against the problem definitions.
-- Ensures problem tags match actual results.
+If no `--file` is provided, defaults to `dom-judge.yaml` or `dom-judge.yml`.
 
 ---
 
 ## Configuration Files
 
-You manage everything via a single config file, usually called `dom-config.yaml`.
+Everything is controlled via configuration files in YAML format.
 
-Example:
+Example: `dom-judge.yaml`
 
-```yaml
+```
 infra:
-  port: 12345
-  judges: 4
+  port: 8080
+  judges: 2
+  password: "your_admin_password_here"
 
 contests:
-  - name: "JNJD2024"
-    formal_name: "JNJD Programming Contest 2024"
-    start_time: "2024-05-12T11:00:00+07:00"
-    end_time: "2024-05-12T15:00:00+07:00"
+  - name: "Sample Contest"
+    shortname: "SAMPLE2025"
+    start_time: "2025-06-01T10:00:00+00:00"
+    duration: "5:00:00.000"
     penalty_time: 20
     allow_submit: true
-    
+
     problems:
-      from: "problems-jnjd.yaml"
-    
+      from: "problems.yaml"
+
     teams:
-      from: "teams-jnjd.csv"
-      rows: "2-75"
-      name: "$1"
+      from: "teams.csv"
+      delimiter: ','
+      rows: "2-50"
+      name: "$2"
+```
+
+Supporting file example: `problems.yaml`
+
+```
+- archive: problems/example-problem-1.zip
+  platform: "Polygon"
+  color: blue
+
+- archive: problems/example-problem-2.zip
+  platform: "Polygon"
+  color: green
+
+- archive: problems/example-problem-3.zip
+  platform: "Polygon"
+  color: yellow
 ```
 
 ---
 
-### Explanation of the Config Structure
+### Problem Declarations
 
-- `infra`: Configuration for the infrastructure (ports, judgehost count, etc.).
-- `contests`: List of contests to create, each with their own problems and teams.
-- `problems`: Path to external YAML files defining problemsets.
-- `teams`: Path to team information in TSV format.
+- Problems for a contest can be **defined directly inside** the contest `problems:` section like this:
+
+```
+problems:
+  - archive: problems/sample-problem.zip
+    platform: "Polygon"
+    color: blue
+```
+
+- Or you can **abstract the problem list** into a **separate YAML file** and reference it like this:
+
+```
+problems:
+  from: "problems.yaml"
+```
+
+Choose whichever structure better suits your project organization.
 
 ---
 
-## Incremental Updates Without Server Restart
+## Typical Workflow
 
-- **Selective Updates:** Only modified resources are updated.
-- **Live Data Preservation:** No DOMjudge restart needed.
-- **Faster Contest Preparation:** Especially useful during active contests or last-minute changes.
+```
+# Apply infrastructure
+dom infra apply --file dom-judge.yaml
 
----
+# Apply contests, problems, and teams
+dom contest apply --file dom-judge.yaml
 
-# 📜 Example Full Workflow
-
-```bash
-# Set up infrastructure
-dom infra up -f dom-config.yaml
-
-# Plan contest changes
-dom contest plan -f dom-config.yaml
-
-# Apply contests, problems, teams
-dom contest apply -f dom-config.yaml
-
-# Validate problemset before live
-dom problemset validate -f problems-jnjd.yaml
+# (Optional) Destroy infrastructure when done
+dom infra destroy --confirm
 ```
 
 ---
 
-# 📢 Notes
+## Notes
 
-- Make sure Docker is installed for `infra` commands.
-- DOMjudge API credentials will be picked up automatically or configured manually.
-- Problemset validation requires providing correct test solutions.
+- Requires Docker installed for infrastructure operations.
+- DOMjudge API credentials are automatically handled or can be configured.
+- Problems and teams must be correctly referenced in the config YAML.
+- If no configuration file is explicitly passed with `--file`, the CLI will first look for `dom-judge.yaml`, and if not found, `dom-judge.yml`.
+
+---
+
+# 🎯 Summary
+
+| Action | Command |
+|:------|:---------|
+| Deploy platform | ```dom infra apply --file dom-judge.yaml``` |
+| Configure contests | ```dom contest apply --file dom-judge.yaml``` |
+| Destroy everything | ```dom infra destroy --confirm``` |
 
 ---
