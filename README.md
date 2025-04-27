@@ -1,6 +1,6 @@
-# dom-cli
+# domjudge-cli
 
-`dom-cli` is a command-line tool to set up and manage coding contests on **DOMjudge**.  
+`domjudge-cli` is a command-line tool to set up and manage coding contests on **DOMjudge**.  
 It enables you to **declaratively define infrastructure, contests, problems, and teams** using simple configuration files.
 
 Built for **live operations**, it safely applies updates to the platform without requiring downtime.
@@ -21,7 +21,7 @@ Built for **live operations**, it safely applies updates to the platform without
 ## Installation
 
 ```
-pip install dom-cli
+pip install domjudge-cli
 ```
 
 ---
