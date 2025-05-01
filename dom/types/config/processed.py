@@ -7,6 +7,7 @@ from dom.types.infra import InfraConfig
 class DomConfig(BaseModel):
     infra: InfraConfig = InfraConfig()
     contests: List[ContestConfig] = []
+    loaded_from: str
 
     class Config:
         frozen = True

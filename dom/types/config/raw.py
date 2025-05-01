@@ -59,6 +59,7 @@ class RawContestConfig(BaseModel):
 class RawDomConfig(BaseModel):
     infra: RawInfraConfig = RawInfraConfig()
     contests: List[RawContestConfig] = []
+    loaded_from: str
 
     class Config:
         frozen = True

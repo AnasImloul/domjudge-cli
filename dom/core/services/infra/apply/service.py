@@ -41,7 +41,7 @@ def apply_infra_and_platform(infra_config: InfraConfig) -> None:
 
     print("Step 6: Updating admin password...")
     admin_password = (
-        infra_config.password.get_secret_value()
+        infra_config.password.get_secret_value() if infra_config.password else None
         or load_or_default_secret("admin_password")
         or fetch_admin_init_password()
     )

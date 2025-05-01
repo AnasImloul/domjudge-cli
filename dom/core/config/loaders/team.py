@@ -38,13 +38,16 @@ def generate_team_name(template: str, row: List[str]) -> str:
     name = pattern.sub(replacer, template)
     return name
 
-def load_teams_from_config(team_config: RawTeamsConfig):
-
+def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
     file_path = team_config.from_
+
+    # Resolve file_path relative to the directory of config_path
+    config_dir = os.path.dirname(os.path.abspath(config_path))
+    file_path = os.path.join(config_dir, file_path)
 
     file_format = file_path.split(".")[-1]
 
-    if not (file_format in ("csv", "tsv")):
+    if file_format not in ("csv", "tsv"):
         print(f"[ERROR] Teams file '{file_path}' must be a .csv or .tsv file.", file=sys.stderr)
         raise ValueError(f"Invalid file extension for teams file: {file_path}")
 
@@ -74,8 +77,15 @@ def load_teams_from_config(team_config: RawTeamsConfig):
                     password=generate_secure_password(length=10, seed=team_name)
                 )
             )
+            print(team_name, generate_secure_password(length=10, seed=team_name))
 
         except Exception as e:
             print(f"[ERROR] Failed to prepare team from row {idx}. Unexpected error: {str(e)}", file=sys.stderr)
+
+    # Validate no duplicate team names
+    team_names = [team.name for team in teams]
+    if len(team_names) != len(set(team_names)):
+        duplicates = set(name for name in team_names if team_names.count(name) > 1)
+        raise ValueError(f"Duplicate team names detected: {', '.join(duplicates)}")
 
     return teams
