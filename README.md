@@ -24,6 +24,29 @@ Built for **live operations**, it safely applies updates to the platform without
 pip install domjudge-cli
 ```
 
+Before using `domjudge-cli` to deploy infrastructure, ensure that **cgroups** are enabled on your OS (currently supporting **Ubuntu 22.04**).
+
+1. Create or edit the GRUB configuration:
+   
+   ```
+   sudo vi /etc/default/grub.d/99-domjudge-cgroups.cfg
+   ```
+
+   Insert the following line:
+   
+   ```
+   GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1 systemd.unified_cgroup_hierarchy=0"
+   ```
+
+2. Update GRUB and reboot:
+
+   ```
+   sudo update-grub
+   sudo reboot
+   ```
+
+Only after completing these steps should you attempt to run `domjudge-cli` infrastructure commands.
+
 ---
 
 ## CLI Usage
@@ -165,9 +188,10 @@ dom infra destroy --confirm
 ## Notes
 
 - Requires Docker installed for infrastructure operations.
+- Ensure **cgroups** are properly configured and the system has been rebooted as per Installation instructions.
 - DOMjudge API credentials are automatically handled or can be configured.
 - Problems and teams must be correctly referenced in the config YAML.
-- If no configuration file is explicitly passed with `--file`, the CLI will first look for `dom-judge.yaml`, and if not found, `dom-judge.yml`.
+- If no configuration file is explicitly passed with `--file`, the CLI will look for `dom-judge.yaml` or `dom-judge.yml`.
 
 ---
 

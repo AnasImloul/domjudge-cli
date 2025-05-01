@@ -7,7 +7,6 @@ import yaml
 import os
 import sys
 from concurrent.futures import ProcessPoolExecutor
-from tqdm import tqdm
 
 from dom.types.problem import ProblemPackage, ProblemData, ProblemINI, ProblemYAML, OutputValidators, Submissions
 
@@ -183,16 +182,19 @@ def load_problem(problem: RawProblem) -> ProblemPackage:
     elif problem_format == "polygon":
         problem_package = convert_and_load_problem(Path(problem.archive))
     else:
-        raise ValueError(f"Unsupported problem format: '{problem.format}' (must be 'domjudge' or 'polygon')")
+        raise ValueError(f"Unsupported problem platform: '{problem.platform}' (must be 'domjudge' or 'polygon')")
 
     problem_package.ini.color = get_hex_color(problem.color)
     return problem_package
 
 
-
-def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawProblem]]):
+def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawProblem]], config_path: str):
     if isinstance(problem_config, RawProblemsConfig):
         file_path = problem_config.from_
+
+        # Resolve file_path relative to the directory of config_path
+        config_dir = os.path.dirname(os.path.abspath(config_path))
+        file_path = os.path.join(config_dir, file_path)
 
         if not (file_path.endswith(".yml") or file_path.endswith(".yaml")):
             print(f"[ERROR] Problems file '{file_path}' must be a .yml or .yaml file.", file=sys.stderr)
@@ -206,7 +208,7 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
             with open(file_path, "r") as f:
                 loaded_data = yaml.safe_load(f)
                 if not isinstance(loaded_data, list):
-                    print(f"Problems file '{file_path}' must contain a list.", file=sys.stderr)
+                    print(f"[ERROR] Problems file '{file_path}' must contain a list.", file=sys.stderr)
                     raise ValueError(f"Problems file must contain a list of problems: {file_path}")
                 problems = [RawProblem(**problem) for problem in loaded_data]
         except Exception as e:
@@ -219,10 +221,24 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
         print(f"[ERROR] Invalid problem configuration.", file=sys.stderr)
         raise TypeError("Invalid problem configuration type.")
 
+    # Validate archives are unique
+    archive_paths = [os.path.abspath(problem.archive) for problem in problems]
+    if len(archive_paths) != len(set(archive_paths)):
+        duplicates = set([x for x in archive_paths if archive_paths.count(x) > 1])
+        raise ValueError(f"Duplicate archives detected: {', '.join(duplicates)}")
+
     for idx, problem in enumerate(problems, start=1):
         if not os.path.exists(problem.archive):
             raise FileNotFoundError(f"Archive not found: {problem.archive}")
 
     with ProcessPoolExecutor() as executor:
-        futures = list(executor.map(load_problem, problems))
-    return futures
+        problem_packages = list(executor.map(load_problem, problems))
+
+    # Validate short_names are unique
+    short_names = [problem_package.ini.short_name for problem_package in problem_packages]
+    if len(short_names) != len(set(short_names)):
+        duplicates = set([x for x in short_names if short_names.count(x) > 1])
+        raise ValueError(f"Duplicate problem short_names detected: {', '.join(duplicates)}")
+
+    return problem_packages
+
