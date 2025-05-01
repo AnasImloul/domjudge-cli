@@ -4,6 +4,8 @@ from requests.auth import HTTPBasicAuth
 import json
 import tempfile
 from pathlib import Path
+from dom.cli import console 
+
 
 from dom.types.problem import ProblemPackage
 from dom.types.api import models
@@ -40,7 +42,7 @@ class DomJudgeAPI:
         try:
             response = self.session.post(self._url("/api/v4/contests"), files=files)
             response.raise_for_status()
-            print(f"[INFO] Created new contest with shortname '{contest_data.shortname}'.")
+            console.print(f"[cyan]INFO[/cyan] Created new contest with shortname '{contest_data.shortname}'.")
             return response.json(), True
 
         except requests.HTTPError as http_err:
@@ -55,12 +57,12 @@ class DomJudgeAPI:
                     existing_contests = self.list_contests()
                     for contest in existing_contests:
                         if contest.get("shortname") == contest_data.shortname:
-                            print(f"[INFO] Contest '{contest_data.shortname}' already exists.")
+                            console.print(f"[cyan]INFO[/cyan] Contest '{contest_data.shortname}' already exists.")
                             return contest["id"], False
-                    print(f"[ERROR] Contest with shortname '{contest_data.shortname}' not found after 400 error.")
+                    console.print(f"[bold red]ERROR[/bold red] Contest with shortname '{contest_data.shortname}' not found after 400 error.")
                     raise Exception(f"Contest with shortname '{contest_data.shortname}' exists but could not fetch it.")
 
-            print(f"[ERROR] HTTP {response.status_code}: {response.text}")
+            console.print(f"[ERROR] HTTP {response.status_code}: {response.text}")
             raise
 
 
@@ -88,7 +90,7 @@ class DomJudgeAPI:
 
         if externalid in all_problems:
             problem_id = all_problems[externalid]["id"]
-            print(f"[INFO] Problem with externalid '{externalid}' already exists globally.")
+            console.print(f"[INFO] Problem with externalid '{externalid}' already exists globally.")
         else:
             temp_zip_path = ""
             try:
@@ -108,7 +110,7 @@ class DomJudgeAPI:
                         raise Exception(f"[ERROR] No 'problem_id' in problem creation response: {resp_json}")
 
                     problem_id = resp_json["problem_id"]
-                    print(f"[INFO] Created new problem with ID {problem_id}.")
+                    console.print(f"[INFO] Created new problem with ID {problem_id}.")
             finally:
                 if os.path.exists(temp_zip_path):
                     os.remove(temp_zip_path)
@@ -119,7 +121,7 @@ class DomJudgeAPI:
         problem_id = self.create_or_get_problem(problem_package)
 
         if problem_id in map(lambda problem: problem["id"], self.list_contest_problems(contest_id)):
-            print(f"[INFO] Problem already linked to contest")
+            console.print(f"[INFO] Problem already linked to contest")
             return problem_id
 
         put_response = self.session.put(
@@ -130,7 +132,7 @@ class DomJudgeAPI:
             }
         )
         put_response.raise_for_status()
-        print(f"[INFO] Linked problem ID {problem_id} to contest {contest_id}.")
+        console.print(f"[INFO] Linked problem ID {problem_id} to contest {contest_id}.")
 
         return problem_id
 
@@ -147,7 +149,7 @@ class DomJudgeAPI:
     def add_team_to_contest(self, contest_id: str, team_data: models.AddTeam) -> str:
         for team in self.list_contest_teams(contest_id):
             if team["name"] == team_data.name:
-                print(f"[INFO] Team with name '{team_data.name}' already exists for this contest_id {contest_id}.")
+                console.print(f"[INFO] Team with name '{team_data.name}' already exists for this contest_id {contest_id}.")
                 return team["id"]
 
         data = json.loads(team_data.model_dump_json(exclude_unset=True))
@@ -161,13 +163,13 @@ class DomJudgeAPI:
             raise Exception(f"[ERROR] No 'id' in team creation response: {resp_json}")
 
         team_id = resp_json["id"]
-        print(f"[INFO] Created new team for contest {contest_id} with name '{team_data.name}'.")
+        console.print(f"[INFO] Created new team for contest {contest_id} with name '{team_data.name}'.")
         return team_id
 
     def add_user(self, user_data: models.AddUser) -> str:
         for user in self.list_users():
             if user["name"] == user_data.username:
-                print(f"[INFO] User with name '{user_data.username}' already exists.")
+                console.print(f"[INFO] User with name '{user_data.username}' already exists.")
                 return user["id"]
 
         data = json.loads(user_data.model_dump_json(exclude_unset=True))
@@ -177,5 +179,5 @@ class DomJudgeAPI:
             json=data,
         )
         response.raise_for_status()
-        print(f"[INFO] Created new user with name '{user_data.username}'.")
+        console.print(f"[INFO] Created new user with name '{user_data.username}'.")
         return response.json()

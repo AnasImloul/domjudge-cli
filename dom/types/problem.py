@@ -1,9 +1,10 @@
 import zipfile
 from pathlib import Path
 from typing import Dict, Set
-
 import yaml
 from pydantic import BaseModel
+
+from dom.cli import console
 
 
 class ProblemINI(BaseModel):
@@ -128,4 +129,4 @@ class ProblemPackage(BaseModel):
             raise ValueError(f"[ERROR] Missing expected files: {sorted(missing)}")
         if unexpected:
             for path in sorted(unexpected):
-                print(f"[WARNING] Unexpected file found: {path}")
+                console.print(f"[WARNING] Unexpected file found: {path}")

@@ -6,6 +6,7 @@ from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.team import Team
 from dom.types.api.models import AddTeam, AddUser
 from dom.utils.unicode import clean_team_name
+from dom.cli import console
 
 def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Team]):
     def add_team(team: Team, idx: int):
@@ -31,8 +32,7 @@ def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Tea
             )
 
         except Exception as e:
-            print(f"[ERROR] Contest {contest_id}: Failed to prepare team from row {idx}. Unexpected error: {str(e)}",
-                  file=sys.stderr)
+            console.print(f"[bold red]ERROR[/bold red] Contest {contest_id}: Failed to prepare team from row {idx}. Unexpected error: {str(e)}")
 
     with ThreadPoolExecutor() as executor:
         futures = [executor.submit(add_team, team, idx) for idx, team in enumerate(teams, start=1)]
@@ -41,4 +41,4 @@ def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Tea
             try:
                 future.result()
             except Exception as e:
-                print(f"[ERROR] Unexpected exception during team addition: {str(e)}", file=sys.stderr)
+                console.print(f"[bold red]ERROR[/bold red] Unexpected exception during team addition: {str(e)}")

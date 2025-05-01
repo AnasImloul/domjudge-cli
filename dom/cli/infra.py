@@ -3,6 +3,8 @@ from dom.core.config.loaders import load_infrastructure_config
 from dom.core.services.infra.apply import apply_infra_and_platform
 from dom.core.services.infra.destroy import destroy_infra_and_platform
 
+from . import console
+
 infra_command = typer.Typer()
 
 @infra_command.command("apply")
@@ -25,7 +27,7 @@ def destroy_all(
     Destroy all infrastructure and platform resources.
     """
     if not confirm:
-        typer.echo("❗ Use --confirm to actually destroy.")
+        console.print("[yellow]❗ Use --confirm to actually destroy.[/yellow]")
         raise typer.Exit(code=1)
 
     destroy_infra_and_platform()

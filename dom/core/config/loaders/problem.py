@@ -14,6 +14,7 @@ from dom.types.config.raw import RawProblemsConfig, RawProblem
 
 from dom.utils.color import get_hex_color
 from dom.utils.sys import load_folder_as_dict
+from dom.cli import console
 
 
 def convert_and_load_problem(archive_path: Path) -> ProblemPackage:
@@ -197,28 +198,28 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
         file_path = os.path.join(config_dir, file_path)
 
         if not (file_path.endswith(".yml") or file_path.endswith(".yaml")):
-            print(f"[ERROR] Problems file '{file_path}' must be a .yml or .yaml file.", file=sys.stderr)
+            console.print(f"[bold red]ERROR[/bold red] Problems file '{file_path}' must be a .yml or .yaml file.")
             raise ValueError(f"Invalid file extension for problems file: {file_path}")
 
         if not os.path.exists(file_path):
-            print(f"[ERROR] Problems file '{file_path}' does not exist.", file=sys.stderr)
+            console.print(f"[bold red]ERROR[/bold red] Problems file '{file_path}' does not exist.")
             raise FileNotFoundError(f"Problems file not found: {file_path}")
 
         try:
             with open(file_path, "r") as f:
                 loaded_data = yaml.safe_load(f)
                 if not isinstance(loaded_data, list):
-                    print(f"[ERROR] Problems file '{file_path}' must contain a list.", file=sys.stderr)
+                    console.print(f"[bold red]ERROR[/bold red] Problems file '{file_path}' must contain a list.")
                     raise ValueError(f"Problems file must contain a list of problems: {file_path}")
                 problems = [RawProblem(**problem) for problem in loaded_data]
         except Exception as e:
-            print(f"[ERROR] Failed to load problems from '{file_path}'. Error: {str(e)}", file=sys.stderr)
+            console.print(f"[bold red]ERROR[/bold red] Failed to load problems from '{file_path}'. Error: {str(e)}")
             raise e
 
     elif isinstance(problem_config, list) and all(isinstance(p, RawProblem) for p in problem_config):
         problems = problem_config
     else:
-        print(f"[ERROR] Invalid problem configuration.", file=sys.stderr)
+        console.print(f"[bold red]ERROR[/bold red] Invalid problem configuration.")
         raise TypeError("Invalid problem configuration type.")
 
     # Validate archives are unique
@@ -241,4 +242,3 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
         raise ValueError(f"Duplicate problem short_names detected: {', '.join(duplicates)}")
 
     return problem_packages
-

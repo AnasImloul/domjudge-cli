@@ -1,4 +1,5 @@
 import os
+from dom.cli import console
 
 from dom.infrastructure.docker.template import generate_docker_compose
 from dom.infrastructure.docker.containers import (
@@ -20,26 +21,26 @@ from dom.utils.cli import ensure_dom_directory
 def apply_infra_and_platform(infra_config: InfraConfig) -> None:
     compose_file = os.path.join(ensure_dom_directory(), "docker-compose.yml")
 
-    print("Step 1: Generating initial docker-compose...")
+    console.print("[bold cyan]Step 1:[/bold cyan] Generating initial docker-compose...")
     generate_docker_compose(infra_config, judge_password="TEMP")
 
-    print("Step 2: Starting core services (MariaDB + Domserver + MySQL Client)...")
+    console.print("[bold cyan]Step 2:[/bold cyan] Starting core services (MariaDB + Domserver + MySQL Client)...")
     start_services(["mariadb", "mysql-client", "domserver"], compose_file)
 
-    print("Waiting for Domserver to be healthy...")
+    console.print("Waiting for Domserver to be healthy...")
     wait_for_container_healthy("dom-cli-domserver")
 
-    print("Step 3: Fetching judgedaemon password...")
+    console.print("[bold cyan]Step 3:[/bold cyan] Fetching judgedaemon password...")
     judge_password = fetch_judgedaemon_password()
 
-    print("Step 4: Regenerating docker-compose with real judgedaemon password...")
+    console.print("[bold cyan]Step 4:[/bold cyan] Regenerating docker-compose with real judgedaemon password...")
     generate_docker_compose(infra_config, judge_password=judge_password)
 
-    print("Step 5: Starting judgehosts...")
+    console.print("[bold cyan]Step 5:[/bold cyan] Starting judgehosts...")
     judgehost_services = [f"judgehost-{i + 1}" for i in range(infra_config.judges)]
     start_services(judgehost_services, compose_file)
 
-    print("Step 6: Updating admin password...")
+    console.print("[bold cyan]Step 6:[/bold cyan] Updating admin password...")
     admin_password = (
         infra_config.password.get_secret_value() if infra_config.password else None
         or load_or_default_secret("admin_password")
@@ -53,4 +54,4 @@ def apply_infra_and_platform(infra_config: InfraConfig) -> None:
     )
     save_secret("admin_password", admin_password)
 
-    print("✅ Infrastructure and platform are ready!")
+    console.print("[bold green]✅ Infrastructure and platform are ready![/bold green]")
