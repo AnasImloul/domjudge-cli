@@ -6,6 +6,15 @@ import yaml
 from pydantic import BaseModel
 
 
+def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: Dict[str, bytes]) -> Set[str]:
+    written = set()
+    for filename, content in files.items():
+        path = f"{base_path}/{filename}"
+        zf.writestr(path, content)
+        written.add(path)
+    return written
+
+
 class ProblemINI(BaseModel):
     short_name: str
     timelimit: float
@@ -53,11 +62,8 @@ class ProblemData(BaseModel):
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> Set[str]:
         written = set()
-        for group, files in [("sample", self.sample), ("secret", self.secret)]:
-            for filename, content in files.items():
-                path = f"data/{group}/{filename}"
-                zf.writestr(path, content)
-                written.add(path)
+        written.update(write_files_to_zip(zf, "data/sample", self.sample))
+        written.update(write_files_to_zip(zf, "data/secret", self.secret))
         return written
 
 
@@ -65,12 +71,7 @@ class OutputValidators(BaseModel):
     checker: Dict[str, bytes]
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> Set[str]:
-        written = set()
-        for filename, content in self.checker.items():
-            path = f"output_validators/checker/{filename}"
-            zf.writestr(path, content)
-            written.add(path)
-        return written
+        return write_files_to_zip(zf, "output_validators/checker", self.checker)
 
 
 class Submissions(BaseModel):
@@ -80,7 +81,6 @@ class Submissions(BaseModel):
     memory_limit_exceeded: Dict[str, bytes] = {}
     runtime_error: Dict[str, bytes] = {}
     mixed: Dict[str, bytes] = {}
-
 
     def _verdicts(self) -> Dict[str, Dict[str, bytes]]:
         return {
@@ -92,10 +92,7 @@ class Submissions(BaseModel):
     def write_to_zip(self, zf: zipfile.ZipFile) -> Set[str]:
         written = set()
         for verdict, files in self._verdicts().items():
-            for filename, content in files.items():
-                path = f"submissions/{verdict}/{filename}"
-                zf.writestr(path, content)
-                written.add(path)
+            written.update(write_files_to_zip(zf, f"submissions/{verdict}", files))
         return written
 
 
@@ -108,7 +105,6 @@ class ProblemPackage(BaseModel):
 
     def write_to_zip(self, output_path: Path) -> Set[str]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
-
         written_paths = set()
 
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:

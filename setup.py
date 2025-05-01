@@ -19,7 +19,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "dom=dom.cli.__main__:main",
+            "dom=dom.cli.__init__:main",
         ],
     },
 )
