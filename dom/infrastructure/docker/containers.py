@@ -3,6 +3,8 @@ import time
 import re
 import subprocess
 from dom.utils.hash import generate_bcrypt_password
+from dom.cli import console
+
 
 DOCKER_CMD = None
 
@@ -43,7 +45,7 @@ def wait_for_container_healthy(container_name: str, timeout: int = 60) -> None:
 
         status = result.stdout.strip()
         if status == "healthy":
-            print(f"Container '{container_name}' is healthy!")
+            console.print(f"Container '{container_name}' is healthy!")
             return
         elif status == "unhealthy":
             raise RuntimeError(f"Container '{container_name}' became unhealthy!")
@@ -103,4 +105,4 @@ def update_admin_password(new_password: str, db_user: str, db_password: str) -> 
     ]
 
     subprocess.run(cmd, check=True)
-    print("✅ Admin password successfully updated.")
+    console.print("[green]✅ Admin password successfully updated.[/green]")

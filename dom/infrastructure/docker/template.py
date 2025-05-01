@@ -1,8 +1,10 @@
 from jinja2 import Environment, PackageLoader, select_autoescape
+import os
+from dom.cli import console
+
 from dom.infrastructure.secrets.manager import load_or_generate_secret
 from dom.types.infra import InfraConfig
 from dom.utils.cli import ensure_dom_directory
-import os
 
 def generate_docker_compose(infra_config: InfraConfig, judge_password: str) -> None:
     dom_folder = ensure_dom_directory()
@@ -25,4 +27,4 @@ def generate_docker_compose(infra_config: InfraConfig, judge_password: str) -> N
     with open(output_file, "w") as f:
         f.write(rendered)
 
-    print(f"✅ Docker Compose file generated at {output_file}")
+    console.print(f"[green]✅ Docker Compose file generated at {output_file}[/green]")

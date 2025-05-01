@@ -7,6 +7,7 @@ import re
 from dom.types.config.raw import RawTeamsConfig
 from dom.types.team import Team
 from dom.infrastructure.secrets import generate_secure_password
+from dom.cli import console
 
 
 def read_teams_file(file_path: str, delimiter: str = None) -> List[List[str]]:
@@ -48,17 +49,17 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
     file_format = file_path.split(".")[-1]
 
     if file_format not in ("csv", "tsv"):
-        print(f"[ERROR] Teams file '{file_path}' must be a .csv or .tsv file.", file=sys.stderr)
+        console.print(f"[bold red]ERROR[/bold red] Teams file '{file_path}' must be a .csv or .tsv file.")
         raise ValueError(f"Invalid file extension for teams file: {file_path}")
 
     if not os.path.exists(file_path):
-        print(f"[ERROR] Teams file '{file_path}' does not exist.", file=sys.stderr)
+        console.print(f"[bold red]ERROR[/bold red] Teams file '{file_path}' does not exist.")
         raise FileNotFoundError(f"Teams file not found: {file_path}")
 
     try:
         teams_data = read_teams_file(file_path, delimiter=team_config.delimiter)
     except Exception as e:
-        print(f"[ERROR] Failed to load teams from '{file_path}'. Error: {str(e)}", file=sys.stderr)
+        console.print(f"[bold red]ERROR[/bold red] Failed to load teams from '{file_path}'. Error: {str(e)}")
         raise e
 
     row_range = team_config.rows
@@ -77,10 +78,10 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
                     password=generate_secure_password(length=10, seed=team_name)
                 )
             )
-            print(team_name, generate_secure_password(length=10, seed=team_name))
+            console.print(team_name, generate_secure_password(length=10, seed=team_name))
 
         except Exception as e:
-            print(f"[ERROR] Failed to prepare team from row {idx}. Unexpected error: {str(e)}", file=sys.stderr)
+            console.print(f"[bold red]ERROR[/bold red] Failed to prepare team from row {idx}. Unexpected error: {str(e)}")
 
     # Validate no duplicate team names
     team_names = [team.name for team in teams]

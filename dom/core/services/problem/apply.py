@@ -4,15 +4,15 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.problem import ProblemPackage
+from dom.cli import console
 
 def apply_problems_to_contest(client: DomJudgeAPI, contest_id: str, problem_packages: List[ProblemPackage]):
     def add_problem(problem_package: ProblemPackage):
         try:
             client.add_problem_to_contest(contest_id, problem_package)
         except Exception as e:
-            print(
-                f"[ERROR] Contest {contest_id}: Failed to add problem '{problem_package.yaml.name}'. Unexpected error: {str(e)}",
-                file=sys.stderr,
+            console.print(
+                f"[bold red]ERROR[/bold red] Contest {contest_id}: Failed to add problem '{problem_package.yaml.name}'. Unexpected error: {str(e)}"
             )
 
     with ThreadPoolExecutor() as executor:
@@ -23,4 +23,4 @@ def apply_problems_to_contest(client: DomJudgeAPI, contest_id: str, problem_pack
             try:
                 future.result()
             except Exception as e:
-                print(f"[ERROR] Unexpected exception during problem addition: {str(e)}", file=sys.stderr)
+                console.print(f"[bold red]ERROR[/bold red] Unexpected exception during problem addition: {str(e)}")
