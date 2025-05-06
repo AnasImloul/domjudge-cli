@@ -77,7 +77,6 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
                     password=generate_secure_password(length=10, seed=team_name)
                 )
             )
-            print(team_name, generate_secure_password(length=10, seed=team_name))
 
         except Exception as e:
             print(f"[ERROR] Failed to prepare team from row {idx}. Unexpected error: {str(e)}", file=sys.stderr)

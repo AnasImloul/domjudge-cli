@@ -5,7 +5,7 @@ networks:
 services:
   mariadb:
     container_name: dom-cli-mariadb
-    image: mariadb:11.7.2
+    image: mariadb
     platform: linux/x86_64
     environment:
       - MYSQL_ROOT_PASSWORD={{ db_password }}
@@ -31,7 +31,7 @@ services:
 
   domserver:
     container_name: dom-cli-domserver
-    image: domjudge/domserver:8.3.1
+    image: domjudge/domserver:8.2.0
     platform: linux/x86_64
     environment:
       - MYSQL_HOST=dom-cli-mariadb
@@ -51,7 +51,7 @@ services:
   judgehost-{{i+1}}:
     container_name: dom-cli-judgehost-{{i+1}}
     hostname: judgedaemon-{{i+1}}
-    image: domjudge/judgehost:8.3.1
+    image: domjudge/judgehost:8.2.0
     platform: linux/x86_64
     privileged: true
     volumes:

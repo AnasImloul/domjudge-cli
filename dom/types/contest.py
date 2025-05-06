@@ -16,6 +16,3 @@ class ContestConfig(BaseModel):
 
     problems: List[ProblemPackage]
     teams: List[Team]
-
-    class Config:
-        frozen = True

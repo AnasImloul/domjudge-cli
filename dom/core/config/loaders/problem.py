@@ -6,7 +6,8 @@ from typing import Union, List
 import yaml
 import os
 import sys
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from tqdm import tqdm
 
 from dom.types.problem import ProblemPackage, ProblemData, ProblemINI, ProblemYAML, OutputValidators, Submissions
 
@@ -231,8 +232,12 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
         if not os.path.exists(problem.archive):
             raise FileNotFoundError(f"Archive not found: {problem.archive}")
 
+    # Load problems with progress bar
     with ProcessPoolExecutor() as executor:
-        problem_packages = list(executor.map(load_problem, problems))
+        futures = {executor.submit(load_problem, problem): problem for problem in problems}
+        problem_packages = []
+        for future in tqdm(as_completed(futures), total=len(futures), desc="Loading problems"):
+            problem_packages.append(future.result())
 
     # Validate short_names are unique
     short_names = [problem_package.ini.short_name for problem_package in problem_packages]

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, SecretStr
-from typing import List, Union
+from typing import List, Union, Optional
 from datetime import datetime
 
 
@@ -58,7 +58,7 @@ class RawContestConfig(BaseModel):
 
 class RawDomConfig(BaseModel):
     infra: RawInfraConfig = RawInfraConfig()
-    contests: List[RawContestConfig] = []
+    contests: Optional[List[RawContestConfig]] = []
     loaded_from: str
 
     class Config:
