@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -7,8 +7,11 @@ from dom.types.team import Team
 from dom.types.api.models import AddTeam, AddUser
 from dom.utils.unicode import clean_team_name
 
-def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Team]):
-    def add_team(team: Team, idx: int):
+
+def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Team]) -> List[Optional[Team]]:
+    results: List[Optional[Team]] = []
+
+    def add_team(team: Team) -> Optional[Team]:
         try:
             team_id = client.add_team_to_contest(
                 contest_id=contest_id,
@@ -19,8 +22,7 @@ def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Tea
                     group_ids=["3"],
                 )
             )
-
-            user_id = client.add_user(
+            client.add_user(
                 user_data=AddUser(
                     username=clean_team_name(team.name, allow_spaces=False),
                     name=clean_team_name(team.name, allow_spaces=False),
@@ -29,16 +31,15 @@ def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: List[Tea
                     roles=["team"]
                 )
             )
-
+            team.id = team_id
+            return team
         except Exception as e:
-            print(f"[ERROR] Contest {contest_id}: Failed to prepare team from row {idx}. Unexpected error: {str(e)}",
-                  file=sys.stderr)
+            print(f"[ERROR] Contest {contest_id}, team {team.name}: {e}", file=sys.stderr)
+            return None
 
     with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(add_team, team, idx) for idx, team in enumerate(teams, start=1)]
-
+        futures = [executor.submit(add_team, team) for team in teams]
         for future in as_completed(futures):
-            try:
-                future.result()
-            except Exception as e:
-                print(f"[ERROR] Unexpected exception during team addition: {str(e)}", file=sys.stderr)
+            results.append(future.result())
+
+    return results

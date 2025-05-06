@@ -8,7 +8,8 @@ from dom.types.problem import ProblemPackage
 def apply_problems_to_contest(client: DomJudgeAPI, contest_id: str, problem_packages: List[ProblemPackage]):
     def add_problem(problem_package: ProblemPackage):
         try:
-            client.add_problem_to_contest(contest_id, problem_package)
+            problem_id = client.add_problem_to_contest(contest_id, problem_package)
+            problem_package.id = problem_id
         except Exception as e:
             print(
                 f"[ERROR] Contest {contest_id}: Failed to add problem '{problem_package.yaml.name}'. Unexpected error: {str(e)}",

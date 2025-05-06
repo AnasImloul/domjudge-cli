@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 from dom.types.problem import ProblemPackage
+from dom.types.team import Team
 from dom.types.api import models
 from io import BytesIO
 
@@ -41,7 +42,9 @@ class DomJudgeAPI:
             response = self.session.post(self._url("/api/v4/contests"), files=files)
             response.raise_for_status()
             print(f"[INFO] Created new contest with shortname '{contest_data.shortname}'.")
-            return response.json(), True
+            contest_id = response.json()
+            contest_data.id = contest_id
+            return contest_id, True
 
         except requests.HTTPError as http_err:
             if response.status_code == 400:
@@ -56,14 +59,13 @@ class DomJudgeAPI:
                     for contest in existing_contests:
                         if contest.get("shortname") == contest_data.shortname:
                             print(f"[INFO] Contest '{contest_data.shortname}' already exists.")
+                            contest_data.id = contest["id"]
                             return contest["id"], False
                     print(f"[ERROR] Contest with shortname '{contest_data.shortname}' not found after 400 error.")
                     raise Exception(f"Contest with shortname '{contest_data.shortname}' exists but could not fetch it.")
 
             print(f"[ERROR] HTTP {response.status_code}: {response.text}")
             raise
-
-
 
     def list_contest_problems(self, contest_id: str):
         response = self.session.get(self._url(f"/api/v4/contests/{contest_id}/problems"))
@@ -84,6 +86,7 @@ class DomJudgeAPI:
 
     def create_or_get_problem(self, problem_package: ProblemPackage) -> str:
         all_problems = self.list_all_problems()
+
         externalid = problem_package.ini.externalid
 
         if externalid in all_problems:
@@ -117,7 +120,6 @@ class DomJudgeAPI:
 
     def add_problem_to_contest(self, contest_id: str, problem_package: ProblemPackage) -> str:
         problem_id = self.create_or_get_problem(problem_package)
-
         if problem_id in map(lambda problem: problem["id"], self.list_contest_problems(contest_id)):
             print(f"[INFO] Problem already linked to contest")
             return problem_id
@@ -179,3 +181,44 @@ class DomJudgeAPI:
         response.raise_for_status()
         print(f"[INFO] Created new user with name '{user_data.username}'.")
         return response.json()
+
+    def send_submission(self, contest_id: str, problem_id: str, file_name: str, language: str, source_code: bytes, team: Team):
+        url = self._url(f"/api/v4/contests/{contest_id}/submissions")
+        auth = HTTPBasicAuth(team.name, team.password.get_secret_value())
+
+        # Create a temp file to hold the source code
+        with tempfile.NamedTemporaryFile(delete=False, mode='wb', suffix=os.path.splitext(file_name)[1]) as tmp_file:
+            tmp_file.write(source_code)
+            tmp_file_path = tmp_file.name
+
+        try:
+            with open(tmp_file_path, 'rb') as code_file:
+                files = {
+                    'code': (file_name, code_file, 'text/x-source-code')
+                }
+                data = {
+                    'problem': problem_id,
+                    'language': language,
+                    'team': team.id
+                }
+                response = requests.post(url, data=data, files=files, auth=auth)
+                response.raise_for_status()
+                print(f"[INFO] Submitted '{file_name}' to contest {contest_id} for team {team.name}.")
+                return models.Submission(**response.json())
+
+        except requests.HTTPError as e:
+            print(f"[ERROR] Submission failed for '{file_name}': {e.response.text}")
+            raise
+
+        finally:
+            if os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
+
+    def get_submission_judgement(self, contest_id: str, submission_id: str):
+        response = self.session.get(self._url(f"/api/v4/contests/{contest_id}/judgements?submission_id={submission_id}&strict=false"))
+        response.raise_for_status()
+        judgements = response.json()
+        if len(judgements) == 0:
+            return None
+        return models.JudgingWrapper(**judgements[0])
+

@@ -1,5 +1,5 @@
 import typer
-from dom.core.config.loaders import load_config, load_contest_config
+from dom.core.config.loaders import load_config, load_contest_config, load_infrastructure_config
 from dom.core.services.contest.apply import apply_contests
 from dom.core.services.problem.verify import verify_problemset as verify_problemset_service
 
@@ -25,5 +25,6 @@ def verify_problemset_command(
 
     This checks whether the submissions associated with the contest match the expected configuration.
     """
-    config = load_contest_config(file, contest_name=contest)
-    verify_problemset_service(config, contest_name=contest)
+    contest_config = load_contest_config(file, contest_name=contest)
+    infra_config = load_infrastructure_config(file_path=file)
+    verify_problemset_service(infra=infra_config, contest=contest_config)

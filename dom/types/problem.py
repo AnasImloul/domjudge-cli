@@ -1,6 +1,6 @@
 import zipfile
 from pathlib import Path
-from typing import Dict, Set
+from typing import Dict, Set, Optional
 
 import yaml
 from pydantic import BaseModel
@@ -97,6 +97,7 @@ class Submissions(BaseModel):
 
 
 class ProblemPackage(BaseModel):
+    id: Optional[str] = None
     ini: ProblemINI
     yaml: ProblemYAML
     data: ProblemData
