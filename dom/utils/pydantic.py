@@ -52,3 +52,5 @@ class InspectMixin:
 
         # 6) everything else
         return value
+
+        return result
