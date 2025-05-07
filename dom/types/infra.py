@@ -7,5 +7,12 @@ class InfraConfig(BaseModel):
     judges: int = 1
     password: Optional[SecretStr] = None
 
+    def inspect(self):
+        return {
+            "port": self.port,
+            "judges": self.judges,
+            "password": self.password.get_secret_value()
+        }
+
     class Config:
         frozen = True

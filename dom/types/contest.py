@@ -16,3 +16,20 @@ class ContestConfig(BaseModel):
 
     problems: List[ProblemPackage]
     teams: List[Team]
+
+    def inspect(self):
+        return {
+            "name": self.name,
+            "shortname": self.shortname,
+            "formal_name": self.formal_name,
+            "start_time": self.start_time,
+            "duration": self.duration,
+            "penalty_time": self.penalty_time,
+            "allow_submit": self.allow_submit,
+            "problems": [
+                problem.inspect() for problem in self.problems
+            ],
+            "teams": [
+                team.inspect() for team in self.teams
+            ]
+        }

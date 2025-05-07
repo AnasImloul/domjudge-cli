@@ -28,3 +28,17 @@ def verify_problemset_command(
     contest_config = load_contest_config(file, contest_name=contest)
     infra_config = load_infrastructure_config(file_path=file)
     verify_problemset_service(infra=infra_config, contest=contest_config)
+
+
+@contest_command.command("inspect")
+def inspect_contests_command(
+    file: str = typer.Option(None, "--file", help="JMESPath compliant format to output."),
+    format: str = typer.Option(None, "--format", help="JMESPath compliant format to output."),
+) -> None:
+    """
+    Verify the problemset of the specified contest.
+
+    This checks whether the submissions associated with the contest match the expected configuration.
+    """
+    config = load_config(file)
+    print(config.inspect())
