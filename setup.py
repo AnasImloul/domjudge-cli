@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="domjudge-cli",
-    version="0.2.1",
+    version="0.2.2",
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
@@ -15,7 +15,8 @@ setup(
         "webcolors~=24.11.1",
         "requests~=2.32.3",
         "Jinja2~=3.1.6",
-        "typeguard~=4.4.2"
+        "typeguard~=4.4.2",
+        "jmespath~=1.0.1"
     ],
     entry_points={
         "console_scripts": [

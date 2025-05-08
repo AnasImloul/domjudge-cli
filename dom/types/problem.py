@@ -1,10 +1,10 @@
 import zipfile
 from pathlib import Path
-from typing import Dict, Set, Optional
+from typing import Any, Dict, Set, Optional
 
 import yaml
 from pydantic import BaseModel
-
+from dom.utils.pydantic import InspectMixin
 
 def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: Dict[str, bytes]) -> Set[str]:
     written = set()
@@ -15,7 +15,7 @@ def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: Dict[str, byt
     return written
 
 
-class ProblemINI(BaseModel):
+class ProblemINI(InspectMixin, BaseModel):
     short_name: str
     timelimit: float
     color: str
@@ -44,7 +44,7 @@ class ProblemINI(BaseModel):
         return {path}
 
 
-class ProblemYAML(BaseModel):
+class ProblemYAML(InspectMixin, BaseModel):
     limits: Dict[str, int]
     name: str
     validation: str
@@ -56,7 +56,7 @@ class ProblemYAML(BaseModel):
         return {path}
 
 
-class ProblemData(BaseModel):
+class ProblemData(InspectMixin, BaseModel):
     sample: Dict[str, bytes]
     secret: Dict[str, bytes]
 
@@ -67,14 +67,14 @@ class ProblemData(BaseModel):
         return written
 
 
-class OutputValidators(BaseModel):
+class OutputValidators(InspectMixin, BaseModel):
     checker: Dict[str, bytes]
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> Set[str]:
         return write_files_to_zip(zf, "output_validators/checker", self.checker)
 
 
-class Submissions(BaseModel):
+class Submissions(InspectMixin, BaseModel):
     accepted: Dict[str, bytes] = {}
     time_limit_exceeded: Dict[str, bytes] = {}
     wrong_answer: Dict[str, bytes] = {}
@@ -96,7 +96,7 @@ class Submissions(BaseModel):
         return written
 
 
-class ProblemPackage(BaseModel):
+class ProblemPackage(InspectMixin, BaseModel):
     id: Optional[str] = None
     ini: ProblemINI
     yaml: ProblemYAML
@@ -107,20 +107,17 @@ class ProblemPackage(BaseModel):
     def write_to_zip(self, output_path: Path) -> Set[str]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         written_paths = set()
-
         with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zf:
             written_paths.update(self.ini.write_to_zip(zf))
             written_paths.update(self.yaml.write_to_zip(zf))
             written_paths.update(self.data.write_to_zip(zf))
             written_paths.update(self.output_validators.write_to_zip(zf))
             written_paths.update(self.submissions.write_to_zip(zf))
-
         return written_paths
 
     def validate_package(self, extracted_files: Set[str], written_files: Set[str]) -> None:
         missing = written_files - extracted_files
         unexpected = extracted_files - written_files
-
         if missing:
             raise ValueError(f"[ERROR] Missing expected files: {sorted(missing)}")
         if unexpected:

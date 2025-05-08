@@ -3,9 +3,10 @@ from typing import List, Optional
 from datetime import datetime
 from dom.types.problem import ProblemPackage
 from dom.types.team import Team
+from dom.utils.pydantic import InspectMixin
 
 
-class ContestConfig(BaseModel):
+class ContestConfig(InspectMixin, BaseModel):
     name: str
     shortname: Optional[str] = None
     formal_name: Optional[str] = None
