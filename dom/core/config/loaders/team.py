@@ -27,7 +27,7 @@ def read_teams_file(file_path: str, delimiter: str = None) -> List[List[str]]:
                 teams.append([cell.strip() for cell in row])
     return teams
 
-def generate_team_name(template: str, row: List[str]) -> str:
+def parse_from_template(template: str, row: List[str]) -> str:
     def replacer(match):
         index = int(match.group(1)) - 1
         if index < 0 or index >= len(row):
@@ -70,11 +70,14 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
 
     for idx, row in enumerate(teams_data, start=1):
         try:
-            team_name = generate_team_name(team_config.name, row)
+            team_name = parse_from_template(team_config.name, row).strip()
+            affiliation = parse_from_template(team_config.affiliation, row).strip() if team_config.affiliation.strip() else None
+            print(affiliation.strip() or None)
             teams.append(
                 Team(
                     name=team_name,
-                    password=generate_secure_password(length=10, seed=team_name)
+                    password=generate_secure_password(length=10, seed=team_name.strip()),
+                    affiliation=affiliation.strip() or None
                 )
             )
 
