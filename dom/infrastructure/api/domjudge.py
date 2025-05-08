@@ -146,11 +146,11 @@ class DomJudgeAPI:
         response.raise_for_status()
         return response.json()
 
-    def add_team_to_contest(self, contest_id: str, team_data: models.AddTeam) -> str:
+    def add_team_to_contest(self, contest_id: str, team_data: models.AddTeam) -> tuple[str, bool]:
         for team in self.list_contest_teams(contest_id):
             if team["name"] == team_data.name:
                 print(f"[INFO] Team with name '{team_data.name}' already exists for this contest_id {contest_id}.")
-                return team["id"]
+                return team["id"], True
 
         data = json.loads(team_data.model_dump_json(exclude_unset=True))
         response = self.session.post(
@@ -164,7 +164,7 @@ class DomJudgeAPI:
 
         team_id = resp_json["id"]
         print(f"[INFO] Created new team for contest {contest_id} with name '{team_data.name}'.")
-        return team_id
+        return team_id, False
 
     def add_user(self, user_data: models.AddUser) -> str:
         for user in self.list_users():
@@ -221,4 +221,36 @@ class DomJudgeAPI:
         if len(judgements) == 0:
             return None
         return models.JudgingWrapper(**judgements[0])
+
+    def add_organization(self, contest_id: str, organization: models.AddOrganization) -> tuple[str, bool]:
+        """
+        Add an organization to the given contest.
+        Returns a tuple (organization_id, already_exists).
+        already_exists == True if the org was already linked to the contest.
+        """
+        # 1. List existing organizations on this contest
+        list_resp = self.session.get(self._url(f"/api/v4/contests/{contest_id}/organizations"))
+        list_resp.raise_for_status()
+        existing_orgs = list_resp.json()
+
+        # 2. Check if this organization is already present
+        for org in existing_orgs:
+            if org.get("name") == organization.name:
+                print(f"[INFO] Organization '{organization.name}' already exists in contest {contest_id}.")
+                return organization.id or org["id"], True
+
+        # 3. Not present: create it
+        payload = json.loads(organization.model_dump_json(exclude_unset=True))
+        post_resp = self.session.post(
+            self._url(f"/api/v4/contests/{contest_id}/organizations"),
+            json=payload
+        )
+        post_resp.raise_for_status()
+        resp_json = post_resp.json()
+        if "id" not in resp_json:
+            raise Exception(f"[ERROR] No 'id' in organization creation response: {resp_json}")
+
+        org_id = resp_json["id"]
+        print(f"[INFO] Created new organization '{organization.name}' (id={org_id}) in contest {contest_id}.")
+        return organization.id or org_id, False
 

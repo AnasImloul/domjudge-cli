@@ -1,4 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, wait
+from itertools import chain
+from typing import Iterable, List
 
 from dom.types.config import DomConfig
 from dom.infrastructure.api.domjudge import DomJudgeAPI
@@ -6,6 +8,7 @@ from dom.infrastructure.secrets.manager import load_secret
 from dom.types.api.models import Contest
 from dom.core.services.problem.apply import apply_problems_to_contest
 from dom.core.services.team.apply import apply_teams_to_contest
+from dom.types.team import Team
 
 def apply_contests(config: DomConfig):
 

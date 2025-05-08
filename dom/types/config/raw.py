@@ -34,6 +34,7 @@ class RawTeamsConfig(BaseModel):
     delimiter: str = None
     rows: str
     name: str
+    affiliation: str
 
     class Config:
         frozen = True
