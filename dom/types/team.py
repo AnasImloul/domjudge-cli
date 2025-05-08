@@ -1,14 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel, SecretStr, root_validator
+from dom.utils.pydantic import InspectMixin
 
-
-class Team(BaseModel):
+class Team(InspectMixin, BaseModel):
     id: Optional[str] = None
     name: str
     password: SecretStr
-
-    def inspect(self):
-        return {
-            "name": self.name,
-            "password": self.password.get_secret_value()
-        }

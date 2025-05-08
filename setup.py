@@ -15,7 +15,8 @@ setup(
         "webcolors~=24.11.1",
         "requests~=2.32.3",
         "Jinja2~=3.1.6",
-        "typeguard~=4.4.2"
+        "typeguard~=4.4.2",
+        "jmespath~=1.0.1"
     ],
     entry_points={
         "console_scripts": [

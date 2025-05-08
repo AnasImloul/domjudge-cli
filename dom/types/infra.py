@@ -1,18 +1,13 @@
 from pydantic import BaseModel, SecretStr
 from typing import Optional
+from dom.utils.pydantic import InspectMixin
 
 
-class InfraConfig(BaseModel):
+class InfraConfig(InspectMixin, BaseModel):
     port: int = 12345
     judges: int = 1
     password: Optional[SecretStr] = None
 
-    def inspect(self):
-        return {
-            "port": self.port,
-            "judges": self.judges,
-            "password": self.password.get_secret_value()
-        }
 
     class Config:
         frozen = True

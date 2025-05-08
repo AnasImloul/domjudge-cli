@@ -4,6 +4,7 @@ from typing import Any, Dict, Set, Optional
 
 import yaml
 from pydantic import BaseModel
+from dom.utils.pydantic import InspectMixin
 
 def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: Dict[str, bytes]) -> Set[str]:
     written = set()
@@ -12,21 +13,6 @@ def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: Dict[str, byt
         zf.writestr(path, content)
         written.add(path)
     return written
-
-class InspectMixin:
-    def inspect(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        for name, model_field in self.model_fields.items():
-            value = getattr(self, name)
-            # recurse into BaseModels
-            if isinstance(value, BaseModel):
-                result[name] = value.inspect()
-            # for dicts of raw file data show only the filenames
-            elif isinstance(value, dict) and all(isinstance(v, (bytes, bytearray)) for v in value.values()):
-                result[name] = list(value.keys())
-            else:
-                result[name] = value
-        return result
 
 
 class ProblemINI(InspectMixin, BaseModel):

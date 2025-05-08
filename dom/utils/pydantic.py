@@ -1,5 +1,6 @@
 import re
 from typing import Any, Dict
+from collections.abc import Iterable
 
 from pydantic import SecretStr, SecretBytes
 
@@ -7,32 +8,47 @@ class InspectMixin:
     _secret_type_marker = (SecretStr, SecretBytes)
     _secret_field_pattern = re.compile(r"(?i)\b(pass(word)?|secret|token|key|cred(ential)?)\b")
 
-    def inspect(self) -> Dict[str, Any]:
-        result: Dict[str, Any] = {}
-        for name, field in self.model_fields.items():
-            value = getattr(self, name)
+    def inspect(self, show_secrets: bool = False) -> Dict[str, Any]:
+        """
+        Walk all model_fields, masking or revealing based on `show_secrets`.
+        """
+        return {
+            name: self._inspect_value(getattr(self, name), name, show_secrets)
+            for name in self.model_fields
+        }
 
-            # 1) Mask any Pydantic Secret types outright
-            if isinstance(value, self._secret_type_marker):
-                result[name] = "<secret>"
-                continue
+    def _inspect_value(
+        self, value: Any, field_name: str = "", show_secrets: bool = False
+    ) -> Any:
+        # 1) Pydantic Secret types
+        if isinstance(value, self._secret_type_marker):
+            if show_secrets:
+                # actually reveal it
+                return value.get_secret_value()
+            return "<secret>"
 
-            # 2) Mask anything whose field‐name suggests it's secret
-            if self._secret_field_pattern.search(name):
-                result[name] = "<hidden>"
-                continue
+        # 2) secret-like field names
+        if field_name and self._secret_field_pattern.search(field_name):
+            if not show_secrets:
+                return "<hidden>"
+            # else, fall through and show raw
 
-            # 3) Recurse into nested InspectMixin
-            if isinstance(value, InspectMixin):
-                result[name] = value.inspect()
-                continue
+        # 3) nested mixins
+        if isinstance(value, InspectMixin):
+            return value.inspect(show_secrets=show_secrets)
 
-            # 4) For dicts of raw bytes (e.g. files), show only the filenames
-            if isinstance(value, dict) and all(isinstance(v, (bytes, bytearray)) for v in value.values()):
-                result[name] = list(value.keys())
-                continue
+        # 4) dicts: skip raw bytes, recurse into secrets or mixins
+        if isinstance(value, dict):
+            out: Dict[Any, Any] = {}
+            for k, v in value.items():
+                if isinstance(v, (bytes, bytearray)):
+                    continue
+                out[k] = self._inspect_value(v, str(k), show_secrets)
+            return out
 
-            # 5) Otherwise, just return the raw value
-            result[name] = value
+        # 5) other iterables (but not str/bytes/dict)
+        if isinstance(value, Iterable) and not isinstance(value, (str, bytes, bytearray, dict)):
+            return [self._inspect_value(item, "", show_secrets) for item in value]
 
-        return result
+        # 6) everything else
+        return value
