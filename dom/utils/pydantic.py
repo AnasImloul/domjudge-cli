@@ -7,6 +7,7 @@ from pydantic import SecretStr, SecretBytes
 class InspectMixin:
     _secret_type_marker = (SecretStr, SecretBytes)
     _secret_field_pattern = re.compile(r"(?i)\b(pass(word)?|secret|token|key|cred(ential)?)\b")
+    _id_field_pattern = re.compile(r"\bid\b")
 
     def inspect(self, show_secrets: bool = False) -> Dict[str, Any]:
         """
@@ -14,7 +15,7 @@ class InspectMixin:
         """
         return {
             name: self._inspect_value(getattr(self, name), name, show_secrets)
-            for name in self.model_fields
+            for name in self.model_fields if name != "id"
         }
 
     def _inspect_value(
