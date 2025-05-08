@@ -185,6 +185,12 @@ dom infra destroy --confirm
 
 ---
 
+## Contest Commands
+
+- `dom contest verify-problemset CONTEST_NAME`: Verify the problemset of the specified contest by running sample submissions to ensure correctness, completeness, and performance limits are met, then report per-problem summaries including mismatches and warnings.
+
+---
+
 ## Notes
 
 - Requires Docker installed for infrastructure operations.
@@ -197,10 +203,11 @@ dom infra destroy --confirm
 
 # 🎯 Summary
 
-| Action | Command |
-|:------|:---------|
-| Deploy platform | ```dom infra apply --file dom-judge.yaml``` |
-| Configure contests | ```dom contest apply --file dom-judge.yaml``` |
-| Destroy everything | ```dom infra destroy --confirm``` |
+| Action              | Command                                     |
+|:--------------------|:--------------------------------------------|
+| Deploy platform     | ```dom infra apply --file dom-judge.yaml``` |
+| Configure contests  | ```dom contest apply --file dom-judge.yaml```|
+| Verify problemset   | ```dom contest verify-problemset CONTEST_NAME``` |
+| Destroy everything  | ```dom infra destroy --confirm```           |
 
 ---
