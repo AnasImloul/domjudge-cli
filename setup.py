@@ -1,23 +1,20 @@
 from setuptools import setup, find_packages
+from pathlib import Path
+
+# read requirements.txt, strip comments and blank lines
+req_path = Path(__file__).parent / "requirements.txt"
+install_requires = [
+    line.strip()
+    for line in req_path.read_text().splitlines()
+    if line.strip() and not line.strip().startswith("#")
+]
 
 setup(
     name="domjudge-cli",
     version="0.2.4",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=[
-        "typer~=0.15.2",
-        "PyYAML~=6.0.2",
-        "pydantic~=2.11.3",
-        "pydantic[email]~=2.11.3",
-        "p2d~=0.3.0",
-        "bcrypt~=4.3.0",
-        "webcolors~=24.11.1",
-        "requests~=2.32.3",
-        "Jinja2~=3.1.6",
-        "typeguard~=4.4.2",
-        "jmespath~=1.0.1"
-    ],
+    install_requires=install_requires,
     entry_points={
         "console_scripts": [
             "dom=dom.cli.__init__:main",
