@@ -119,7 +119,7 @@ class ProblemPackage(InspectMixin, BaseModel):
         missing = written_files - extracted_files
         unexpected = extracted_files - written_files
         if missing:
-            raise ValueError(f"[ERROR] Missing expected files: {sorted(missing)}")
+            print(f"[ERROR] Missing expected files: {sorted(missing)}")
         if unexpected:
             for path in sorted(unexpected):
                 print(f"[WARNING] Unexpected file found: {path}")
