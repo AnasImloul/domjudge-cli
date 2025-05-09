@@ -72,7 +72,6 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str):
         try:
             team_name = parse_from_template(team_config.name, row).strip()
             affiliation = parse_from_template(team_config.affiliation, row).strip() if team_config.affiliation.strip() else None
-            print(affiliation.strip() or None)
             teams.append(
                 Team(
                     name=team_name,
