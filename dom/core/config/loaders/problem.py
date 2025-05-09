@@ -1,4 +1,3 @@
-
 import tempfile
 import zipfile
 from pathlib import Path
@@ -94,14 +93,14 @@ def convert_and_load_problem(archive_path: Path) -> ProblemPackage:
             files=files
         )
 
-        # Validation
+        # Validation: write to a temporary ZIP in its own temp directory to avoid Windows locks
         extracted_files = {str(p.relative_to(extract_dir)) for p in extract_dir.rglob('*') if p.is_file()}
-        with tempfile.NamedTemporaryFile(suffix=".zip") as tmp_zip_file:
-            written_files = problem.write_to_zip(Path(tmp_zip_file.name))
+        with tempfile.TemporaryDirectory() as tmp_zip_dir:
+            tmp_zip_path = Path(tmp_zip_dir) / 'package.zip'
+            written_files = problem.write_to_zip(tmp_zip_path)
+
         problem.validate_package(extracted_files, written_files)
-
         return problem
-
 
 
 def load_domjudge_problem(archive_path: Path) -> ProblemPackage:
@@ -249,4 +248,3 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
         raise ValueError(f"Duplicate problem short_names detected: {', '.join(duplicates)}")
 
     return problem_packages
-
