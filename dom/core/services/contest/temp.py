@@ -27,6 +27,7 @@ def create_temp_contest(client: DomJudgeAPI,  contest: ContestConfig) -> Tuple[C
 
     temp_team = Team(
         name=temp_name,
+        username=temp_name,
         password=generate_secure_password(length=12, seed=temp_name)
     )
 
