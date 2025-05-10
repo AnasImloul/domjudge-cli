@@ -2,7 +2,7 @@ import tempfile
 import zipfile
 from pathlib import Path
 from p2d import convert
-from typing import Union, List
+from typing import Union, List, Tuple
 import yaml
 import os
 import sys
@@ -171,7 +171,7 @@ def load_domjudge_problem(archive_path: Path) -> ProblemPackage:
         )
 
 
-def load_problem(problem: RawProblem) -> ProblemPackage:
+def load_problem(problem: RawProblem, idx: int) -> Tuple[ProblemPackage, int]:
     """
     Import a problem based on its format.
     - 'domjudge': load directly
@@ -188,8 +188,7 @@ def load_problem(problem: RawProblem) -> ProblemPackage:
         raise ValueError(f"Unsupported problem platform: '{problem.platform}' (must be 'domjudge' or 'polygon')")
 
     problem_package.ini.color = get_hex_color(problem.color)
-    return problem_package
-
+    return problem_package, idx
 
 def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawProblem]], config_path: str):
     if isinstance(problem_config, RawProblemsConfig):
@@ -236,10 +235,11 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
 
     # Load problems with progress bar
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(load_problem, problem): problem for problem in problems}
+        futures = {executor.submit(load_problem, problem, i): problem for i, problem in enumerate(problems)}
         problem_packages = []
         for future in tqdm(as_completed(futures), total=len(futures), desc="Loading problems"):
             problem_packages.append(future.result())
+        problem_packages = [package for package, _ in sorted(problem_packages, key=lambda x: x[1])]
 
     # Validate short_names are unique
     short_names = [problem_package.ini.short_name for problem_package in problem_packages]
