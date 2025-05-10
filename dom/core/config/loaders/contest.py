@@ -10,24 +10,26 @@ from dom.types.team import Team
 
 
 def load_contest_from_config(contest: RawContestConfig, config_path: str) -> ContestConfig:
-    return (
-        ContestConfig(
-            name=contest.name,
-            shortname=contest.shortname,
-            formal_name=contest.formal_name,
-            start_time=contest.start_time,
-            duration=contest.duration,
-            penalty_time=contest.penalty_time,
-            allow_submit=contest.allow_submit,
-            problems=load_problems_from_config(contest.problems, config_path=config_path),
-            teams=load_teams_from_config(contest.teams, config_path=config_path)
-        )
+    contest = ContestConfig(
+        name=contest.name,
+        shortname=contest.shortname,
+        formal_name=contest.formal_name,
+        start_time=contest.start_time,
+        duration=contest.duration,
+        penalty_time=contest.penalty_time,
+        allow_submit=contest.allow_submit,
+        problems=load_problems_from_config(contest.problems, config_path=config_path),
+        teams=load_teams_from_config(contest.teams, config_path=config_path)
     )
 
+    for i, problem in enumerate(contest.problems):
+        problem.yaml.name = chr(ord("A") + i)
+
+    return contest
 
 
 def load_contests_from_config(contests: List[RawContestConfig], config_path: str) -> List[ContestConfig]:
-    contests =  [
+    contests = [
         load_contest_from_config(contest, config_path)
         for contest in contests
     ]
