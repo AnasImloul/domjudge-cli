@@ -3,7 +3,7 @@ from pydantic import BaseModel, SecretStr
 from dom.utils.pydantic import InspectMixin
 
 
-class Team(BaseModel):
+class Team(InspectMixin, BaseModel):
     id: Optional[str] = None
     name: str
     affiliation: Optional[str] = None
