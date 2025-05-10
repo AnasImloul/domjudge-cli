@@ -95,7 +95,6 @@ class Submissions(InspectMixin, BaseModel):
             written.update(write_files_to_zip(zf, f"submissions/{verdict}", files))
         return written
 
-
 class ProblemPackage(InspectMixin, BaseModel):
     id: Optional[str] = None
     ini: ProblemINI
@@ -103,6 +102,7 @@ class ProblemPackage(InspectMixin, BaseModel):
     data: ProblemData
     output_validators: OutputValidators
     submissions: Submissions
+    extra_files: Dict[str, bytes] = {}
 
     def write_to_zip(self, output_path: Path) -> Set[str]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -113,6 +113,10 @@ class ProblemPackage(InspectMixin, BaseModel):
             written_paths.update(self.data.write_to_zip(zf))
             written_paths.update(self.output_validators.write_to_zip(zf))
             written_paths.update(self.submissions.write_to_zip(zf))
+            # write back any extra untracked files
+            for rel_path, content in self.extra_files.items():
+                zf.writestr(rel_path, content)
+                written_paths.add(rel_path)
         return written_paths
 
     def validate_package(self, extracted_files: Set[str], written_files: Set[str]) -> None:

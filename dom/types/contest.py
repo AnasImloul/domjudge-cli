@@ -14,6 +14,7 @@ class ContestConfig(InspectMixin, BaseModel):
     duration: Optional[str] = None
     penalty_time: Optional[int] = 0
     allow_submit: Optional[bool] = True
+    with_statement: Optional[bool] = False
 
     problems: List[ProblemPackage]
     teams: List[Team]
