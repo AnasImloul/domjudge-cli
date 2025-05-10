@@ -24,6 +24,8 @@ def load_contest_from_config(contest: RawContestConfig, config_path: str) -> Con
 
     for i, problem in enumerate(contest.problems):
         problem.yaml.name = chr(ord("A") + i)
+        problem.ini.externalid = chr(ord("A") + i)
+        problem.ini.short_name = chr(ord("A") + i)
 
     return contest
 
