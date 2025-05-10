@@ -18,7 +18,12 @@ def load_contest_from_config(contest: RawContestConfig, config_path: str) -> Con
         duration=contest.duration,
         penalty_time=contest.penalty_time,
         allow_submit=contest.allow_submit,
-        problems=load_problems_from_config(contest.problems, config_path=config_path),
+        with_statement=contest.with_statement,
+        problems=load_problems_from_config(
+            contest.problems,
+            with_statement=contest.with_statement,
+            config_path=config_path
+        ),
         teams=load_teams_from_config(contest.teams, config_path=config_path)
     )
 

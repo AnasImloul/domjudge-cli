@@ -49,6 +49,7 @@ class RawContestConfig(BaseModel):
     duration: str = None
     penalty_time: int = 0
     allow_submit: bool = True
+    with_statement: bool = False
 
     problems: Union[RawProblemsConfig, List[RawProblem]]
     teams: RawTeamsConfig

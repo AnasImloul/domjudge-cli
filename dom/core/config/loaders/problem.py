@@ -16,48 +16,48 @@ from dom.utils.sys import load_folder_as_dict
 from dom.utils.cli import ensure_dom_directory
 
 
-def convert_and_load_problem(archive_path: Path) -> ProblemPackage:
+
+def convert_and_load_problem(archive_path: Path, with_statement: bool) -> ProblemPackage:
+    """
+    Convert a Polygon archive to a DOMjudge package and load it (no caching).
+    """
     assert archive_path.exists(), f"Archive not found: {archive_path}"
 
-    # Prepare a local cache for converted archives
-    base_dom_dir = Path(ensure_dom_directory())
-    cache_dir = base_dom_dir / 'cache'
-    cache_dir.mkdir(parents=True, exist_ok=True)
+    # Always convert into a fresh temporary ZIP
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir_path = Path(tmpdir)
+        # Path for the converted ZIP
+        converted_zip = tmpdir_path / f"{archive_path.stem}.zip"
 
-    cached_zip = cache_dir / f"{archive_path.stem}.zip"
-    # If the cache is stale or missing, reconvert
-    if not cached_zip.exists() or archive_path.stat().st_mtime > cached_zip.stat().st_mtime:
+        # Perform conversion
         convert(
             str(archive_path),
-            str(cached_zip),
-            short_name="-".join(archive_path.stem.split("-")[:-1])
+            str(converted_zip),
+            short_name="-".join(archive_path.stem.split("-")[:-1]),
+            with_statement=with_statement,
         )
 
-    # Work in a temporary directory for extraction
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        extract_dir = tmpdir / 'extracted'
+        # Work in a subdirectory for extraction
+        extract_dir = tmpdir_path / 'extracted'
         extract_dir.mkdir()
 
-        # Extract the (cached) converted ZIP
-        with zipfile.ZipFile(cached_zip, 'r') as zip_ref:
+        # Extract the converted ZIP
+        with zipfile.ZipFile(converted_zip, 'r') as zip_ref:
             zip_ref.extractall(extract_dir)
 
         # Load domjudge-problem.ini
         ini_path = extract_dir / 'domjudge-problem.ini'
         if not ini_path.exists():
             raise FileNotFoundError("Missing domjudge-problem.ini")
-        ini_content = ini_path.read_text(encoding='utf-8')
-        problem_ini = ProblemINI.parse(ini_content)
+        problem_ini = ProblemINI.parse(ini_path.read_text(encoding='utf-8'))
 
         # Load problem.yaml
         yaml_path = extract_dir / 'problem.yaml'
         if not yaml_path.exists():
             raise FileNotFoundError("Missing problem.yaml")
-        yaml_content = yaml.safe_load(yaml_path.read_text(encoding='utf-8'))
-        problem_yaml = ProblemYAML(**yaml_content)
+        problem_yaml = ProblemYAML(**yaml.safe_load(yaml_path.read_text(encoding='utf-8')))
 
-        # Load data
+        # Load data folders
         data = ProblemData(
             sample=load_folder_as_dict(extract_dir / 'data' / 'sample'),
             secret=load_folder_as_dict(extract_dir / 'data' / 'secret')
@@ -77,23 +77,32 @@ def convert_and_load_problem(archive_path: Path) -> ProblemPackage:
                     submissions_data[verdict_dir.name] = load_folder_as_dict(verdict_dir)
         submissions = Submissions(**submissions_data)
 
-        # Load additional root files
-        files = {}
-        for file_path in extract_dir.glob('*'):
-            if file_path.is_file() and file_path.name not in {'domjudge-problem.ini', 'problem.yaml'}:
-                files[file_path.name] = file_path.read_bytes()
+        # Collect extra files
+        tracked = set([
+            'domjudge-problem.ini', 'problem.yaml',
+            *[f"data/sample/{fn}" for fn in data.sample.keys()],
+            *[f"data/secret/{fn}" for fn in data.secret.keys()],
+            *[f"output_validators/checker/{fn}" for fn in output_validators.checker.keys()],
+            *[f"submissions/{v}/{fn}" for v, fmap in submissions._verdicts().items() for fn in fmap.keys()]
+        ])
+        extra_files = {}
+        for p in extract_dir.rglob('*'):
+            if p.is_file():
+                rel = p.relative_to(extract_dir).as_posix()
+                if rel not in tracked:
+                    extra_files[rel] = p.read_bytes()
 
-        # Package up
+        # Build package
         problem = ProblemPackage(
             ini=problem_ini,
             yaml=problem_yaml,
             data=data,
             output_validators=output_validators,
             submissions=submissions,
-            files=files
+            extra_files=extra_files,
         )
 
-        # Validation: write to a temporary ZIP in its own temp directory to avoid Windows locks
+        # Validation write/read
         extracted_files = {str(p.relative_to(extract_dir)) for p in extract_dir.rglob('*') if p.is_file()}
         with tempfile.TemporaryDirectory() as tmp_zip_dir:
             tmp_zip_path = Path(tmp_zip_dir) / 'package.zip'
@@ -101,6 +110,7 @@ def convert_and_load_problem(archive_path: Path) -> ProblemPackage:
 
         problem.validate_package(extracted_files, written_files)
         return problem
+
 
 
 def load_domjudge_problem(archive_path: Path) -> ProblemPackage:
@@ -154,24 +164,17 @@ def load_domjudge_problem(archive_path: Path) -> ProblemPackage:
 
         submissions = Submissions(**submissions_data)
 
-        # Load additional files
-        files = {}
-        for file_path in extract_dir.glob('*'):
-            if file_path.is_file() and file_path.name not in {'domjudge-problem.ini', 'problem.yaml'}:
-                files[file_path.name] = file_path.read_bytes()
-
         # Build and return ProblemPackage
         return ProblemPackage(
             ini=problem_ini,
             yaml=problem_yaml,
             data=data,
             output_validators=output_validators,
-            submissions=submissions,
-            files=files
+            submissions=submissions
         )
 
 
-def load_problem(problem: RawProblem, idx: int) -> Tuple[ProblemPackage, int]:
+def load_problem(problem: RawProblem, with_statement: bool, idx: int) -> Tuple[ProblemPackage, int]:
     """
     Import a problem based on its format.
     - 'domjudge': load directly
@@ -183,14 +186,15 @@ def load_problem(problem: RawProblem, idx: int) -> Tuple[ProblemPackage, int]:
     if problem_format == "domjudge":
         problem_package = load_domjudge_problem(Path(problem.archive))
     elif problem_format == "polygon":
-        problem_package = convert_and_load_problem(Path(problem.archive))
+        problem_package = convert_and_load_problem(Path(problem.archive), with_statement=with_statement)
     else:
         raise ValueError(f"Unsupported problem platform: '{problem.platform}' (must be 'domjudge' or 'polygon')")
 
     problem_package.ini.color = get_hex_color(problem.color)
     return problem_package, idx
 
-def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawProblem]], config_path: str):
+
+def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawProblem]], with_statement: bool, config_path: str):
     if isinstance(problem_config, RawProblemsConfig):
         file_path = problem_config.from_
 
@@ -235,7 +239,7 @@ def load_problems_from_config(problem_config: Union[RawProblemsConfig, List[RawP
 
     # Load problems with progress bar
     with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(load_problem, problem, i): problem for i, problem in enumerate(problems)}
+        futures = {executor.submit(load_problem, problem, with_statement, i): problem for i, problem in enumerate(problems)}
         problem_packages = []
         for future in tqdm(as_completed(futures), total=len(futures), desc="Loading problems"):
             problem_packages.append(future.result())
