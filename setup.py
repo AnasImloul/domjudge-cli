@@ -11,7 +11,7 @@ install_requires = [
 
 setup(
     name="domjudge-cli",
-    version="0.2.13",
+    version="0.2.14",
     packages=find_packages(),
     include_package_data=True,
     install_requires=install_requires,
