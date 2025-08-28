@@ -1,0 +1,17 @@
+contests:
+  - name: "{{ name }}"
+    shortname: "{{ shortname }}"
+    start_time: "{{ start_time }}"
+    duration: "{{ duration }}"
+    penalty_time: {{ penalty_time }}
+    allow_submit: {{ allow_submit }}
+
+    problems:
+      from: "problems.yaml"
+
+    teams:
+      from: "{{ teams }}"
+      delimiter: '{{ delimiter }}'
+      rows: "2-50"
+      name: "$2"
+      affiliation: "$3"

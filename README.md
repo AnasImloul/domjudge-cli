@@ -61,12 +61,28 @@ Main command groups:
 
 | Command Group | Purpose |
 |:--------------|:--------|
+| `dom init` | Initialize a new configuration file |
 | `dom infra` | Manage infrastructure and platform setup |
 | `dom contest` | Manage contests and related configuration |
 
+
+> **Note for Polygon Users**
+> When importing problems from Polygon, ensure the **Package type** is set to **Linux** (not Windows or Standard) for compatibility with DOMjudge.
+
+
 ---
 
-### 1. Manage Infrastructure
+### 1. Initialize a new configuration file
+
+Initialize a new configuration file.
+
+```
+dom init
+```
+
+if there is a file named `dom-judge.yaml` or `dom-judge.yml` in the current directory, use `--overwrite` to overwrite it.
+
+### 2. Manage Infrastructure
 
 Apply or destroy infrastructure resources.
 
@@ -86,7 +102,7 @@ If no `--file` is provided, defaults to `dom-judge.yaml` or `dom-judge.yml`.
 
 ---
 
-### 2. Manage Contests
+### 3. Manage Contests
 
 Apply contest settings to a running platform.
 
@@ -128,6 +144,7 @@ contests:
       delimiter: ','
       rows: "2-50"
       name: "$2"
+      affiliation: "$3"
 ```
 
 Supporting file example: `problems.yaml`
@@ -147,6 +164,17 @@ Supporting file example: `problems.yaml`
 ```
 
 ---
+
+### Team Management
+
+Teams can be defined in a CSV file with the following format:
+
+```csv
+id,name,affiliation
+1,Team Alpha,INSEA
+2,Team Beta,INPT
+3,Team Gamma,ENSIAS
+```
 
 ### Problem Declarations
 
@@ -173,6 +201,9 @@ Choose whichever structure better suits your project organization.
 ## Typical Workflow
 
 ```
+# Initialize a new configuration file
+dom init
+
 # Apply infrastructure
 dom infra apply --file dom-judge.yaml
 
@@ -205,6 +236,7 @@ dom infra destroy --confirm
 
 | Action              | Command                                     |
 |:--------------------|:--------------------------------------------|
+| Initialize a new configuration file | ```dom init``` |
 | Deploy platform     | ```dom infra apply --file dom-judge.yaml``` |
 | Configure contests  | ```dom contest apply --file dom-judge.yaml```|
 | Verify problemset   | ```dom contest verify-problemset CONTEST_NAME``` |
