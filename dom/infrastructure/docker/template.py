@@ -1,4 +1,4 @@
-from jinja2 import Environment, PackageLoader, select_autoescape
+from dom.templates.infra import docker_compose_template
 from dom.infrastructure.secrets.manager import load_or_generate_secret
 from dom.types.infra import InfraConfig
 from dom.utils.cli import ensure_dom_directory
@@ -9,13 +9,7 @@ def generate_docker_compose(infra_config: InfraConfig, judge_password: str) -> N
 
     output_file = os.path.join(dom_folder, "docker-compose.yml")
 
-    env = Environment(
-        loader=PackageLoader("dom", "templates"),
-        autoescape=select_autoescape()
-    )
-    template = env.get_template("docker-compose.yml.j2")
-
-    rendered = template.render(
+    rendered = docker_compose_template.render(
         platform_port=infra_config.port,
         judgehost_count=infra_config.judges,
         judgedaemon_password=judge_password,

@@ -1,122 +1,89 @@
-import os
-from dom.cli import console
-import datetime
-from rich.prompt import Prompt, Confirm
+import datetime as dt
 from rich.table import Table
-from jinja2 import Environment, PackageLoader, select_autoescape
+from dom.templates.init import contest_template
 
+from dom.cli import console
+from dom.utils.prompt import ask, ask_bool
+from dom.utils.validators import (
+    ValidatorBuilder, normalize_delimiter
+)
 from dom.utils.time import format_datetime, format_duration
 
 def initialize_contest():
     console.print("\n[bold cyan]Contest Configuration[/bold cyan]")
     console.print("Set up the parameters for your coding contest")
 
-    env = Environment(
-        loader=PackageLoader("dom", "templates"),
-        autoescape=select_autoescape()
+    name = ask(
+        "Contest name",
+        console=console,
+        parser=ValidatorBuilder.string().strip().non_empty().build(),
+    )
+    shortname = ask(
+        "Contest shortname",
+        console=console,
+        parser=ValidatorBuilder.string().strip().non_empty().build(),
     )
 
-    template = env.get_template("init/contest.yml.j2")
-    
-    while True:
-        name = Prompt.ask("Contest name", console=console)
-        if name.strip():
-            break
-        console.print("[red]Contest name cannot be empty.[/red]")
+    default_start = (dt.datetime.now() + dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    start_dt = ask(
+        "Start time (YYYY-MM-DD HH:MM:SS)",
+        console=console,
+        default=default_start,
+        parser=ValidatorBuilder.datetime("%Y-%m-%d %H:%M:%S").build(),
+    )
 
-    while True:
-        shortname = Prompt.ask("Contest shortname", console=console)
-        if shortname.strip():
-            break
-        console.print("[red]Contest shortname cannot be empty.[/red]")
+    h, m, s = ask(
+        "Duration (HH:MM:SS)",
+        console=console,
+        default="05:00:00",
+        parser=ValidatorBuilder.duration_hms().build(),
+    )
+    duration_str = f"{h:02d}:{m:02d}:{s:02d}"
 
-    # Default start time is 1 hour from now
-    default_time = (datetime.datetime.now() + datetime.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-    while True:
-        start_time = Prompt.ask("Start time (YYYY-MM-DD HH:MM:SS)", default=default_time, console=console)
-        try:
-            datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-            break
-        except ValueError:
-            console.print("[red]Invalid start time format. Use YYYY-MM-DD HH:MM:SS[/red]")
+    penalty_minutes = ask(
+        "Penalty time (minutes)",
+        console=console,
+        default="20",
+        parser=ValidatorBuilder.integer().positive().build(),
+    )
 
-    while True:
-        duration = Prompt.ask("Duration (HH:MM:SS)", default="05:00:00", console=console)
-        try:
-            duration_parts = duration.split(":")
-            if len(duration_parts) != 3:
-                raise ValueError()
-            hours, minutes, seconds = map(int, duration_parts)
-            if hours > 0 or minutes > 0 or seconds > 0:
-                break
-            raise ValueError()
-        except ValueError:
-            console.print("[red]Duration must be greater than 0 seconds[/red]")
+    allow_submit = ask_bool("Allow submissions?", console=console, default=True)
 
-    while True:
-        penalty_time = Prompt.ask("Penalty time (minutes)", default="20", console=console)
-        if penalty_time.isdigit() and int(penalty_time) > 0:
-            break
-        console.print("[red]Penalty time must be a positive integer.[/red]")
+    teams_path, suggested_delim = ask(
+        "Teams file path (CSV/TSV)",
+        console=console,
+        default="teams.csv",
+        parser=ValidatorBuilder.teams_file().build(),
+    )
+    delimiter = ask(
+        f"Field delimiter (Enter for default: {repr(suggested_delim)})",
+        console=console,
+        default="",
+        parser=lambda s: normalize_delimiter(s, suggested_delim),
+        show_default=False,
+    )
 
-    allow_submit = Confirm.ask("Allow submissions?", default=True, console=console)
-    allow_submit_str = str(allow_submit).lower()
+    # Summary
+    table = Table(title="Contest Configuration")
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="green")
+    table.add_row("Name", name)
+    table.add_row("Shortname", shortname)
+    table.add_row("Start time", start_dt.strftime("%Y-%m-%d %H:%M:%S"))
+    table.add_row("Duration", duration_str)
+    table.add_row("Penalty time", f"{penalty_minutes} minutes")
+    table.add_row("Allow submit", "Yes" if allow_submit else "No")
+    table.add_row("Teams file", teams_path)
+    console.print(table)
 
-    while True:
-        teams = Prompt.ask("Teams file path (CSV/TSV)", default="teams.csv", console=console)
-        
-        # Check if file exists
-        if not os.path.isfile(teams):
-            console.print(f"[red]File '{teams}' does not exist. Please provide a valid file path.[/red]")
-            continue
-            
-        # Validate file extension
-        ext = os.path.splitext(teams)[1].lower()
-        if ext not in ('.csv', '.tsv'):
-            console.print(f"[red]Unsupported file extension '{ext}'. Please use .csv or .tsv files.[/red]")
-            continue
-            
-        # Ask for delimiter with default
-        default_delimiter = '\\t' if ext == '.tsv' else ','
-        delimiter = Prompt.ask(
-            f"Enter field delimiter (press Enter for default: '{default_delimiter}' for {ext[1:].upper()} files)",
-            default=default_delimiter,
-            show_default=False,
-            console=console
-        )
-        
-        # Handle special delimiter names
-        if delimiter.lower() == 'tab':
-            delimiter = '\t'
-        elif delimiter.lower() == 'comma':
-            delimiter = ','
-        elif delimiter.lower() == 'semicolon':
-            delimiter = ';'
-            
-        break
-    
-    # Contest summary
-    contest_table = Table(title="Contest Configuration")
-    contest_table.add_column("Setting", style="cyan")
-    contest_table.add_column("Value", style="green")
-    contest_table.add_row("Name", name)
-    contest_table.add_row("Shortname", shortname)
-    contest_table.add_row("Start time", start_time)
-    contest_table.add_row("Duration", duration)
-    contest_table.add_row("Penalty time", f"{penalty_time} minutes")
-    contest_table.add_row("Allow submit", "Yes" if allow_submit else "No")
-    contest_table.add_row("Teams file", teams)
-    console.print(contest_table)
-
-    rendered = template.render(
+    rendered = contest_template.render(
         name=name,
         shortname=shortname,
-        start_time=format_datetime(start_time),
-        duration=format_duration(duration),
-        penalty_time=penalty_time,
-        allow_submit=allow_submit_str,
-        teams=teams,
-        delimiter=delimiter
+        start_time=format_datetime(start_dt.strftime("%Y-%m-%d %H:%M:%S")),
+        duration=format_duration(duration_str),
+        penalty_time=str(penalty_minutes),
+        allow_submit=str(allow_submit).lower(),
+        teams=teams_path,
+        delimiter=delimiter,
     )
-    
     return rendered

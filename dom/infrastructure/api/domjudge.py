@@ -7,8 +7,10 @@ from pathlib import Path
 
 from dom.types.problem import ProblemPackage
 from dom.types.team import Team
+from dom.types.infra import InfraConfig
 from dom.types.api import models
 from io import BytesIO
+from dom.infrastructure.secrets.manager import load_secret
 
 
 class DomJudgeAPI:
@@ -18,6 +20,10 @@ class DomJudgeAPI:
         self.password = password
         self.session = requests.Session()
         self.session.auth = HTTPBasicAuth(username=username, password=password)
+
+    @classmethod
+    def admin(cls, infra: InfraConfig):
+        return cls(f"http://localhost:{infra.port}", username="admin", password=load_secret("admin_password"))
 
     def _url(self, path: str) -> str:
         return f"{self.base_url}{path}"
