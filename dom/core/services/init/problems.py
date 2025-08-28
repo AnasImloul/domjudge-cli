@@ -1,14 +1,12 @@
+import os
+import typer
 from dom.cli import console
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
-import os
-import typer
-from jinja2 import Environment, PackageLoader, select_autoescape
-
+from jinja2 import Environment, PackageLoader, Template, select_autoescape
 from dom.utils.cli import ask_override_if_exists
 
-
-def check_existing_files():
+def check_existing_files() -> str:
     """Check if both .yml and .yaml exist and decide which file to use."""
 
     if os.path.exists("problems.yml") and os.path.exists("problems.yaml"):
@@ -17,9 +15,6 @@ def check_existing_files():
         raise typer.Exit(code=1)
 
     return "problems.yml" if os.path.exists("problems.yml") else "problems.yaml"
-
-
-
 
 def ensure_archive_dir(archive: str) -> str:
     """Ensure the archive directory exists or create it."""
@@ -45,7 +40,7 @@ def ensure_archive_dir(archive: str) -> str:
     return archive
 
 
-def list_problem_files(archive: str):
+def list_problem_files(archive: str) -> list[str]:
     """List .zip files in the archive directory."""
 
     try:
@@ -62,7 +57,7 @@ def list_problem_files(archive: str):
         return []
 
 
-def choose_problem_colors(problems):
+def choose_problem_colors(problems: list[str]) -> list[tuple[str, str]]:
     """Prompt user to assign colors to problems."""
     domjudge_colors = {
         "red": "#FF0000", "green": "#00FF00", "blue": "#0000FF",
@@ -99,7 +94,7 @@ def choose_problem_colors(problems):
     return configs
 
 
-def render_problems_yaml(template, archive, platform, problem_configs):
+def render_problems_yaml(template: Template, archive: str, platform: str, problem_configs: list[tuple[str, str]]) -> str:
     """Render problems.yaml content from Jinja template and problem configs."""
     parts = []
     for problem, color in problem_configs:
@@ -135,15 +130,7 @@ def initialize_problems():
 
     problems_content = render_problems_yaml(template, archive, platform, problem_configs)
 
-    console.print("\n[bold cyan]Creating Configuration Files[/bold cyan]")
     if problems:
-        with open(output_file, "w") as f:
-            f.write(problems_content.strip() + "\n")
+        return problems_content.strip() + "\n"
 
-    console.print("\n[bold green]✓ Success![/bold green] Configuration files created successfully:")
-    console.print("  • [bold]dom-judge.yaml[/bold] - Main configuration")
-    if problems:
-        console.print("  • [bold]problems.yaml[/bold] - Problem definitions")
-    console.print("\n[bold cyan]Next Steps:[/bold cyan]")
-    console.print("  1. Run [bold]dom infra apply[/bold] to set up infrastructure")
-    console.print("  2. Run [bold]dom contest apply[/bold] to configure the contest")
+

@@ -1,17 +1,12 @@
-import os
 from dom.cli import console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
 from jinja2 import Environment, PackageLoader, select_autoescape
-
 from dom.infrastructure.secrets.manager import generate_random_password
 
 
-
 def initialize_infrastructure():
-    output_file = os.path.join(os.getcwd(), "dom-judge.yaml")
-
     env = Environment(
         loader=PackageLoader("dom", "templates"),
         autoescape=select_autoescape()
@@ -40,7 +35,6 @@ def initialize_infrastructure():
     password = Prompt.ask("Admin password", password=True, console=console)
     if not password:
         password = generate_random_password(22)
-
     
     # Show infrastructure summary
     infra_table = Table(title="Infrastructure Configuration")
@@ -57,6 +51,4 @@ def initialize_infrastructure():
         password=password
     )
 
-    with open(output_file, "w") as f:
-        f.write(rendered)
-        f.write("\n\n")
+    return rendered

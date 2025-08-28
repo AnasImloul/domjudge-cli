@@ -1,8 +1,6 @@
 import os
 from dom.cli import console
 import datetime
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt, Confirm
 from rich.table import Table
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -12,9 +10,6 @@ from dom.utils.time import format_datetime, format_duration
 def initialize_contest():
     console.print("\n[bold cyan]Contest Configuration[/bold cyan]")
     console.print("Set up the parameters for your coding contest")
-
-
-    output_file = os.path.join(os.getcwd(), "dom-judge.yaml")
 
     env = Environment(
         loader=PackageLoader("dom", "templates"),
@@ -124,5 +119,4 @@ def initialize_contest():
         delimiter=delimiter
     )
     
-    with open(output_file, "a") as f:
-        f.write(rendered)
+    return rendered
