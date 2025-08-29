@@ -4,9 +4,7 @@ from dom.templates.init import contest_template
 
 from dom.cli import console
 from dom.utils.prompt import ask, ask_bool
-from dom.utils.validators import (
-    ValidatorBuilder, normalize_delimiter
-)
+from dom.utils.validators import ValidatorBuilder
 from dom.utils.time import format_datetime, format_duration
 
 def initialize_contest():
@@ -16,12 +14,12 @@ def initialize_contest():
     name = ask(
         "Contest name",
         console=console,
-        parser=ValidatorBuilder.string().strip().non_empty().build(),
+        parser=ValidatorBuilder.string(none_as_empty=True).strip().non_empty().build(),
     )
     shortname = ask(
         "Contest shortname",
         console=console,
-        parser=ValidatorBuilder.string().strip().non_empty().build(),
+        parser=ValidatorBuilder.string(none_as_empty=True).strip().non_empty().build(),
     )
 
     default_start = (dt.datetime.now() + dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
@@ -49,17 +47,30 @@ def initialize_contest():
 
     allow_submit = ask_bool("Allow submissions?", console=console, default=True)
 
-    teams_path, suggested_delim = ask(
+    teams_path = ask(
         "Teams file path (CSV/TSV)",
         console=console,
         default="teams.csv",
-        parser=ValidatorBuilder.teams_file().build(),
+        parser=ValidatorBuilder
+            .path()
+            .must_exist()
+            .must_be_file()
+            .allowed_extensions(["csv", "tsv"])
+            .build(),
     )
+    suggested_delim = "," if teams_path.endswith(".csv") else "\t"
+
     delimiter = ask(
         f"Field delimiter (Enter for default: {repr(suggested_delim)})",
         console=console,
-        default="",
-        parser=lambda s: normalize_delimiter(s, suggested_delim),
+        default=suggested_delim,
+        parser=ValidatorBuilder
+            .string()
+            .one_of([",", ";", "\t", "comma", "semicolon", "tab"])
+            .replace("comma", ",")
+            .replace("semicolon", ";")
+            .replace("tab", "\t")
+            .build(),
         show_default=False,
     )
 
@@ -84,6 +95,6 @@ def initialize_contest():
         penalty_time=str(penalty_minutes),
         allow_submit=str(allow_submit).lower(),
         teams=teams_path,
-        delimiter=delimiter,
+        delimiter=repr(delimiter)[1:-1],
     )
     return rendered

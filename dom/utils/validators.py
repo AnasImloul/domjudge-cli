@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import re
-from typing import Any, Callable, Generic, Iterable, Optional, Tuple, TypeVar
+from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar
 
 # --- Reuse the user's Invalid error type ---
 class Invalid(Exception):
@@ -99,8 +99,8 @@ class ValidatorBuilder(Generic[T]):
     # String helpers
     # --------------------------------------------------------
     @classmethod
-    def string(cls) -> "StringBuilder":
-        return StringBuilder()
+    def string(cls, *, none_as_empty: bool = False, coerce: bool = False) -> "StringBuilder":
+        return StringBuilder(none_as_empty=none_as_empty, coerce=coerce)
 
     # --------------------------------------------------------
     # Number helpers (int/float)
@@ -125,16 +125,31 @@ class ValidatorBuilder(Generic[T]):
         return DurationBuilder()
 
     @classmethod
-    def teams_file(cls) -> "TeamsFileBuilder":
-        return TeamsFileBuilder()
+    def path(cls) -> "PathBuilder":
+        return PathBuilder()
 
 
 # ------------------------------------------------------------
 # StringBuilder
 # ------------------------------------------------------------
 class StringBuilder(ValidatorBuilder[str]):
-    def __init__(self):
-        super().__init__(parser=lambda s: s)
+    def __init__(self, *, none_as_empty: bool = False, coerce: bool = False):
+        def _parse(s) -> str:
+            # Handle None first
+            if s is None:
+                if none_as_empty:
+                    return ""
+                raise Invalid("Should be a string.")
+            # Enforce/optionally coerce non-strings
+            if not isinstance(s, str):
+                if coerce:
+                    try:
+                        return str(s)
+                    except Exception:
+                        raise Invalid("Should be a string.")
+                raise Invalid("Should be a string.")
+            return s
+        super().__init__(parser=_parse)
 
     # transforms
     def strip(self) -> "StringBuilder":
@@ -145,6 +160,12 @@ class StringBuilder(ValidatorBuilder[str]):
 
     def upper(self) -> "StringBuilder":
         return self.transform(lambda s: s.upper())
+
+    def replace(self, _from: str, _to: str) -> "StringBuilder":
+        return self.transform(lambda s: s.replace(_from, _to))
+
+    def repr(self) -> "StringBuilder":
+        return self.transform(lambda s: repr(s))
 
     # checks
     def non_empty(self, message: str = "This field cannot be empty.") -> "StringBuilder":
@@ -163,7 +184,9 @@ class StringBuilder(ValidatorBuilder[str]):
 
     def one_of(self, options: Iterable[str]) -> "StringBuilder":
         opts = set(options)
-        return self.check(lambda s: s in opts, f"Must be one of: {', '.join(sorted(opts))}.")
+        formatted = ", ".join(repr(choice) for choice in sorted(opts))
+        return self.check(lambda s: s in opts, f"Must be one of: {formatted}.")
+
 
 
 # ------------------------------------------------------------
@@ -240,52 +263,30 @@ class DurationBuilder(ValidatorBuilder[Tuple[int, int, int]]):
 
 
 # ------------------------------------------------------------
-# Teams file -> (path, delimiter)
+# Path (string)
 # ------------------------------------------------------------
-class TeamsFileBuilder(ValidatorBuilder[tuple[str, str]]):
+class PathBuilder(ValidatorBuilder[str]):
     def __init__(self):
-        def _parse(s: str) -> tuple[str, str]:
-            path = s.strip()
-            if not os.path.isfile(path):
-                raise Invalid(f"File '{path}' does not exist.")
-            ext = os.path.splitext(path)[1].lower()
-            if ext not in (".csv", ".tsv"):
-                raise Invalid(f"Unsupported extension '{ext}'. Use .csv or .tsv")
-            default_delim = "\t" if ext == ".tsv" else ","
-            return path, default_delim
-        super().__init__(parser=_parse)
+        super().__init__(parser=lambda s: s.strip())
 
-    def normalize_delimiter(self, user_value: str) -> "ValidatorBuilder[tuple[str, str]]":
-        def _norm(current: tuple[str, str]) -> tuple[str, str]:
-            path, default = current
-            s = user_value.strip()
-            if not s:
-                return path, default
-            lowers = s.lower()
-            if lowers in ("tab", "\\t"):
-                return path, "\t"
-            if lowers in ("comma", ","):
-                return path, ","
-            if lowers in ("semicolon", ";"):
-                return path, ";"
-            if len(s) > 1 and s not in (",", ";", "\t"):
-                raise Invalid("Delimiter must be a single character (or 'tab', 'comma', 'semicolon').")
-            return path, s
-        return self.map(_norm)
+    # ---- reusable checks ----
+    def must_exist(self) -> "PathBuilder":
+        return self.check(os.path.exists, "Path does not exist.")
 
+    def must_be_file(self) -> "PathBuilder":
+        return self.check(os.path.isfile, "Path is not a file.")
 
-def normalize_delimiter(s: str, default: str) -> str:
-    s = s.strip()
-    if not s:
-        return default
-    lowers = s.lower()
-    if lowers in ("tab", "\\t"):
-        return "\t"
-    if lowers in ("comma", ","):
-        return ","
-    if lowers in ("semicolon", ";"):
-        return ";"
-    if len(s) > 1 and s not in (",", ";", "\t"):
-        # keep it tight; avoid accidental long strings
-        raise Invalid("Delimiter must be a single character (or 'tab', 'comma', 'semicolon').")
-    return s
+    def must_be_dir(self) -> "PathBuilder":
+        return self.check(os.path.isdir, "Path is not a directory.")
+
+    def allowed_extensions(self, exts: Iterable[str]) -> "PathBuilder":
+        allowed = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in exts}
+        formatted = ", ".join(repr(e) for e in sorted(allowed))
+        return self.check(
+            lambda p: os.path.splitext(p)[1].lower() in allowed,
+            f"Unsupported extension. Must be one of: {formatted}.",
+        )
+
+    def normalize(self) -> "PathBuilder":
+        """Expand `~` and return absolute real path."""
+        return self.transform(lambda p: os.path.abspath(os.path.expanduser(p)))
