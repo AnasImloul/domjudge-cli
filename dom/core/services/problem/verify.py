@@ -21,11 +21,7 @@ def verify_problemset(infra: InfraConfig, contest: ContestConfig):
     """
     Verifies a set of contest problems by running submissions and summarizing results.
     """
-    client = DomJudgeAPI(
-        base_url=f"http://localhost:{infra.port}",
-        username="admin",
-        password=load_secret("admin_password")
-    )
+    client = DomJudgeAPI.admin(infra=infra)
 
     api_contest, team = create_temp_contest(client, contest)
     results = asyncio.run(_run_submissions(client, api_contest.id, team, contest.problems))

@@ -1,30 +1,37 @@
 import os
 import typer
+from jinja2 import Template
+
 from dom.cli import console
-from rich.prompt import Prompt, Confirm
 from rich.table import Table
-from jinja2 import Environment, PackageLoader, Template, select_autoescape
 from dom.utils.cli import ask_override_if_exists
+from dom.templates.init import problems_template
+from dom.utils.color import get_hex_color
+
+from dom.utils.prompt import ask, ask_bool, ask_choice
+
 
 def check_existing_files() -> str:
     """Check if both .yml and .yaml exist and decide which file to use."""
+    yml_exists = os.path.exists("problems.yml")
+    yaml_exists = os.path.exists("problems.yaml")
 
-    if os.path.exists("problems.yml") and os.path.exists("problems.yaml"):
+    if yml_exists and yaml_exists:
         console.print("[bold red]Both 'problems.yml' and 'problems.yaml' exist.[/bold red]")
         console.print("[yellow]Please remove one of the files and run this wizard again.[/yellow]")
         raise typer.Exit(code=1)
 
-    return "problems.yml" if os.path.exists("problems.yml") else "problems.yaml"
+    return "problems.yml" if yml_exists else "problems.yaml"
+
 
 def ensure_archive_dir(archive: str) -> str:
     """Ensure the archive directory exists or create it."""
-
     archive = os.path.normpath(os.path.expanduser(archive))
     console.print(f"Checking directory: [bold]{archive}[/bold]")
 
     if not os.path.exists(archive):
         console.print(f"[bold red]Directory not found:[/bold red] {archive}")
-        if Confirm.ask(f"Create directory {archive}?", default=True, console=console):
+        if ask_bool(f"Create directory {archive}?", default=True, console=console):
             try:
                 os.makedirs(archive, exist_ok=True)
                 console.print(f"[green]✓ Created directory {archive}[/green]")
@@ -42,7 +49,6 @@ def ensure_archive_dir(archive: str) -> str:
 
 def list_problem_files(archive: str) -> list[str]:
     """List .zip files in the archive directory."""
-
     try:
         problems = [
             f for f in os.listdir(archive)
@@ -59,12 +65,12 @@ def list_problem_files(archive: str) -> list[str]:
 
 def choose_problem_colors(problems: list[str]) -> list[tuple[str, str]]:
     """Prompt user to assign colors to problems."""
-    domjudge_colors = {
-        "red": "#FF0000", "green": "#00FF00", "blue": "#0000FF",
-        "yellow": "#FFFF00", "cyan": "#00FFFF", "magenta": "#FF00FF",
-        "orange": "#FFA500", "purple": "#800080", "pink": "#FFC0CB",
-        "teal": "#008080", "brown": "#A52A2A", "gray": "#808080",
-        "black": "#000000", 
+    all_colors = {
+        "red", "green", "blue",
+        "yellow", "cyan", "magenta",
+        "orange", "purple", "pink",
+        "teal", "brown", "gray",
+        "black",
     }
 
     used_colors = set()
@@ -72,23 +78,28 @@ def choose_problem_colors(problems: list[str]) -> list[tuple[str, str]]:
     color_table.add_column("Color Name", style="cyan")
     color_table.add_column("Preview", style="bold")
 
-    for name, hex_code in domjudge_colors.items():
+    for name, hex_code in map(lambda color: (color, get_hex_color(color)), all_colors):
         color_table.add_row(name, f"[on {hex_code}]      [/]")
 
     console.print(color_table)
 
-    configs = []
+    configs: list[tuple[str, str]] = []
     for problem in problems:
-        available_colors = [c for c in domjudge_colors if c not in used_colors] or list(domjudge_colors.keys())
+        available_colors = [c for c in all_colors if c not in used_colors] or list(all_colors)
         default_color = available_colors[0]
         console.print(f"\nChoose a color for problem: [bold]{problem}[/bold]")
         console.print("Available colors: " + ", ".join(f"[{c}]{c}[/{c}]" for c in available_colors))
 
-        color_name = Prompt.ask("Color", choices=list(domjudge_colors.keys()), default=default_color, console=console)
-        color_hex = domjudge_colors[color_name]
+        color_name = ask_choice(
+            "Color",
+            console=console,
+            choices=list(all_colors),
+            default=default_color,
+        )
+        color_hex = get_hex_color(color_name)
         used_colors.add(color_name)
 
-        console.print(f"Selected: [{color_name}]{color_name}[/{color_name}] ({color_hex})")
+        console.print(f"Selected: [{color_name}]{color_name}[/]{'' if color_name == 'black' else ''} ({color_hex})")
         configs.append((problem, color_hex))
 
     return configs
@@ -108,29 +119,25 @@ def initialize_problems():
 
     output_file = check_existing_files()
     if not ask_override_if_exists(output_file):
-        return
+        return None
 
-    archive = Prompt.ask("Problems directory path", default="./problems", console=console)
+    archive = ask("Problems directory path", default="./problems", console=console)
     archive = ensure_archive_dir(archive)
     problems = list_problem_files(archive)
 
     if not problems:
         console.print(f"[yellow]No problem files found in {archive}[/yellow]")
-        if not Confirm.ask("Continue without problems?", default=True):
+        if not ask_bool("Continue without problems?", default=True, console=console):
             raise typer.Exit(code=1)
 
-    platform = Prompt.ask("Platform name", console=console, default="Polygon")
+    platform = ask("Platform name", console=console, default="Polygon")
 
-    env = Environment(loader=PackageLoader("dom", "templates"), autoescape=select_autoescape())
-    template = env.get_template("init/problems.yml.j2")
-
-    problem_configs = []
+    problem_configs: list[tuple[str, str]] = []
     if problems:
         problem_configs = choose_problem_colors(problems)
 
-    problems_content = render_problems_yaml(template, archive, platform, problem_configs)
+    problems_content = render_problems_yaml(problems_template, archive, platform, problem_configs)
 
     if problems:
         return problems_content.strip() + "\n"
-
-
+    return None

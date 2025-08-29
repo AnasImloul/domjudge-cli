@@ -148,12 +148,3 @@ def generate_secure_password(length: int, seed: str) -> str:
     password = ''.join(random.choice(alphabet) for _ in range(length))
 
     return password
-
-def generate_random_password(length: int) -> str:
-    # Choose your password components
-    alphabet = string.ascii_letters + string.digits + string.punctuation
-
-    # Build a random password of desired length
-    password = ''.join(random.choice(alphabet) for _ in range(length))
-
-    return password
