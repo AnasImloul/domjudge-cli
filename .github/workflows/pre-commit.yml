@@ -20,8 +20,8 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install dependencies
+        run: make install
 
       - name: Run pre-commit on all files
         run: pre-commit run --all-files --show-diff-on-failure
