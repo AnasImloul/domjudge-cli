@@ -19,32 +19,32 @@ from dom.utils.cli import (
 class TestEnsureDomDirectory:
     """Tests for ensure_dom_directory function."""
 
-    def test_creates_directory_if_not_exists(self, tmp_path):
+    def test_creates_directory_if_not_exists(self, tmp_path, monkeypatch):
         """Test that .dom directory is created if it doesn't exist."""
-        with patch("os.getcwd", return_value=str(tmp_path)):
-            dom_path = ensure_dom_directory()
-            assert Path(dom_path).exists()
-            assert dom_path == str(tmp_path / ".dom")
+        monkeypatch.chdir(tmp_path)
+        dom_path = ensure_dom_directory()
+        assert Path(dom_path).exists()
+        assert dom_path == str(tmp_path / ".dom")
 
-    def test_returns_existing_directory(self, tmp_path):
+    def test_returns_existing_directory(self, tmp_path, monkeypatch):
         """Test that existing .dom directory is returned."""
         dom_dir = tmp_path / ".dom"
         dom_dir.mkdir()
 
-        with patch("os.getcwd", return_value=str(tmp_path)):
-            dom_path = ensure_dom_directory()
-            assert dom_path == str(dom_dir)
+        monkeypatch.chdir(tmp_path)
+        dom_path = ensure_dom_directory()
+        assert dom_path == str(dom_dir)
 
 
 class TestGetSecretsManager:
     """Tests for get_secrets_manager function."""
 
-    def test_returns_secrets_manager(self, tmp_path):
+    def test_returns_secrets_manager(self, tmp_path, monkeypatch):
         """Test that secrets manager is created."""
-        with patch("os.getcwd", return_value=str(tmp_path)):
-            manager = get_secrets_manager()
-            assert manager is not None
-            assert manager.secrets_dir == Path(tmp_path / ".dom")
+        monkeypatch.chdir(tmp_path)
+        manager = get_secrets_manager()
+        assert manager is not None
+        assert manager.secrets_dir == Path(tmp_path / ".dom")
 
 
 class TestCliCommand:
