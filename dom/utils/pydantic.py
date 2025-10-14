@@ -1,6 +1,6 @@
 import base64
 import re
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -36,7 +36,7 @@ class InspectMixin:
         if isinstance(value, datetime | date | time):
             # Ensure aware datetimes stay aware; naive -> assume UTC to be explicit
             if isinstance(value, datetime) and value.tzinfo is None:
-                value = value.replace(tzinfo=UTC)
+                value = value.replace(tzinfo=timezone.utc)
             return value.isoformat()
 
         # timedeltas -> ISO 8601 duration-ish or total seconds; prefer ISO-ish string
