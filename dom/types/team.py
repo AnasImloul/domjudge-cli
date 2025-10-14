@@ -1,11 +1,11 @@
-from typing import Optional
 from pydantic import BaseModel, SecretStr
+
 from dom.utils.pydantic import InspectMixin
 
 
 class Team(InspectMixin, BaseModel):
-    id: Optional[str] = None
+    id: str | None = None
     name: str
-    affiliation: Optional[str] = None
-    username: str = None
+    affiliation: str | None = None
+    username: str | None = None
     password: SecretStr

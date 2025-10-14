@@ -1,10 +1,10 @@
-from dom.cli import console
 from rich.table import Table
-from dom.templates.init import infra_template
-from dom.infrastructure.secrets.manager import generate_random_string
 
+from dom.cli import console
+from dom.infrastructure.secrets.manager import generate_random_string
+from dom.templates.init import infra_template
 from dom.utils.prompt import ask
-from dom.utils.validators import ValidatorBuilder
+from dom.validation import ValidationRules, for_prompt
 
 
 def initialize_infrastructure():
@@ -12,18 +12,19 @@ def initialize_infrastructure():
     console.print("\n[bold cyan]Infrastructure Configuration[/bold cyan]")
     console.print("Configure the platform settings for your contest environment")
 
+    # Use centralized validation rules - SINGLE SOURCE OF TRUTH
     port = ask(
         "Port number",
         console=console,
         default="8080",
-        parser=ValidatorBuilder.integer().min(1).max(65535).build(),
+        parser=for_prompt(ValidationRules.port()),
     )
 
     judges = ask(
         "Number of judges",
         console=console,
         default="2",
-        parser=ValidatorBuilder.integer().min(1).max(16).build(),
+        parser=for_prompt(ValidationRules.judges_count()),
     )
 
     password = ask(
@@ -32,7 +33,7 @@ def initialize_infrastructure():
         password=True,
         default=generate_random_string(length=16),
         show_default=False,
-        parser=ValidatorBuilder.string().min_length(8).max_length(32).build(),
+        parser=for_prompt(ValidationRules.password()),
     )
 
     # Show infrastructure summary

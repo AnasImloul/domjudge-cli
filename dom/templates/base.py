@@ -1,5 +1,6 @@
-from functools import lru_cache
-from jinja2 import Environment, PackageLoader, select_autoescape, Template
+from functools import cache
+
+from jinja2 import Environment, PackageLoader, Template, select_autoescape
 
 _env = Environment(
     loader=PackageLoader("dom", "templates"),
@@ -8,8 +9,8 @@ _env = Environment(
     enable_async=False,
 )
 
-@lru_cache(maxsize=None)
+
+@cache
 def get(name: str) -> Template:
     """Return a cached Template by path (e.g., 'init/contest.yml.j2')."""
     return _env.get_template(name)
-

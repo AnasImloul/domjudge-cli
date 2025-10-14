@@ -1,18 +1,24 @@
 from __future__ import annotations
+
 import datetime as dt
 import os
 import re
-from typing import Callable, Generic, Iterable, Optional, Tuple, TypeVar
+from collections.abc import Callable, Iterable
+from pathlib import Path
+from typing import Generic, TypeVar
+
 
 # --- Reuse the user's Invalid error type ---
 class Invalid(Exception):
     pass
+
 
 T = TypeVar("T")
 U = TypeVar("U")
 Number = TypeVar("Number", int, float)
 
 S = TypeVar("S", bound="ValidatorBuilder")
+
 
 # ------------------------------------------------------------
 # Core pipeline
@@ -29,13 +35,13 @@ class ValidatorBuilder(Generic[T]):
     Call .build() to get the final function:  (str) -> T
     """
 
-    def __init__(self, parser: Optional[Callable[[str], T]] = None):
+    def __init__(self, parser: Callable[[str], T] | None = None):
         self._parser: Callable[[str], T] = parser or (lambda s: s)  # type: ignore
         self._transforms: list[Callable[[T], T]] = []
         self._checks: list[Callable[[T], None]] = []
 
     # ---- pipeline primitives ----
-    def parse(self, parser: Callable[[str], U]) -> "ValidatorBuilder[U]":
+    def parse(self, parser: Callable[[str], U]) -> ValidatorBuilder[U]:
         """Switch the parser, resetting the output type to U.
         Keeps existing transforms/checks by capturing the current pipeline
         into a single new parser so chaining remains intuitive.
@@ -46,11 +52,11 @@ class ValidatorBuilder(Generic[T]):
             # run the existing pipeline first to get T, then coerce to U via parser
             t_value = prev(s)  # may raise Invalid
             try:
-                return parser(t_value if isinstance(t_value, str) else str(t_value))  # type: ignore
+                return parser(t_value if isinstance(t_value, str) else str(t_value))
             except Invalid:
                 raise
-            except Exception:
-                raise Invalid("Invalid value.")
+            except Exception as e:
+                raise Invalid("Invalid value.") from e
 
         # return a fresh builder with the new parser and no transforms/checks yet
         return ValidatorBuilder(new_parser)
@@ -64,10 +70,10 @@ class ValidatorBuilder(Generic[T]):
                 return fn(v_t)
             except Invalid:
                 raise
-            except Exception:
-                raise Invalid("Invalid value.")
+            except Exception as e:
+                raise Invalid("Invalid value.") from e
 
-        return ValidatorBuilder(new_parser)
+        return ValidatorBuilder(new_parser)  # type: ignore[return-value]
 
     def transform(self: S, fn: Callable[[T], T]) -> S:
         self._transforms.append(fn)
@@ -77,6 +83,7 @@ class ValidatorBuilder(Generic[T]):
         def _c(v: T) -> None:
             if not predicate(v):
                 raise Invalid(message)
+
         self._checks.append(_c)
         return self
 
@@ -93,40 +100,45 @@ class ValidatorBuilder(Generic[T]):
             for chk in self._checks:
                 chk(v)
             return v
+
         return _f
 
     # --------------------------------------------------------
     # String helpers
     # --------------------------------------------------------
     @classmethod
-    def string(cls, *, none_as_empty: bool = False, coerce: bool = False) -> "StringBuilder":
+    def string(cls, *, none_as_empty: bool = False, coerce: bool = False) -> StringBuilder:
         return StringBuilder(none_as_empty=none_as_empty, coerce=coerce)
 
     # --------------------------------------------------------
     # Number helpers (int/float)
     # --------------------------------------------------------
     @classmethod
-    def integer(cls) -> "NumberBuilder[int]":
+    def integer(cls) -> NumberBuilder[int]:
         return NumberBuilder(int, kind_name="integer")
 
     @classmethod
-    def floating(cls) -> "NumberBuilder[float]":
+    def floating(cls) -> NumberBuilder[float]:
         return NumberBuilder(float, kind_name="number")
 
     # --------------------------------------------------------
     # Specific parsers
     # --------------------------------------------------------
     @classmethod
-    def datetime(cls, fmt: str = "%Y-%m-%d %H:%M:%S") -> "DateTimeBuilder":
+    def datetime(cls, fmt: str = "%Y-%m-%d %H:%M:%S") -> DateTimeBuilder:
         return DateTimeBuilder(fmt)
 
     @classmethod
-    def duration_hms(cls) -> "DurationBuilder":
+    def duration_hms(cls) -> DurationBuilder:
         return DurationBuilder()
 
     @classmethod
-    def path(cls) -> "PathBuilder":
+    def path(cls) -> PathBuilder:
         return PathBuilder()
+
+    @classmethod
+    def port(cls) -> PortBuilder:
+        return PortBuilder()
 
 
 # ------------------------------------------------------------
@@ -145,48 +157,48 @@ class StringBuilder(ValidatorBuilder[str]):
                 if coerce:
                     try:
                         return str(s)
-                    except Exception:
-                        raise Invalid("Should be a string.")
+                    except Exception as e:
+                        raise Invalid("Should be a string.") from e
                 raise Invalid("Should be a string.")
             return s
+
         super().__init__(parser=_parse)
 
     # transforms
-    def strip(self) -> "StringBuilder":
+    def strip(self) -> StringBuilder:
         return self.transform(lambda s: s.strip())
 
-    def lower(self) -> "StringBuilder":
+    def lower(self) -> StringBuilder:
         return self.transform(lambda s: s.lower())
 
-    def upper(self) -> "StringBuilder":
+    def upper(self) -> StringBuilder:
         return self.transform(lambda s: s.upper())
 
-    def replace(self, _from: str, _to: str) -> "StringBuilder":
+    def replace(self, _from: str, _to: str) -> StringBuilder:
         return self.transform(lambda s: s.replace(_from, _to))
 
-    def repr(self) -> "StringBuilder":
+    def repr(self) -> StringBuilder:
         return self.transform(lambda s: repr(s))
 
     # checks
-    def non_empty(self, message: str = "This field cannot be empty.") -> "StringBuilder":
+    def non_empty(self, message: str = "This field cannot be empty.") -> StringBuilder:
         return self.check(lambda s: bool(s.strip()), message)
 
-    def min_length(self, n: int) -> "StringBuilder":
+    def min_length(self, n: int) -> StringBuilder:
         return self.check(lambda s: len(s) >= n, f"Must be at least {n} characters.")
 
-    def max_length(self, n: int) -> "StringBuilder":
+    def max_length(self, n: int) -> StringBuilder:
         return self.check(lambda s: len(s) <= n, f"Must be at most {n} characters.")
 
-    def matches(self, pattern: str, flags: int = 0, message: Optional[str] = None) -> "StringBuilder":
+    def matches(self, pattern: str, flags: int = 0, message: str | None = None) -> StringBuilder:
         rx = re.compile(pattern, flags)
         msg = message or f"Value does not match pattern {pattern!r}."
         return self.check(lambda s: bool(rx.fullmatch(s)), msg)
 
-    def one_of(self, options: Iterable[str]) -> "StringBuilder":
+    def one_of(self, options: Iterable[str]) -> StringBuilder:
         opts = set(options)
         formatted = ", ".join(repr(choice) for choice in sorted(opts))
         return self.check(lambda s: s in opts, f"Must be one of: {formatted}.")
-
 
 
 # ------------------------------------------------------------
@@ -198,24 +210,25 @@ class NumberBuilder(ValidatorBuilder[Number], Generic[Number]):
         def _parse(s: str) -> Number:
             try:
                 return caster(s.strip())
-            except Exception:
-                raise Invalid(f"Must be a {kind_name}.")
-        super().__init__(parser=_parse)
+            except Exception as e:
+                raise Invalid(f"Must be a {kind_name}.") from e
+
+        super().__init__(parser=_parse)  # type: ignore[arg-type]
 
     # checks
-    def min(self, lo: Number) -> "NumberBuilder[Number]":
+    def min(self, lo: Number) -> NumberBuilder[Number]:
         return self.check(lambda n: n >= lo, f"Must be \u2265 {lo}.")
 
-    def max(self, hi: Number) -> "NumberBuilder[Number]":
+    def max(self, hi: Number) -> NumberBuilder[Number]:
         return self.check(lambda n: n <= hi, f"Must be \u2264 {hi}.")
 
-    def positive(self) -> "NumberBuilder[Number]":
+    def positive(self) -> NumberBuilder[Number]:
         return self.check(lambda n: n > 0, "Must be a positive number.")
 
-    def non_negative(self) -> "NumberBuilder[Number]":
+    def non_negative(self) -> NumberBuilder[Number]:
         return self.check(lambda n: n >= 0, "Must be a non-negative number.")
 
-    def one_of(self, options: Iterable[Number]) -> "NumberBuilder[Number]":
+    def one_of(self, options: Iterable[Number]) -> NumberBuilder[Number]:
         opts = set(options)
         return self.check(lambda n: n in opts, f"Must be one of: {sorted(opts)}.")
 
@@ -228,17 +241,18 @@ class DateTimeBuilder(ValidatorBuilder[dt.datetime]):
         def _parse(s: str) -> dt.datetime:
             try:
                 return dt.datetime.strptime(s.strip(), fmt)
-            except ValueError:
-                raise Invalid(f"Invalid date/time. Use {fmt}")
+            except ValueError as e:
+                raise Invalid(f"Invalid date/time. Use {fmt}") from e
+
         super().__init__(parser=_parse)
         self._fmt = fmt
 
     def between(
         self,
         *,
-        min_dt: Optional[dt.datetime] = None,
-        max_dt: Optional[dt.datetime] = None,
-    ) -> "DateTimeBuilder":
+        min_dt: dt.datetime | None = None,
+        max_dt: dt.datetime | None = None,
+    ) -> DateTimeBuilder:
         if min_dt is not None:
             self.check(lambda d: d >= min_dt, f"Must be on/after {min_dt.strftime(self._fmt)}.")
         if max_dt is not None:
@@ -249,16 +263,17 @@ class DateTimeBuilder(ValidatorBuilder[dt.datetime]):
 # ------------------------------------------------------------
 # Duration HH:MM:SS -> (h, m, s)
 # ------------------------------------------------------------
-class DurationBuilder(ValidatorBuilder[Tuple[int, int, int]]):
+class DurationBuilder(ValidatorBuilder[tuple[int, int, int]]):
     def __init__(self):
-        def _parse(s: str) -> Tuple[int, int, int]:
+        def _parse(s: str) -> tuple[int, int, int]:
             try:
                 h, m, sec = map(int, s.split(":"))
-            except Exception:
-                raise Invalid("Duration must be HH:MM:SS")
+            except Exception as e:
+                raise Invalid("Duration must be HH:MM:SS") from e
             if h == m == sec == 0:
                 raise Invalid("Duration must be greater than 0 seconds.")
             return h, m, sec
+
         super().__init__(parser=_parse)
 
 
@@ -270,23 +285,50 @@ class PathBuilder(ValidatorBuilder[str]):
         super().__init__(parser=lambda s: s.strip())
 
     # ---- reusable checks ----
-    def must_exist(self) -> "PathBuilder":
+    def must_exist(self) -> PathBuilder:
         return self.check(os.path.exists, "Path does not exist.")
 
-    def must_be_file(self) -> "PathBuilder":
+    def must_be_file(self) -> PathBuilder:
         return self.check(os.path.isfile, "Path is not a file.")
 
-    def must_be_dir(self) -> "PathBuilder":
+    def must_be_dir(self) -> PathBuilder:
         return self.check(os.path.isdir, "Path is not a directory.")
 
-    def allowed_extensions(self, exts: Iterable[str]) -> "PathBuilder":
+    def allowed_extensions(self, exts: Iterable[str]) -> PathBuilder:
         allowed = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in exts}
         formatted = ", ".join(repr(e) for e in sorted(allowed))
         return self.check(
-            lambda p: os.path.splitext(p)[1].lower() in allowed,
+            lambda p: Path(p).suffix.lower() in allowed,
             f"Unsupported extension. Must be one of: {formatted}.",
         )
 
-    def normalize(self) -> "PathBuilder":
+    def normalize(self) -> PathBuilder:
         """Expand `~` and return absolute real path."""
-        return self.transform(lambda p: os.path.abspath(os.path.expanduser(p)))
+        return self.transform(lambda p: str(Path(p).expanduser().resolve()))
+
+
+# ------------------------------------------------------------
+# Port validator
+# ------------------------------------------------------------
+class PortBuilder(NumberBuilder[int]):
+    """Specialized validator for network port numbers."""
+
+    def __init__(self):
+        super().__init__(int, kind_name="port number")
+        # Standard port validation
+        self.min(1).max(65535)
+
+    def unprivileged(
+        self,
+        message: str = "Port below 1024 requires elevated privileges. Consider using ports >= 1024",
+    ) -> PortBuilder:
+        """Ensure port is >= 1024 (doesn't require root)."""
+        return self.check(lambda p: p >= 1024, message)
+
+    def high_port(self) -> PortBuilder:
+        """Ensure port is in high/dynamic range (>= 49152)."""
+        return self.min(49152)  # type: ignore[return-value]
+
+    def registered_port(self) -> PortBuilder:
+        """Ensure port is in registered range (1024-49151)."""
+        return self.min(1024).max(49151)  # type: ignore[return-value]

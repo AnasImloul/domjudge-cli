@@ -1,245 +1,77 @@
-# domjudge-cli
+# DOMjudge CLI
 
-`domjudge-cli` is a command-line tool to set up and manage coding contests on **DOMjudge**.  
-It enables you to **declaratively define infrastructure, contests, problems, and teams** using simple configuration files.
+Modern CLI tool for managing DOMjudge contests and infrastructure.
 
-Built for **live operations**, it safely applies updates to the platform without requiring downtime.
+## Requirements
 
----
+- Python 3.11+
+- [uv](https://github.com/astral-sh/uv) (installed automatically)
 
-## Key Features
+## Setup
 
-- **Declarative Infrastructure and Contest Management:** Manage everything with YAML files.
-- **Infrastructure as Code:** Deploy DOMjudge servers and judgehosts with a single command.
-- **Incremental Changes:** Update infrastructure or contests without downtime.
-- **Flexible Input Formats:** YAML for configuration; CSV/TSV for teams.
-- **Safe Live Modifications:** Apply contest changes while DOMjudge is running.
-- **Automatic Config Discovery:** If `--file` is not specified, it will automatically use `dom-judge.yaml` or `dom-judge.yml` (whichever exists first in the current directory).
-
----
-
-## Installation
-
-```
-pip install domjudge-cli
+```bash
+git clone <repo>
+cd domjudge-cli
+make setup
 ```
 
-Before using `domjudge-cli` to deploy infrastructure, ensure that **cgroups** are enabled on your OS (currently supporting **Ubuntu 22.04**).
+That's it. Everything is installed.
 
-1. Create or edit the GRUB configuration:
-   
-   ```
-   sudo vi /etc/default/grub.d/99-domjudge-cgroups.cfg
-   ```
+## Development
 
-   Insert the following line:
-   
-   ```
-   GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1 systemd.unified_cgroup_hierarchy=0"
-   ```
-
-2. Update GRUB and reboot:
-
-   ```
-   sudo update-grub
-   sudo reboot
-   ```
-
-Only after completing these steps should you attempt to run `domjudge-cli` infrastructure commands.
-
----
-
-## CLI Usage
-
-Run `dom --help` to see available commands:
-
+```bash
+make format      # Format code
+make lint        # Run linters
+make typecheck   # Type check
+make test        # Run tests
+make check       # Run everything
 ```
+
+## Usage
+
+```bash
 dom --help
 ```
 
-Main command groups:
-
-| Command Group | Purpose |
-|:--------------|:--------|
-| `dom init` | Initialize a new configuration file |
-| `dom infra` | Manage infrastructure and platform setup |
-| `dom contest` | Manage contests and related configuration |
-
-
-> **Note for Polygon Users**
-> When importing problems from Polygon, ensure the **Package type** is set to **Linux** (not Windows or Standard) for compatibility with DOMjudge.
-
-
----
-
-### 1. Initialize a new configuration file
-
-Initialize a new configuration file.
+## Project Structure
 
 ```
-dom init
+dom/
+├── cli/            # CLI commands
+├── core/           # Business logic
+├── infrastructure/ # External integrations
+├── types/          # Type definitions
+└── utils/          # Utilities
 ```
 
-if there is a file named `dom-judge.yaml` or `dom-judge.yml` in the current directory, use `--overwrite` to overwrite it.
+## Tools
 
-### 2. Manage Infrastructure
+- **uv** - Fast package management
+- **ruff** - Linting
+- **black** - Formatting
+- **mypy** - Type checking
+- **pytest** - Testing
+- **pre-commit** - Git hooks
 
-Apply or destroy infrastructure resources.
+## CI/CD
 
-- **Apply Infrastructure:**
+- **CI**: Runs on every PR (lint, test, type-check)
+- **Publish**: Automatic on GitHub releases
 
-```
-dom infra apply --file dom-judge.yaml
-```
+## Contributing
 
-- **Destroy Infrastructure:**
+1. `make setup`
+2. Make changes
+3. `make check`
+4. Commit (hooks run automatically)
+5. Push
 
-```
-dom infra destroy --confirm
-```
+Code must pass: format check, lint, type check, and tests.
 
-If no `--file` is provided, defaults to `dom-judge.yaml` or `dom-judge.yml`.
+## Architecture
 
----
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design.
 
-### 3. Manage Contests
+## License
 
-Apply contest settings to a running platform.
-
-- **Apply Contest Configuration:**
-
-```
-dom contest apply --file dom-judge.yaml
-```
-
-If no `--file` is provided, defaults to `dom-judge.yaml` or `dom-judge.yml`.
-
----
-
-## Configuration Files
-
-Everything is controlled via configuration files in YAML format.
-
-Example: `dom-judge.yaml`
-
-```
-infra:
-  port: 8080
-  judges: 2
-  password: "your_admin_password_here"
-
-contests:
-  - name: "Sample Contest"
-    shortname: "SAMPLE2025"
-    start_time: "2025-06-01T10:00:00+00:00"
-    duration: "5:00:00.000"
-    penalty_time: 20
-    allow_submit: true
-
-    problems:
-      from: "problems.yaml"
-
-    teams:
-      from: "teams.csv"
-      delimiter: ','
-      rows: "2-50"
-      name: "$2"
-      affiliation: "$3"
-```
-
-Supporting file example: `problems.yaml`
-
-```
-- archive: problems/example-problem-1.zip
-  platform: "Polygon"
-  color: blue
-
-- archive: problems/example-problem-2.zip
-  platform: "Polygon"
-  color: green
-
-- archive: problems/example-problem-3.zip
-  platform: "Polygon"
-  color: yellow
-```
-
----
-
-### Team Management
-
-Teams can be defined in a CSV file with the following format:
-
-```csv
-id,name,affiliation
-1,Team Alpha,INSEA
-2,Team Beta,INPT
-3,Team Gamma,ENSIAS
-```
-
-### Problem Declarations
-
-- Problems for a contest can be **defined directly inside** the contest `problems:` section like this:
-
-```
-problems:
-  - archive: problems/sample-problem.zip
-    platform: "Polygon"
-    color: blue
-```
-
-- Or you can **abstract the problem list** into a **separate YAML file** and reference it like this:
-
-```
-problems:
-  from: "problems.yaml"
-```
-
-Choose whichever structure better suits your project organization.
-
----
-
-## Typical Workflow
-
-```
-# Initialize a new configuration file
-dom init
-
-# Apply infrastructure
-dom infra apply --file dom-judge.yaml
-
-# Apply contests, problems, and teams
-dom contest apply --file dom-judge.yaml
-
-# (Optional) Destroy infrastructure when done
-dom infra destroy --confirm
-```
-
----
-
-## Contest Commands
-
-- `dom contest verify-problemset CONTEST_NAME`: Verify the problemset of the specified contest by running sample submissions to ensure correctness, completeness, and performance limits are met, then report per-problem summaries including mismatches and warnings.
-
----
-
-## Notes
-
-- Requires Docker installed for infrastructure operations.
-- Ensure **cgroups** are properly configured and the system has been rebooted as per Installation instructions.
-- DOMjudge API credentials are automatically handled or can be configured.
-- Problems and teams must be correctly referenced in the config YAML.
-- If no configuration file is explicitly passed with `--file`, the CLI will look for `dom-judge.yaml` or `dom-judge.yml`.
-
----
-
-# 🎯 Summary
-
-| Action              | Command                                     |
-|:--------------------|:--------------------------------------------|
-| Initialize a new configuration file | ```dom init``` |
-| Deploy platform     | ```dom infra apply --file dom-judge.yaml``` |
-| Configure contests  | ```dom contest apply --file dom-judge.yaml```|
-| Verify problemset   | ```dom contest verify-problemset CONTEST_NAME``` |
-| Destroy everything  | ```dom infra destroy --confirm```           |
-
----
+MIT

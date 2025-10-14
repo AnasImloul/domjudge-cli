@@ -1,11 +1,13 @@
 import datetime as dt
+
 from rich.table import Table
-from dom.templates.init import contest_template
 
 from dom.cli import console
+from dom.templates.init import contest_template
 from dom.utils.prompt import ask, ask_bool
-from dom.utils.validators import ValidatorBuilder
 from dom.utils.time import format_datetime, format_duration
+from dom.utils.validators import ValidatorBuilder
+
 
 def initialize_contest():
     console.print("\n[bold cyan]Contest Configuration[/bold cyan]")
@@ -51,26 +53,24 @@ def initialize_contest():
         "Teams file path (CSV/TSV)",
         console=console,
         default="teams.csv",
-        parser=ValidatorBuilder
-            .path()
-            .must_exist()
-            .must_be_file()
-            .allowed_extensions(["csv", "tsv"])
-            .build(),
+        parser=ValidatorBuilder.path()
+        .must_exist()
+        .must_be_file()
+        .allowed_extensions(["csv", "tsv"])
+        .build(),
     )
     suggested_delim = "," if teams_path.endswith(".csv") else "\t"
 
     delimiter = ask(
-        f"Field delimiter (Enter for default: {repr(suggested_delim)})",
+        f"Field delimiter (Enter for default: {suggested_delim!r})",
         console=console,
         default=suggested_delim,
-        parser=ValidatorBuilder
-            .string()
-            .one_of([",", ";", "\t", "comma", "semicolon", "tab"])
-            .replace("comma", ",")
-            .replace("semicolon", ";")
-            .replace("tab", "\t")
-            .build(),
+        parser=ValidatorBuilder.string()
+        .one_of([",", ";", "\t", "comma", "semicolon", "tab"])
+        .replace("comma", ",")
+        .replace("semicolon", ";")
+        .replace("tab", "\t")
+        .build(),
         show_default=False,
     )
 

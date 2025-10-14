@@ -1,7 +1,19 @@
-import os
-from typing import Optional
+from collections.abc import Callable
+from functools import wraps
+from pathlib import Path
+from typing import TypeVar
+
+import typer
 from rich.prompt import Confirm
-from dom.cli import console
+
+from dom.exceptions import DomJudgeCliError
+from dom.infrastructure.secrets.manager import SecretsManager
+from dom.logging_config import console, get_logger
+
+logger = get_logger(__name__)
+
+# Type variable for generic decorator
+T = TypeVar("T")
 
 
 def ensure_dom_directory() -> str:
@@ -9,40 +21,139 @@ def ensure_dom_directory() -> str:
     Ensure that the .dom directory exists in the current working directory.
     Returns the absolute path to the .dom folder.
     """
-    dom_path = os.path.join(os.getcwd(), ".dom")
-    os.makedirs(dom_path, exist_ok=True)
-    return dom_path
+    dom_path = Path.cwd() / ".dom"
+    dom_path.mkdir(exist_ok=True)
+    return str(dom_path)
 
 
-def find_config_or_default(file: Optional[str]) -> str:
+def get_secrets_manager() -> SecretsManager:
+    """
+    Get initialized secrets manager for the current project.
+
+    Returns:
+        Configured SecretsManager instance
+    """
+    return SecretsManager(Path(ensure_dom_directory()))
+
+
+def cli_command(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    Decorator for CLI commands with consistent error handling and logging.
+
+    This decorator:
+    - Catches DomJudgeCliError and exits with code 1
+    - Catches unexpected exceptions, logs them, and exits with code 1
+    - Provides consistent error messaging across all commands
+
+    Usage:
+        @app.command()
+        @cli_command
+        def my_command(arg: str):
+            # Command logic here
+            pass
+
+    Args:
+        func: The CLI command function to wrap
+
+    Returns:
+        Wrapped function with error handling
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs) -> T:
+        try:
+            return func(*args, **kwargs)
+        except DomJudgeCliError as e:
+            # Expected application errors
+            logger.error(f"Command failed: {e}")
+            raise typer.Exit(code=1) from e
+        except KeyboardInterrupt:
+            # User interrupted
+            logger.info("Command interrupted by user")
+            console.print("\n[yellow]⚠️  Operation cancelled by user[/yellow]")
+            raise typer.Exit(code=130) from None
+        except Exception as e:
+            # Unexpected errors - log with full traceback
+            logger.error(f"Unexpected error: {e}", exc_info=True)
+            console.print(f"[red]✗ Unexpected error: {e}[/red]")
+            console.print("[dim]Check logs at .dom/domjudge-cli.log for details[/dim]")
+            raise typer.Exit(code=1) from e
+
+    return wrapper
+
+
+def find_config_or_default(file: str | None) -> str:
+    """
+    Find configuration file or use default.
+
+    Args:
+        file: Optional explicit config file path
+
+    Returns:
+        Path to configuration file
+
+    Raises:
+        FileNotFoundError: If config file not found
+        FileExistsError: If both .yaml and .yml exist
+    """
     if file:
-        if not os.path.isfile(file):
+        if not Path(file).is_file():
             raise FileNotFoundError(f"Specified config file '{file}' not found.")
         return file
 
-    yaml_exists = os.path.isfile("dom-judge.yaml")
-    yml_exists = os.path.isfile("dom-judge.yml")
+    yaml_exists = Path("dom-judge.yaml").is_file()
+    yml_exists = Path("dom-judge.yml").is_file()
 
     if yaml_exists and yml_exists:
-        raise FileExistsError("Both 'dom-judge.yaml' and 'dom-judge.yml' exist. Please specify which one to use.")
+        raise FileExistsError(
+            "Both 'dom-judge.yaml' and 'dom-judge.yml' exist. "
+            "Please specify which one to use with --file."
+        )
     if not yaml_exists and not yml_exists:
-        raise FileNotFoundError("No 'dom-judge.yaml' or 'dom-judge.yml' found. Please specify a config file.")
+        raise FileNotFoundError(
+            "No 'dom-judge.yaml' or 'dom-judge.yml' found. "
+            "Please specify a config file with --file or run 'dom init' first."
+        )
 
     return "dom-judge.yaml" if yaml_exists else "dom-judge.yml"
 
+
 def check_file_exists(file: str) -> bool:
-    if os.path.isfile(file):
-        raise FileExistsError(f"File '{file}' already exists. Rename or remove the existing file, or use --overwrite to replace it.")
+    """
+    Check if file exists and raise error if it does.
+
+    Args:
+        file: File path to check
+
+    Returns:
+        False (file doesn't exist)
+
+    Raises:
+        FileExistsError: If file exists
+    """
+    if Path(file).is_file():
+        raise FileExistsError(
+            f"File '{file}' already exists. "
+            "Rename or remove the existing file, or use --overwrite to replace it."
+        )
     return False
 
 
 def ask_override_if_exists(output_file: str) -> bool:
-    """Ask user whether to override if the output file exists."""
+    """
+    Ask user whether to override if the output file exists.
 
-    if os.path.exists(output_file):
+    Args:
+        output_file: Path to check
+
+    Returns:
+        True if should proceed, False if should skip
+    """
+    if Path(output_file).exists():
         override = Confirm.ask(
             f"File '{output_file}' exists. Do you want to override it?",
-            default=False, console=console
+            default=False,
+            console=console,
         )
         if not override:
             console.print("[yellow]Skipping problem initialization.[/yellow]")

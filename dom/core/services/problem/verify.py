@@ -1,30 +1,41 @@
 import asyncio
 from collections import defaultdict
+
 from tqdm import tqdm
 
+from dom.core.services.contest.temp import create_temp_contest
+from dom.core.services.submission.submit import submit_problem
+from dom.infrastructure.api.domjudge import DomJudgeAPI
+from dom.infrastructure.secrets.manager import SecretsManager
 from dom.types.contest import ContestConfig
 from dom.types.infra import InfraConfig
-from dom.core.services.contest.temp import create_temp_contest
-from dom.infrastructure.api.domjudge import DomJudgeAPI
-from dom.infrastructure.secrets.manager import load_secret
-from dom.core.services.submission.submit import submit_problem
 
 VERDICT = {
-    'accepted': 'AC',
-    'time_limit_exceeded': 'TLE',
-    'runtime_error': 'RTE',
-    'wrong_answer': 'WA',
-    'memory_limit_exceeded': 'MLE'
+    "accepted": "AC",
+    "time_limit_exceeded": "TLE",
+    "runtime_error": "RTE",
+    "wrong_answer": "WA",
+    "memory_limit_exceeded": "MLE",
 }
 
-def verify_problemset(infra: InfraConfig, contest: ContestConfig):
+
+def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsManager):
     """
     Verifies a set of contest problems by running submissions and summarizing results.
-    """
-    client = DomJudgeAPI.admin(infra=infra)
 
-    api_contest, team = create_temp_contest(client, contest)
-    results = asyncio.run(_run_submissions(client, api_contest.id, team, contest.problems))
+    Args:
+        infra: Infrastructure configuration
+        contest: Contest configuration with problems to verify
+        secrets: Secrets manager for retrieving credentials
+    """
+    client = DomJudgeAPI(
+        base_url=f"http://localhost:{infra.port}",
+        username="admin",
+        password=secrets.get_required("admin_password"),
+    )
+
+    api_contest, team = create_temp_contest(client, contest, secrets)
+    results = asyncio.run(_run_submissions(client, api_contest.id, team, contest.problems))  # type: ignore[arg-type]
 
     per_problem, overall_correct, overall_mismatch = _compute_statistics(results)
     _print_per_problem_summary(per_problem)
@@ -36,24 +47,20 @@ async def _run_submissions(client: DomJudgeAPI, contest_id: str, team, problems)
     Submits all problems asynchronously and collects results,
     showing progress with tqdm.
     """
-    # 1) schedule submission‐tasks with a progress bar
+    # 1) schedule submission-tasks with a progress bar
     tasks = []
     for problem in tqdm(problems, desc="Scheduling submissions", unit="prob"):
         assert problem.id is not None
         problem_tasks = await submit_problem(
-            client=client,
-            contest_id=contest_id,
-            problem=problem,
-            team=team
+            client=client, contest_id=contest_id, problem=problem, team=team
         )
         tasks.extend(problem_tasks)
 
     # 2) collect results as they complete, with a second bar
     results = []
-    for fut in tqdm(asyncio.as_completed(tasks),
-                    total=len(tasks),
-                    desc="Gathering verdicts",
-                    unit="task"):
+    for fut in tqdm(
+        asyncio.as_completed(tasks), total=len(tasks), desc="Gathering verdicts", unit="task"
+    ):
         judgement, (problem, expected_verdict, file_name) = await fut
         actual = judgement.judgement_type_id or "unknown"
         rt = float(judgement.max_run_time or 0.0)
@@ -65,23 +72,20 @@ def _compute_statistics(results):
     """
     Aggregates results into per-problem stats and overall counts.
     """
-    per_problem = defaultdict(lambda: {
-        "correct_runs": [],
-        "mismatch_runs": [],
-        "correct_count": 0,
-        "mismatch_count": 0
-    })
+    per_problem = defaultdict(  # type: ignore[var-annotated]
+        lambda: {"correct_runs": [], "mismatch_runs": [], "correct_count": 0, "mismatch_count": 0}
+    )
     overall_correct = overall_mismatch = 0
 
     for problem, exp, act, fname, rt in results:
         stats = per_problem[problem.yaml.name]
         if exp == act:
-            stats["correct_count"] += 1
-            stats["correct_runs"].append(rt)
+            stats["correct_count"] += 1  # type: ignore[operator]
+            stats["correct_runs"].append(rt)  # type: ignore[attr-defined]
             overall_correct += 1
         else:
-            stats["mismatch_count"] += 1
-            stats["mismatch_runs"].append((exp, act, fname, rt))
+            stats["mismatch_count"] += 1  # type: ignore[operator]
+            stats["mismatch_runs"].append((exp, act, fname, rt))  # type: ignore[attr-defined]
             overall_mismatch += 1
 
     return per_problem, overall_correct, overall_mismatch
@@ -114,7 +118,9 @@ def _suggest_tle_to_ac(stats):
     upper = 0.5 * fastest_unexp
 
     if lower > upper:
-        print(f"  • Warning: lower bound ({lower:.3f}s) exceeds upper ({upper:.3f}s); cannot suggest tight limit.")
+        print(
+            f"  • Warning: lower bound ({lower:.3f}s) exceeds upper ({upper:.3f}s); cannot suggest tight limit."
+        )
     else:
         if upper < 0.5:
             print(f"  • Note: upper bound ({upper:.3f}s) < 0.5s; consider larger testcases.")
@@ -136,13 +142,13 @@ def _suggest_ac_to_tle(stats):
 
     if len(runs) == 1:
         rec = 2 * runs[0]
-        print(f"  • Unexpected TLE: raise timelimit to ≥ {rec:.3f}s (2× single AC)")
+        print(f"  • Unexpected TLE: raise timelimit to ≥ {rec:.3f}s (2x single AC)")
     else:
         fastest, second, *others = runs
         c1 = 2 * fastest
         c2 = 1.5 * second
         c_others = [1.25 * r for r in others]
-        rec = max([c1, c2] + c_others)
-        details = [f"2× fastest ({c1:.3f}s)", f"1.5× second ({c2:.3f}s)"]
-        details += [f"1.25× {r:.3f}s ({c:.3f}s)" for r, c in zip(others, c_others)]
+        rec = max([c1, c2, *c_others])
+        details = [f"2x fastest ({c1:.3f}s)", f"1.5x second ({c2:.3f}s)"]
+        details += [f"1.25x {r:.3f}s ({c:.3f}s)" for r, c in zip(others, c_others, strict=False)]
         print(f"  • Unexpected TLE: raise timelimit to ≥ {rec:.3f}s (max of {', '.join(details)})")

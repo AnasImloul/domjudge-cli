@@ -1,3 +1,1 @@
-from .processed import (
-    DomConfig
-)
+from .processed import DomConfig

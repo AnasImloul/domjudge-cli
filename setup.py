@@ -1,23 +1,18 @@
-from setuptools import setup, find_packages
-from pathlib import Path
+"""
+setup.py - Legacy setup file
 
-# read requirements.txt, strip comments and blank lines
-req_path = Path(__file__).parent / "requirements.txt"
-install_requires = [
-    line.strip()
-    for line in req_path.read_text().splitlines()
-    if line.strip() and not line.strip().startswith("#")
-]
+NOTE: This project now uses pyproject.toml for configuration (PEP 621).
+This setup.py is maintained for backward compatibility only.
 
-setup(
-    name="domjudge-cli",
-    version="0.2.14",
-    packages=find_packages(),
-    include_package_data=True,
-    install_requires=install_requires,
-    entry_points={
-        "console_scripts": [
-            "dom=dom.cli.__init__:main",
-        ],
-    },
-)
+For development, use:
+    pip install -e ".[dev]"
+
+For building:
+    python -m build
+"""
+
+from setuptools import setup
+
+# All configuration is now in pyproject.toml
+# This file exists for backward compatibility and editable installs
+setup()

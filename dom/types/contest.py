@@ -1,6 +1,7 @@
-from pydantic import BaseModel
-from typing import List, Optional
 from datetime import datetime
+
+from pydantic import BaseModel
+
 from dom.types.problem import ProblemPackage
 from dom.types.team import Team
 from dom.utils.pydantic import InspectMixin
@@ -8,13 +9,13 @@ from dom.utils.pydantic import InspectMixin
 
 class ContestConfig(InspectMixin, BaseModel):
     name: str
-    shortname: Optional[str] = None
-    formal_name: Optional[str] = None
-    start_time: Optional[datetime] = None
-    duration: Optional[str] = None
-    penalty_time: Optional[int] = 0
-    allow_submit: Optional[bool] = True
-    with_statement: Optional[bool] = False
+    shortname: str | None = None
+    formal_name: str | None = None
+    start_time: datetime | None = None
+    duration: str | None = None
+    penalty_time: int | None = 0
+    allow_submit: bool | None = True
+    with_statement: bool | None = False
 
-    problems: List[ProblemPackage]
-    teams: List[Team]
+    problems: list[ProblemPackage]
+    teams: list[Team]
