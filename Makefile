@@ -30,6 +30,7 @@ lint: ## Run all linters
 	ruff check .
 	ruff format --check .
 	bandit -c pyproject.toml -r dom/ -q
+	lint-imports
 
 format: ## Format code (auto-fix)
 	ruff format .

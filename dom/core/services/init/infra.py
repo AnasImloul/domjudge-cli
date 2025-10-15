@@ -1,10 +1,12 @@
+from rich.console import Console
 from rich.table import Table
 
-from dom.cli import console
 from dom.infrastructure.secrets.manager import generate_random_string
 from dom.templates.init import infra_template
 from dom.utils.prompt import ask
 from dom.validation import ValidationRules, for_prompt
+
+console = Console()
 
 
 def initialize_infrastructure():

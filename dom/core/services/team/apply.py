@@ -1,3 +1,5 @@
+"""Declarative team service."""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dom.constants import (
@@ -6,8 +8,8 @@ from dom.constants import (
     HASH_MODULUS,
     MAX_CONCURRENT_TEAM_OPERATIONS,
 )
+from dom.core.services.base import BulkOperationMixin, Service, ServiceContext, ServiceResult
 from dom.exceptions import APIError, TeamError
-from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.logging_config import get_logger
 from dom.types.api.models import AddOrganization, AddTeam, AddUser
 from dom.types.team import Team
@@ -15,161 +17,199 @@ from dom.types.team import Team
 logger = get_logger(__name__)
 
 
-def apply_teams_to_contest(client: DomJudgeAPI, contest_id: str, teams: list[Team]) -> list[Team]:
+class TeamService(Service[Team], BulkOperationMixin[Team]):
     """
-    Apply teams to a contest with proper error handling.
+    Declarative service for managing teams.
 
-    This operation is idempotent - running multiple times with the same teams
+    Provides clean methods for adding teams to contests with
+    proper error handling, concurrency control, and idempotency.
+
+    This service is idempotent - running multiple times with the same teams
     will not create duplicates.
-
-    Args:
-        client: DOMjudge API client
-        contest_id: Contest identifier
-        teams: List of teams to add
-
-    Returns:
-        List of successfully added teams
-
-    Raises:
-        TeamError: If one or more teams fail to add, with details about which
-                   teams failed and why.
-
-    Example:
-        >>> client = DomJudgeAPI(...)
-        >>> teams = [Team(name="Alpha", ...), Team(name="Beta", ...)]
-        >>> added_teams = apply_teams_to_contest(client, "contest123", teams)
-        >>> len(added_teams)  # All teams successfully added
-        2
     """
 
-    def add_team(team: Team) -> Team:
-        """
-        Add a single team to the contest.
+    def entity_name(self) -> str:
+        """Return entity name."""
+        return "Team"
 
-        Raises:
-            TeamError: If team addition fails
+    def create(self, entity: Team, context: ServiceContext) -> ServiceResult[Team]:
         """
+        Add a single team to a contest.
+
+        Args:
+            entity: Team to add
+            context: Service context with contest_id
+
+        Returns:
+            Service result with team
+        """
+        if not context.contest_id:
+            return ServiceResult.fail(
+                ValueError("Contest ID required to add team"), "Contest ID missing"
+            )
+
         try:
+            # Create organization if team has affiliation
             organization_id = None
-            if team.affiliation is not None:
-                org_result = client.organizations.add_to_contest(
-                    contest_id=contest_id,
-                    organization=AddOrganization(
-                        id=str(hash(team.affiliation) % HASH_MODULUS),
-                        shortname=team.affiliation,
-                        name=team.affiliation,
-                        formal_name=team.affiliation,
-                        country=DEFAULT_COUNTRY_CODE,
-                    ),
-                )
-                organization_id = org_result.id
+            if entity.affiliation is not None:
+                organization_id = self._create_organization(entity.affiliation, context)
 
-            team_result = client.teams.add_to_contest(
-                contest_id=contest_id,
+            # Create team
+            team_result = self.client.teams.add_to_contest(
+                contest_id=context.contest_id,
                 team_data=AddTeam(
-                    id=str(hash(team.name) % HASH_MODULUS),
-                    name=f"{team.username}({team.name})",
-                    display_name=team.name,
+                    id=str(hash(entity.name) % HASH_MODULUS),
+                    name=f"{entity.username}({entity.name})",
+                    display_name=entity.name,
                     group_ids=[DEFAULT_TEAM_GROUP_ID],
                     organization_id=organization_id,
                 ),
             )
-            team.id = team_result.id
+            entity.id = team_result.id
 
-            # Only create user if team was newly created
+            # Create user only if team was newly created (idempotency)
             if team_result.created:
-                client.users.add(
-                    user_data=AddUser(
-                        username=team.username,  # type: ignore[arg-type]
-                        name=team.name,
-                        password=team.password.get_secret_value(),  # type: ignore[arg-type]
-                        team_id=team.id,
-                        roles=["team"],
-                    )
-                )
+                self._create_user_for_team(entity, context)
                 logger.info(
                     "Successfully added team",
-                    extra={"team_name": team.name, "team_id": team.id, "contest_id": contest_id},
+                    extra={
+                        "team_name": entity.name,
+                        "team_id": entity.id,
+                        "contest_id": context.contest_id,
+                    },
+                )
+                return ServiceResult.ok(
+                    entity, f"Team '{entity.name}' created successfully", created=True
                 )
             else:
                 logger.info(
                     "Team already exists, skipped user creation",
-                    extra={"team_name": team.name, "team_id": team.id, "contest_id": contest_id},
+                    extra={
+                        "team_name": entity.name,
+                        "team_id": entity.id,
+                        "contest_id": context.contest_id,
+                    },
                 )
-
-            return team
+                return ServiceResult.ok(
+                    entity, f"Team '{entity.name}' already exists", created=False
+                )
 
         except APIError as e:
-            error_msg = f"Failed to add team '{team.name}' to contest {contest_id}: {e}"
+            error_msg = f"Failed to add team '{entity.name}' to contest {context.contest_id}: {e}"
             logger.error(
                 error_msg,
                 exc_info=True,
                 extra={
-                    "team_name": team.name,
-                    "contest_id": contest_id,
+                    "team_name": entity.name,
+                    "contest_id": context.contest_id,
                     "error_type": type(e).__name__,
                 },
             )
-            raise TeamError(error_msg) from e
+            return ServiceResult.fail(TeamError(error_msg), f"Team '{entity.name}' failed")
+
         except Exception as e:
-            error_msg = f"Unexpected error adding team '{team.name}' to contest {contest_id}: {e}"
+            error_msg = (
+                f"Unexpected error adding team '{entity.name}' to contest {context.contest_id}: {e}"
+            )
             logger.error(
                 error_msg,
                 exc_info=True,
                 extra={
-                    "team_name": team.name,
-                    "contest_id": contest_id,
+                    "team_name": entity.name,
+                    "contest_id": context.contest_id,
                     "error_type": type(e).__name__,
                 },
             )
-            raise TeamError(error_msg) from e
+            return ServiceResult.fail(TeamError(error_msg), f"Unexpected error for '{entity.name}'")
 
-    # Track successes and failures
-    results: list[Team] = []
-    failures: list[tuple[Team, Exception]] = []
+    def _create_organization(self, affiliation: str, context: ServiceContext) -> str:
+        """
+        Create organization for team affiliation.
 
-    # Use bounded thread pool to respect rate limiting
-    with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_TEAM_OPERATIONS) as executor:
-        # Map futures to teams for better error reporting
-        future_to_team: dict[object, Team] = {
-            executor.submit(add_team, team): team for team in teams
-        }
+        Args:
+            affiliation: Organization name
+            context: Service context
 
-        for future in as_completed(future_to_team.keys()):  # type: ignore[var-annotated, arg-type]
-            team = future_to_team[future]
-            try:
-                result = future.result()
-                results.append(result)
-            except TeamError as e:
-                # Already logged in add_team()
-                failures.append((team, e))
-            except Exception as e:
-                # Unexpected exception not caught by add_team()
-                logger.error(
-                    f"Unexpected exception in team addition task for '{team.name}'",
-                    exc_info=True,
-                    extra={"team_name": team.name},
-                )
-                failures.append((team, e))
-
-    # Report results
-    if failures:
-        failed_teams = ", ".join([f"'{team.name}'" for team, _ in failures])
-        error_summary = f"{len(failures)}/{len(teams)} team(s) failed to add: {failed_teams}"
-        logger.error(
-            error_summary,
-            extra={
-                "total_teams": len(teams),
-                "successful": len(results),
-                "failed": len(failures),
-                "contest_id": contest_id,
-            },
+        Returns:
+            Organization ID
+        """
+        org_result = self.client.organizations.add_to_contest(
+            contest_id=context.contest_id,  # type: ignore[arg-type]
+            organization=AddOrganization(
+                id=str(hash(affiliation) % HASH_MODULUS),
+                shortname=affiliation,
+                name=affiliation,
+                formal_name=affiliation,
+                country=DEFAULT_COUNTRY_CODE,
+            ),
         )
-        raise TeamError(error_summary)
+        return org_result.id
 
-    logger.info(
-        f"Successfully added all {len(results)} teams to contest",
-        extra={"teams_count": len(results), "contest_id": contest_id},
-    )
+    def _create_user_for_team(self, team: Team, context: ServiceContext) -> None:  # noqa: ARG002
+        """
+        Create user account for team.
 
-    return results
+        Args:
+            team: Team entity
+            context: Service context
+        """
+        self.client.users.add(
+            user_data=AddUser(
+                username=team.username,  # type: ignore[arg-type]
+                name=team.name,
+                password=team.password.get_secret_value(),  # type: ignore[arg-type]
+                team_id=team.id,
+                roles=["team"],
+            )
+        )
+
+    def create_many(
+        self,
+        entities: list[Team],
+        context: ServiceContext,
+        stop_on_error: bool = False,
+    ) -> list[ServiceResult[Team]]:
+        """
+        Add multiple teams concurrently.
+
+        Args:
+            entities: List of teams
+            context: Service context
+            stop_on_error: Stop on first error if True
+
+        Returns:
+            List of service results
+        """
+        results: list[ServiceResult[Team]] = []
+
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_TEAM_OPERATIONS) as executor:
+            # Submit all tasks
+            future_to_team = {
+                executor.submit(self.create, team, context): team for team in entities
+            }
+
+            # Collect results
+            for future in as_completed(future_to_team.keys()):
+                team = future_to_team[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+
+                    if stop_on_error and not result.success:
+                        logger.warning(
+                            f"Stopping bulk team creation due to error with '{team.name}'"
+                        )
+                        break
+
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected exception in team creation task for '{team.name}'",
+                        exc_info=True,
+                        extra={"team_name": team.name},
+                    )
+                    results.append(ServiceResult.fail(e, f"Task failed: {e}"))
+
+                    if stop_on_error:
+                        break
+
+        return results

@@ -1,12 +1,14 @@
 from pathlib import Path
 
+from rich.console import Console
 from rich.panel import Panel
 
-from dom.cli import console
 from dom.core.services.init.contest import initialize_contest
 from dom.core.services.init.infra import initialize_infrastructure
 from dom.core.services.init.problems import initialize_problems
 from dom.utils.cli import check_file_exists
+
+console = Console()
 
 
 def callback(overwrite: bool):

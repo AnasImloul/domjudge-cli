@@ -6,9 +6,9 @@ from tqdm import tqdm
 from dom.core.services.contest.temp import create_temp_contest
 from dom.core.services.submission.submit import submit_problem
 from dom.infrastructure.api.domjudge import DomJudgeAPI
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.types.contest import ContestConfig
 from dom.types.infra import InfraConfig
+from dom.types.secrets import SecretsProvider
 
 VERDICT = {
     "accepted": "AC",
@@ -19,7 +19,7 @@ VERDICT = {
 }
 
 
-def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsManager):
+def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsProvider):
     """
     Verifies a set of contest problems by running submissions and summarizing results.
 

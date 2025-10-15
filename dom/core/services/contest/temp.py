@@ -4,17 +4,18 @@ import secrets
 import string
 from datetime import datetime
 
-from dom.core.services.problem.apply import apply_problems_to_contest
-from dom.core.services.team.apply import apply_teams_to_contest
+from dom.core.services.base import ServiceContext
+from dom.core.services.problem.apply import ProblemService
+from dom.core.services.team.apply import TeamService
 from dom.infrastructure.api.domjudge import DomJudgeAPI
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.types.api.models import Contest
 from dom.types.contest import ContestConfig
+from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
 
 
 def create_temp_contest(
-    client: DomJudgeAPI, contest: ContestConfig, secrets_mgr: SecretsManager
+    client: DomJudgeAPI, contest: ContestConfig, secrets_mgr: SecretsProvider
 ) -> tuple[Contest, Team]:
     """
     Create a temporary contest for verification purposes.
@@ -54,8 +55,22 @@ def create_temp_contest(
         password=secrets_mgr.generate_deterministic_password(seed=temp_name, length=12),
     )
 
-    apply_problems_to_contest(client, contest_id, contest.problems)
-    apply_teams_to_contest(client, contest_id, [temp_team])
+    # Create service context
+    context = ServiceContext(client=client, contest_id=contest_id)
+
+    # Use declarative services
+    problem_service = ProblemService(client)
+    team_service = TeamService(client)
+
+    # Apply problems
+    problem_results = problem_service.create_many(contest.problems, context, stop_on_error=False)
+    problem_summary = problem_service.get_summary(problem_results)
+    assert problem_summary["failed"] == 0, f"{problem_summary['failed']} problems failed to add"
+
+    # Apply team
+    team_results = team_service.create_many([temp_team], context, stop_on_error=False)
+    team_summary = team_service.get_summary(team_results)
+    assert team_summary["failed"] == 0, f"{team_summary['failed']} teams failed to add"
 
     assert temp_team.id is not None, "Team ID is None"
 

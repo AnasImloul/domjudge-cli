@@ -3,18 +3,16 @@ from pathlib import Path
 import typer
 
 from dom.cli.validators import validate_file_path
-from dom.core.config.loaders import load_infrastructure_config
-from dom.core.services.infra.apply import apply_infra_and_platform
-from dom.core.services.infra.destroy import destroy_infra_and_platform
-from dom.core.services.infra.status import (
-    check_infrastructure_status,
-    print_status_human_readable,
-    print_status_json,
+from dom.core.operations import OperationContext, OperationRunner
+from dom.core.operations.infrastructure import (
+    ApplyInfrastructureOperation,
+    DestroyInfrastructureOperation,
+    LoadInfraConfigOperation,
+    PrintInfrastructureStatusOperation,
 )
 from dom.exceptions import DomJudgeCliError
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
-from dom.utils.cli import ensure_dom_directory
+from dom.utils.cli import get_secrets_manager
 
 logger = get_logger(__name__)
 infra_command = typer.Typer()
@@ -30,10 +28,25 @@ def apply_from_config(
     Apply configuration to infrastructure and platform.
     """
     try:
-        # Dependency injection: create secrets manager at entry point
-        config = load_infrastructure_config(file)
-        secrets = SecretsManager(ensure_dom_directory())
-        apply_infra_and_platform(config, secrets)
+        # Create execution context
+        secrets = get_secrets_manager()
+        context = OperationContext(secrets=secrets)
+
+        # Load configuration
+        load_runner = OperationRunner(LoadInfraConfigOperation(file))
+        load_result = load_runner.run(context)
+
+        if not load_result.is_success():
+            raise typer.Exit(code=1)
+
+        # Apply infrastructure
+        config = load_result.unwrap()
+        apply_runner = OperationRunner(ApplyInfrastructureOperation(config))
+        apply_result = apply_runner.run(context)
+
+        if not apply_result.is_success():
+            raise typer.Exit(code=1)
+
     except DomJudgeCliError as e:
         logger.error(f"Failed to apply infrastructure: {e}")
         raise typer.Exit(code=1) from e
@@ -57,9 +70,17 @@ def destroy_all(
         raise typer.Exit(code=1)
 
     try:
-        # Dependency injection: create secrets manager at entry point
-        secrets = SecretsManager(ensure_dom_directory())
-        destroy_infra_and_platform(secrets)
+        # Create execution context
+        secrets = get_secrets_manager()
+        context = OperationContext(secrets=secrets)
+
+        # Destroy infrastructure
+        runner = OperationRunner(DestroyInfrastructureOperation())
+        result = runner.run(context)
+
+        if not result.is_success():
+            raise typer.Exit(code=1)
+
     except DomJudgeCliError as e:
         logger.error(f"Failed to destroy infrastructure: {e}")
         raise typer.Exit(code=1) from e
@@ -98,19 +119,27 @@ def check_status(
         # Load config if provided (to know expected judgehost count)
         config = None
         if file:
-            config = load_infrastructure_config(file)
+            load_runner = OperationRunner(LoadInfraConfigOperation(file), show_progress=False)
+            secrets = get_secrets_manager()
+            context = OperationContext(secrets=secrets)
+            load_result = load_runner.run(context)
 
-        # Check status
-        status = check_infrastructure_status(config)
+            if load_result.is_success():
+                config = load_result.unwrap()
 
-        # Output results
-        if json_output:
-            print_status_json(status)
-        else:
-            print_status_human_readable(status)
+        # Check and print infrastructure status
+        secrets = get_secrets_manager()
+        context = OperationContext(secrets=secrets)
 
-        # Exit with appropriate code
-        if not status.is_healthy():
+        # Use unified operation that checks and prints
+        print_status_runner = OperationRunner(
+            PrintInfrastructureStatusOperation(config, json_output=json_output),
+            show_progress=False,
+            silent=True,
+        )
+        result = print_status_runner.run(context)
+
+        if not result.is_success():
             raise typer.Exit(code=1)
 
     except DomJudgeCliError as e:

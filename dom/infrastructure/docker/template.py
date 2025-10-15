@@ -1,14 +1,14 @@
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
 from dom.templates.infra import docker_compose_template
 from dom.types.infra import InfraConfig
+from dom.types.secrets import SecretsProvider
 from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 
 
 def generate_docker_compose(
-    infra_config: InfraConfig, secrets: SecretsManager, judge_password: str
+    infra_config: InfraConfig, secrets: SecretsProvider, judge_password: str
 ) -> None:
     """
     Generate docker-compose.yml file from template.

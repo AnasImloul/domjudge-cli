@@ -20,6 +20,7 @@ from pydantic import SecretStr
 from dom.constants import DEFAULT_PASSWORD_LENGTH
 from dom.exceptions import SecretsError
 from dom.logging_config import get_logger
+from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,7 @@ def deterministic_random(seed: str) -> Iterator[None]:
             random.setstate(state)
 
 
-class SecretsManager:
+class SecretsManager(SecretsProvider):
     """
     Secure secrets manager with encryption at rest.
 
@@ -76,8 +77,8 @@ class SecretsManager:
     Example:
         >>> from pathlib import Path
         >>> manager = SecretsManager(Path(".dom"))
-        >>> manager.set("api_key", "secret123")
-        >>> value = manager.get("api_key")
+        >>> manager.set_secret("api_key", "secret123")
+        >>> value = manager.get_secret("api_key")
     """
 
     def __init__(self, secrets_dir: Path):

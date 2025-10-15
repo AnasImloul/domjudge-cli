@@ -6,9 +6,9 @@ Use this for consistent configuration and easy testing with mocks.
 
 from dom.constants import DEFAULT_CACHE_TTL, DEFAULT_RATE_BURST, DEFAULT_RATE_LIMIT
 from dom.infrastructure.api.domjudge import DomJudgeAPI
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig
+from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)
 
@@ -110,7 +110,7 @@ class APIClientFactory:
         return api
 
     def create_admin_client(
-        self, infra: InfraConfig, secrets: SecretsManager, **kwargs
+        self, infra: InfraConfig, secrets: SecretsProvider, **kwargs
     ) -> DomJudgeAPI:
         """
         Create an admin API client from infrastructure config.

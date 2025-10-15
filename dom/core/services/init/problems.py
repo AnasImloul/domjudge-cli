@@ -2,13 +2,15 @@ from pathlib import Path
 
 import typer
 from jinja2 import Template
+from rich.console import Console
 from rich.table import Table
 
-from dom.cli import console
 from dom.templates.init import problems_template
 from dom.utils.cli import ask_override_if_exists
 from dom.utils.color import get_hex_color
 from dom.utils.prompt import ask, ask_bool, ask_choice
+
+console = Console()
 
 
 def check_existing_files() -> str:

@@ -2,9 +2,9 @@ import csv
 import re
 from pathlib import Path
 
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
 from dom.types.config.raw import RawTeamsConfig
+from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
 
 logger = get_logger(__name__)
@@ -41,7 +41,9 @@ def parse_from_template(template: str, row: list[str]) -> str:
     return name
 
 
-def load_teams_from_config(team_config: RawTeamsConfig, config_path: Path, secrets: SecretsManager):
+def load_teams_from_config(
+    team_config: RawTeamsConfig, config_path: Path, secrets: SecretsProvider
+):
     """
     Load teams from configuration file.
 

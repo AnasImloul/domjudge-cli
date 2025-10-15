@@ -6,9 +6,11 @@ from typing import Any
 
 from dom.exceptions import APIError
 from dom.infrastructure.api.domjudge import DomJudgeAPI
+from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import get_logger
 from dom.types.config import DomConfig
 from dom.types.config.processed import ContestConfig
+from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)
 
@@ -309,3 +311,22 @@ class ContestPlanner:
                     count=teams_count,
                 )
             ]
+
+
+def plan_contest_changes(config: DomConfig, secrets: SecretsProvider) -> ContestPlan:
+    """
+    Plan what changes would be made to contests.
+
+    This is a service-layer function that operations should call.
+
+    Args:
+        config: Complete DOMjudge configuration
+        secrets: Secrets manager for API credentials
+
+    Returns:
+        Contest plan with all planned changes
+    """
+    factory = APIClientFactory()
+    client = factory.create_admin_client(config.infra, secrets)
+    planner = ContestPlanner(client, config)
+    return planner.plan_changes()

@@ -5,7 +5,6 @@ This module provides health check functionality for DOMjudge infrastructure.
 
 import json
 import subprocess  # nosec B404
-from enum import Enum
 
 from rich import box
 from rich.console import Console
@@ -15,51 +14,9 @@ from dom.constants import CONTAINER_PREFIX
 from dom.exceptions import DockerError
 from dom.infrastructure.docker import DockerClient
 from dom.logging_config import get_logger
-from dom.types.infra import InfraConfig
+from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
 
 logger = get_logger(__name__)
-
-
-class ServiceStatus(str, Enum):
-    """Service status enum."""
-
-    HEALTHY = "healthy"
-    UNHEALTHY = "unhealthy"
-    STARTING = "starting"
-    STOPPED = "stopped"
-    MISSING = "missing"
-
-
-class InfrastructureStatus:
-    """Container for infrastructure status information."""
-
-    def __init__(self):
-        self.docker_available: bool = False
-        self.docker_error: str | None = None
-        self.services: dict[str, ServiceStatus] = {}
-        self.service_details: dict[str, dict] = {}
-
-    def is_healthy(self) -> bool:
-        """Check if all critical services are healthy."""
-        if not self.docker_available:
-            return False
-
-        critical_services = ["domserver", "mariadb"]
-        for service in critical_services:
-            if self.services.get(service) != ServiceStatus.HEALTHY:
-                return False
-
-        return True
-
-    def to_dict(self) -> dict:
-        """Convert status to dictionary for JSON output."""
-        return {
-            "overall_status": "healthy" if self.is_healthy() else "unhealthy",
-            "docker_available": self.docker_available,
-            "docker_error": self.docker_error,
-            "services": {name: status.value for name, status in self.services.items()},
-            "details": self.service_details,
-        }
 
 
 def check_infrastructure_status(config: InfraConfig | None = None) -> InfrastructureStatus:

@@ -1,14 +1,14 @@
 """Infrastructure destruction service."""
 
 from dom.infrastructure.docker.containers import DockerClient
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
+from dom.types.secrets import SecretsProvider
 from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 
 
-def destroy_infra_and_platform(secrets: SecretsManager) -> None:
+def destroy_infra_and_platform(secrets: SecretsProvider) -> None:
     """
     Destroy all infrastructure and clean up secrets.
 

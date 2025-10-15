@@ -1,12 +1,14 @@
 import datetime as dt
 
+from rich.console import Console
 from rich.table import Table
 
-from dom.cli import console
 from dom.templates.init import contest_template
 from dom.utils.prompt import ask, ask_bool
 from dom.utils.time import format_datetime, format_duration
 from dom.utils.validators import ValidatorBuilder
+
+console = Console()
 
 
 def initialize_contest():

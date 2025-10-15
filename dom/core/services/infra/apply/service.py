@@ -6,15 +6,15 @@ for DOMjudge infrastructure deployment.
 
 from dom.infrastructure.docker.containers import DockerClient
 from dom.infrastructure.docker.template import generate_docker_compose
-from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig
+from dom.types.secrets import SecretsProvider
 from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 
 
-def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsManager) -> None:
+def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsProvider) -> None:
     """
     Deploy and configure DOMjudge infrastructure.
 
