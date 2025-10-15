@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "domjudge-cli"
-version = "0.2.22"
+version = "0.2.23"
 description = "CLI tool for managing DOMjudge contests and infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"

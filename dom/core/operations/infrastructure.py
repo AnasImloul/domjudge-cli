@@ -152,13 +152,14 @@ class PrintInfrastructureStatusOperation(Operation[None]):
             else:
                 print_status_human_readable(status)
 
-            # Return success/failure based on health
-            if status.is_healthy():
-                return OperationResult.success(None, "Infrastructure is healthy")
-            else:
-                return OperationResult.failure(
-                    ValueError("Infrastructure has issues"), "Infrastructure is not healthy"
-                )
+            # Always return success - the status check itself succeeded
+            # The status output shows whether infrastructure is healthy or not
+            message = (
+                "Infrastructure is healthy"
+                if status.is_healthy()
+                else "Infrastructure is not healthy"
+            )
+            return OperationResult.success(None, message)
         except Exception as e:
             logger.error(f"Failed to check infrastructure status: {e}", exc_info=True)
             return OperationResult.failure(e, f"Failed to check status: {e}")
