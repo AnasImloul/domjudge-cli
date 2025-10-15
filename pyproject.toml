@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "domjudge-cli"
-version = "0.2.16"
+version = "0.2.17"
 description = "CLI tool for managing DOMjudge contests and infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,7 +26,7 @@ classifiers = [
 
 dependencies = [
     # Runtime dependencies
-    "typer>=0.15.2,<1.0",
+    "typer>=0.15.2,<0.18",  # Pin to <0.18 due to breaking API changes in 0.18+
     "PyYAML>=6.0.2,<7.0",
     "pydantic>=2.11.3,<3.0",
     "pydantic[email]>=2.11.3,<3.0",
@@ -44,6 +44,8 @@ dependencies = [
     "pytest>=8.0.0,<9.0",
     "pytest-cov>=5.0.0,<6.0",
     "pytest-mock>=3.14.0,<4.0",
+    "build>=1.0.0",  # Required for package building tests
+    "tomli>=2.0.0;python_version<'3.11'",  # Backport of tomllib for Python 3.10
     "mypy>=1.11.0,<2.0",
     "ruff>=0.6.0,<1.0",
     "black>=24.0.0,<25.0",
@@ -69,6 +71,14 @@ packages = ["dom"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "dom/py.typed" = "dom/py.typed"
+
+# Include all template files in the package
+[tool.hatch.build]
+include = [
+    "dom/**/*.py",
+    "dom/**/*.j2",
+    "dom/py.typed",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -194,6 +204,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "e2e: marks tests as end-to-end tests",
 ]
 
 # ===== Coverage =====
