@@ -44,9 +44,9 @@ class TestPackageBuild:
         )
 
         # STRICT: Build MUST succeed
-        assert result.returncode == 0, (
-            f"Build FAILED (users won't be able to build):\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"Build FAILED (users won't be able to build):\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
         # Verify outputs exist
         wheel_files = list(tmp_path.glob("*.whl"))
@@ -93,7 +93,10 @@ class TestInstalledPackage:
 
         version = result.stdout.strip()
         assert len(version) > 0, "Version must not be empty"
-        assert version != "0.0.0-dev" or True, "Version should be set from pyproject.toml"
+        # Version should be valid semver or dev version
+        assert (
+            version == "0.0.0-dev" or "." in version
+        ), f"Version '{version}' doesn't look like a valid version"
 
     def test_cli_entry_point_works(self):
         """Test that CLI entry point works - users type 'dom --help'."""
@@ -120,9 +123,9 @@ class TestInstalledPackage:
         assert result.returncode == 0, f"CLI command failed with error!\nSTDERR:\n{result.stderr}"
 
         # Verify help output is meaningful
-        assert "Usage:" in result.stdout or "Commands:" in result.stdout, (
-            f"Help output doesn't look correct:\n{result.stdout}"
-        )
+        assert (
+            "Usage:" in result.stdout or "Commands:" in result.stdout
+        ), f"Help output doesn't look correct:\n{result.stdout}"
 
     def test_templates_accessible_and_usable(self):
         """Test that templates work after install - critical for users."""
@@ -154,9 +157,9 @@ print("SUCCESS")
         )
 
         # STRICT: Templates MUST be accessible AND functional
-        assert result.returncode == 0, (
-            f"Template usage FAILED (the Jinja2 bug!):\nSTDERR:\n{result.stderr}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"Template usage FAILED (the Jinja2 bug!):\nSTDERR:\n{result.stderr}"
         assert "SUCCESS" in result.stdout, "Template rendering didn't work correctly"
 
 
@@ -191,9 +194,9 @@ class TestPackageMetadata:
         author = meta.get("Author") or meta.get("Author-email", "")
 
         # STRICT: Author must be set correctly
-        assert "Anas IMLOUL" in author or "anas.imloul27@gmail.com" in author, (
-            f"Author metadata incorrect: {author}"
-        )
+        assert (
+            "Anas IMLOUL" in author or "anas.imloul27@gmail.com" in author
+        ), f"Author metadata incorrect: {author}"
 
     def test_repository_url_correct(self):
         """Test that repository URL is set correctly."""
@@ -215,9 +218,9 @@ class TestPackageMetadata:
 
         # STRICT: Repository URL must be set
         assert "Repository" in urls, f"Repository URL not set. URLs: {urls}"
-        assert "github.com/AnasImloul/domjudge-cli" in urls["Repository"], (
-            f"Wrong repository URL: {urls.get('Repository')}"
-        )
+        assert (
+            "github.com/AnasImloul/domjudge-cli" in urls["Repository"]
+        ), f"Wrong repository URL: {urls.get('Repository')}"
 
 
 class TestFileInclusion:
@@ -290,9 +293,9 @@ class TestDistributionIntegrity:
         )
 
         # STRICT: Build MUST succeed
-        assert result.returncode == 0, (
-            f"Wheel build FAILED:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"Wheel build FAILED:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
 
         wheel_files = list(tmp_path.glob("*.whl"))
         assert len(wheel_files) == 1, f"Expected 1 wheel, found {len(wheel_files)}"
@@ -325,6 +328,6 @@ class TestDistributionIntegrity:
 
             # Verify reasonable number of Python files
             py_files = [f for f in files if f.endswith(".py")]
-            assert len(py_files) > 50, (
-                f"Suspiciously few Python files: {len(py_files)}. Package might not be complete."
-            )
+            assert (
+                len(py_files) > 50
+            ), f"Suspiciously few Python files: {len(py_files)}. Package might not be complete."
