@@ -107,16 +107,33 @@ class ProblemService:
 
             with temp_zip_path.open("rb") as f:
                 files = {"zip": (f.name, f, "application/zip")}
-                response = self.client.post(
-                    "/api/v4/problems", files=files, invalidate_cache="all_problems"
-                )
+                try:
+                    response = self.client.post(
+                        "/api/v4/problems", files=files, invalidate_cache="all_problems"
+                    )
 
-                if "problem_id" not in response:
-                    raise APIError(f"No 'problem_id' in response: {response}")
+                    if "problem_id" not in response:
+                        raise APIError(f"No 'problem_id' in response: {response}")
 
-                problem_id = response["problem_id"]
-                logger.info(f"Created problem (ID: {problem_id})")
-                return problem_id  # type: ignore[no-any-return]
+                    problem_id = response["problem_id"]
+                    logger.info(f"Created problem (ID: {problem_id})")
+                    return problem_id  # type: ignore[no-any-return]
+                except APIError as e:
+                    # If it's a duplicate error, try to find the existing problem
+                    if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
+                        logger.info(
+                            f"Problem with externalid '{externalid}' already exists, "
+                            "refreshing cache and retrying..."
+                        )
+                        # Invalidate cache and try again
+                        if self.client.cache:
+                            self.client.cache.invalidate("all_problems")
+                        all_problems = self.list_all()
+                        if externalid in all_problems:
+                            problem_id = all_problems[externalid]["id"]
+                            logger.info(f"Found existing problem '{externalid}' (ID: {problem_id})")
+                            return problem_id  # type: ignore[no-any-return]
+                    raise
         finally:
             if temp_zip_path and temp_zip_path.exists():
                 temp_zip_path.unlink()
