@@ -11,15 +11,25 @@ except Exception:
     from pathlib import Path
 
     try:
-        try:
-            import tomllib  # Python 3.11+
-        except ImportError:
-            import tomli as tomllib  # type: ignore[no-redef]
+        import sys
 
-        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-        with pyproject_path.open("rb") as f:
-            pyproject_data = tomllib.load(f)
-        __version__ = pyproject_data["project"]["version"]
+        # Python 3.11+ has tomllib built-in
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            # Python 3.10 needs tomli package
+            try:
+                import tomli as tomllib  # type: ignore[no-redef]
+            except ImportError:
+                # If tomli not available, use fallback
+                __version__ = "0.0.0-dev"
+                tomllib = None  # type: ignore[assignment]
+
+        if tomllib is not None:
+            pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+            with pyproject_path.open("rb") as f:
+                pyproject_data = tomllib.load(f)
+            __version__ = pyproject_data["project"]["version"]
     except Exception:
         # Last resort fallback
         __version__ = "0.0.0-dev"
