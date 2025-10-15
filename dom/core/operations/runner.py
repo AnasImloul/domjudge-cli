@@ -106,7 +106,7 @@ class OperationRunner(Generic[T]):
         if result.is_success():
             logger.info(
                 f"Operation completed successfully: {description}",
-                extra={"operation": description, "message": result.message},
+                extra={"operation": description, "result_message": result.message},
             )
         elif result.is_failure():
             logger.error(
