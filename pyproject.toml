@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "domjudge-cli"
-version = "0.2.15"
+version = "0.2.16"
 description = "CLI tool for managing DOMjudge contests and infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Anas IMLOUL", email = "anas.imloul27@gmail.com"}
 ]
 keywords = ["domjudge", "cli", "contest", "programming"]
 classifiers = [
@@ -58,9 +58,9 @@ dependencies = [
 dom = "dom.cli.__init__:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/domjudge-cli"
-Repository = "https://github.com/yourusername/domjudge-cli"
-Issues = "https://github.com/yourusername/domjudge-cli/issues"
+Homepage = "https://github.com/AnasImloul/domjudge-cli"
+Repository = "https://github.com/AnasImloul/domjudge-cli"
+Issues = "https://github.com/AnasImloul/domjudge-cli/issues"
 
 # ===== Tool Configurations =====
 
