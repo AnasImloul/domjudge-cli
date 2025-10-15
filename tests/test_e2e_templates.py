@@ -1,10 +1,13 @@
 """End-to-end tests for template loading and rendering.
 
 These tests ensure that templates are properly packaged and accessible
-in both development and installed environments.
+in both development and installed environments, and that they render
+correct, valid output.
 """
 
-from jinja2 import Template
+import pytest
+import yaml
+from jinja2 import Template, UndefinedError
 
 
 class TestTemplateLoading:
@@ -60,73 +63,177 @@ class TestTemplateLoading:
 
 
 class TestTemplateRendering:
-    """Test that templates can be rendered with valid data."""
+    """Test that templates render valid, correct output."""
 
-    def test_docker_compose_template_renders(self):
-        """Test docker-compose template renders without errors."""
+    def test_docker_compose_template_renders_valid_yaml(self):
+        """Test docker-compose template renders valid YAML with correct structure."""
         from dom.templates.infra import docker_compose_template
 
         rendered = docker_compose_template.render(
             platform_port=12345,
             judgehost_count=2,
-            admin_password="test_password",
-            judge_password="judge_password",
-            db_password="db_password",
+            admin_password="test_admin_pass",
+            judge_password="test_judge_pass",
+            db_password="test_db_pass",
         )
 
-        assert rendered is not None
-        assert "domserver:" in rendered
-        assert "mariadb:" in rendered
-        assert "judgehost" in rendered
-        assert "12345" in rendered
+        # Must be valid YAML
+        compose_data = yaml.safe_load(rendered)
+        assert compose_data is not None
 
-    def test_contest_template_renders(self):
-        """Test contest init template renders without errors."""
+        # Validate structure
+        assert "services" in compose_data
+        services = compose_data["services"]
+
+        # Required services must exist
+        assert "mariadb" in services
+        assert "domserver" in services
+        assert "mysql-client" in services
+
+        # Validate mariadb service
+        mariadb = services["mariadb"]
+        assert mariadb["image"] == "mariadb"
+        assert mariadb["container_name"] == "dom-cli-mariadb"
+        assert "MYSQL_DATABASE=domjudge" in mariadb["environment"]
+        assert any("MYSQL_PASSWORD=" in env for env in mariadb["environment"])
+
+        # Validate domserver service
+        domserver = services["domserver"]
+        assert domserver["image"] == "domjudge/domserver:8.2.0"
+        assert domserver["container_name"] == "dom-cli-domserver"
+        assert "12345:80" in domserver["ports"]
+        assert any("MYSQL_HOST=dom-cli-mariadb" in env for env in domserver["environment"])
+
+        # Validate judgehosts
+        judgehost_services = [k for k in services if k.startswith("judgehost-")]
+        assert len(judgehost_services) == 2
+        for i in range(1, 3):
+            judgehost_name = f"judgehost-{i}"
+            assert judgehost_name in services
+            judgehost = services[judgehost_name]
+            assert judgehost["image"] == "domjudge/judgehost:8.2.0"
+            assert judgehost["container_name"] == f"dom-cli-{judgehost_name}"
+
+    def test_docker_compose_template_fails_without_required_params(self):
+        """Test template fails gracefully when required parameters are missing."""
+        from dom.templates.infra import docker_compose_template
+
+        # Should fail without required parameters
+        with pytest.raises((UndefinedError, TypeError)):
+            docker_compose_template.render()
+
+    def test_contest_template_renders_valid_yaml(self):
+        """Test contest template renders valid YAML with correct structure."""
         from dom.templates.init import contest_template
 
         rendered = contest_template.render(
-            name="Test Contest",
-            shortname="test2024",
-            start="2024-01-01T00:00:00",
+            name="ACM ICPC 2024",
+            shortname="icpc2024",
+            start_time="2024-06-15T09:00:00",
             duration="5:00:00",
             penalty_time="20",
             allow_submit=True,
+            teams="teams.csv",
+            delimiter=",",
         )
 
-        assert rendered is not None
-        assert "test2024" in rendered
-        assert "5:00:00" in rendered
-        assert "Test Contest" in rendered
+        # Must be valid YAML
+        config_data = yaml.safe_load(rendered)
+        assert config_data is not None
 
-    def test_infra_template_renders(self):
-        """Test infra init template renders without errors."""
+        # Validate structure
+        assert "contests" in config_data
+        contests = config_data["contests"]
+        assert isinstance(contests, list)
+        assert len(contests) >= 1
+
+        # Validate contest data
+        contest = contests[0]
+        assert contest["name"] == "ACM ICPC 2024"
+        assert contest["shortname"] == "icpc2024"
+        assert contest["start_time"] == "2024-06-15T09:00:00"
+        assert contest["duration"] == "5:00:00"
+        assert contest["penalty_time"] == 20
+        assert contest["allow_submit"] is True
+
+        # Validate required sections
+        assert "problems" in contest
+        assert "teams" in contest
+
+    def test_infra_template_renders_valid_yaml(self):
+        """Test infra template renders valid YAML with correct structure."""
         from dom.templates.init import infra_template
 
         rendered = infra_template.render(
-            port=12345,
-            judges=3,
+            port=8080,
+            judges=4,
+            password="test_password",
         )
 
-        assert rendered is not None
-        assert "port:" in rendered
-        assert "12345" in rendered
-        assert "judges:" in rendered
-        assert "3" in rendered
+        # Must be valid YAML
+        config_data = yaml.safe_load(rendered)
+        assert config_data is not None
 
-    def test_problems_template_renders(self):
-        """Test problems init template renders without errors."""
+        # Validate structure
+        assert "infra" in config_data
+        infra = config_data["infra"]
+
+        # Validate fields
+        assert infra["port"] == 8080
+        assert infra["judges"] == 4
+
+    def test_infra_template_with_different_values(self):
+        """Test infra template with various valid values."""
+        from dom.templates.init import infra_template
+
+        # Test with minimum values
+        rendered = infra_template.render(port=80, judges=1, password="test")
+        config_data = yaml.safe_load(rendered)
+        assert config_data["infra"]["port"] == 80
+        assert config_data["infra"]["judges"] == 1
+
+        # Test with large values
+        rendered = infra_template.render(port=65535, judges=10, password="test")
+        config_data = yaml.safe_load(rendered)
+        assert config_data["infra"]["port"] == 65535
+        assert config_data["infra"]["judges"] == 10
+
+    def test_problems_template_renders_valid_yaml(self):
+        """Test problems template renders valid YAML with correct structure."""
         from dom.templates.init import problems_template
 
         rendered = problems_template.render(
-            archive="problems/test.zip",
+            archive="problems/graph-problem-42$linux.zip",
             platform="Polygon",
-            color="#FF0000",
+            color="#FF5733",
         )
 
-        assert rendered is not None
-        assert "problems/test.zip" in rendered
-        assert "Polygon" in rendered
-        assert "#FF0000" in rendered
+        # Must be valid YAML - the template renders a list directly
+        config_data = yaml.safe_load(rendered)
+        assert config_data is not None
+        assert isinstance(config_data, list)
+        assert len(config_data) >= 1
+
+        # Validate problem data
+        problem = config_data[0]
+        assert problem["archive"] == "problems/graph-problem-42$linux.zip"
+        assert problem["platform"] == "Polygon"
+        assert problem["color"] == "#FF5733"
+
+    def test_problems_template_color_format(self):
+        """Test that problems template accepts valid hex colors."""
+        from dom.templates.init import problems_template
+
+        # Test various valid hex colors
+        colors = ["#000000", "#FFFFFF", "#FF5733", "#abc123"]
+        for color in colors:
+            rendered = problems_template.render(
+                archive="test.zip",
+                platform="DOMjudge",
+                color=color,
+            )
+            config_data = yaml.safe_load(rendered)
+            assert config_data[0]["color"] == color
 
 
 class TestTemplateCache:
