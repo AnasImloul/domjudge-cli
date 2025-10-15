@@ -1,6 +1,7 @@
 """Problem management service for DOMjudge API."""
 
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -145,23 +146,47 @@ class ProblemService:
                     if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
                         logger.info(
                             f"Problem with externalid '{externalid}' already exists, "
-                            "searching system problems..."
+                            "refreshing cache to find it..."
                         )
-                        # Try to find in system problems (not just contest-linked)
-                        system_problems = self.list_all_system_problems()
-                        if externalid in system_problems:
-                            problem_id = system_problems[externalid]["id"]
-                            logger.info(f"Found existing problem '{externalid}' (ID: {problem_id})")
-                            return problem_id  # type: ignore[no-any-return]
 
-                        # If still not found, try invalidating cache and checking contest problems
-                        if self.client.cache:
-                            self.client.cache.invalidate("all_problems")
-                        all_problems = self.list_all()
-                        if externalid in all_problems:
-                            problem_id = all_problems[externalid]["id"]
-                            logger.info(f"Found existing problem '{externalid}' (ID: {problem_id})")
-                            return problem_id  # type: ignore[no-any-return]
+                        # Retry with delays to allow system to settle
+                        for attempt in range(3):
+                            # Invalidate cache and fetch all contest problems again
+                            if self.client.cache:
+                                self.client.cache.invalidate("all_problems")
+                                self.client.cache.invalidate("contests_list")
+
+                            # Small delay to allow system to propagate
+                            if attempt > 0:
+                                time.sleep(0.5 * attempt)
+                                logger.debug(
+                                    f"Retry attempt {attempt + 1} to find problem '{externalid}'"
+                                )
+
+                            # Try to find in all contest problems
+                            all_problems = self.list_all()
+                            if externalid in all_problems:
+                                problem_id = all_problems[externalid]["id"]
+                                logger.info(
+                                    f"Found existing problem '{externalid}' (ID: {problem_id})"
+                                )
+                                return problem_id  # type: ignore[no-any-return]
+
+                            # Try system problems as fallback
+                            system_problems = self.list_all_system_problems()
+                            if externalid in system_problems:
+                                problem_id = system_problems[externalid]["id"]
+                                logger.info(
+                                    f"Found existing problem '{externalid}' (ID: {problem_id})"
+                                )
+                                return problem_id  # type: ignore[no-any-return]
+
+                        # If we still can't find it after retries, log a warning and re-raise
+                        logger.warning(
+                            f"Problem '{externalid}' already exists according to API, "
+                            "but couldn't find it in any contest after multiple attempts. "
+                            "This may indicate the problem exists in the system but isn't linked to any contest yet."
+                        )
                     raise
         finally:
             if temp_zip_path and temp_zip_path.exists():
