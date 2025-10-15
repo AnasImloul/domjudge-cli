@@ -80,6 +80,28 @@ class ProblemService:
         logger.info(f"Found {len(all_problems)} unique problems")
         return all_problems
 
+    def list_all_system_problems(self) -> dict[str, Any]:
+        """
+        List all problems in the DOMjudge system (not just contest-linked).
+
+        Returns:
+            Dictionary mapping external IDs to problem data
+        """
+        try:
+            data = self.client.get("/api/v4/problems")
+            all_problems: dict[str, Any] = {}
+            if isinstance(data, list):
+                for problem in data:
+                    if isinstance(problem, dict):
+                        externalid = problem.get("externalid")
+                        if externalid:
+                            all_problems[externalid] = problem
+            logger.info(f"Found {len(all_problems)} problems in system")
+            return all_problems
+        except Exception as e:
+            logger.warning(f"Failed to fetch system problems: {e}")
+            return {}
+
     def create_or_get(self, problem_package: ProblemPackage) -> str:
         """
         Create a problem or get existing one by external ID.
@@ -123,9 +145,16 @@ class ProblemService:
                     if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
                         logger.info(
                             f"Problem with externalid '{externalid}' already exists, "
-                            "refreshing cache and retrying..."
+                            "searching system problems..."
                         )
-                        # Invalidate cache and try again
+                        # Try to find in system problems (not just contest-linked)
+                        system_problems = self.list_all_system_problems()
+                        if externalid in system_problems:
+                            problem_id = system_problems[externalid]["id"]
+                            logger.info(f"Found existing problem '{externalid}' (ID: {problem_id})")
+                            return problem_id  # type: ignore[no-any-return]
+
+                        # If still not found, try invalidating cache and checking contest problems
                         if self.client.cache:
                             self.client.cache.invalidate("all_problems")
                         all_problems = self.list_all()
