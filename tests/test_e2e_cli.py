@@ -5,7 +5,6 @@ not just that they can be imported.
 """
 
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -16,7 +15,7 @@ class TestCLIHelp:
 
     def test_main_help_must_work(self):
         """Test that 'dom --help' works - first thing users try."""
-        # Try: dom --help
+        # This simulates: dom --help
         result = subprocess.run(
             ["dom", "--help"],
             capture_output=True,
@@ -24,22 +23,13 @@ class TestCLIHelp:
             check=False,
         )
 
-        # If not in PATH, try python -m dom
-        if result.returncode != 0:
-            result = subprocess.run(
-                [sys.executable, "-m", "dom", "--help"],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-
         # STRICT: Help MUST work
-        assert result.returncode == 0, (
-            f"Help command FAILED! Users can't get help!\nSTDERR:\n{result.stderr}"
-        )
-        assert "Usage:" in result.stdout or "Commands:" in result.stdout, (
-            f"Help output doesn't look right:\n{result.stdout}"
-        )
+        assert (
+            result.returncode == 0
+        ), f"Help command FAILED! Users can't get help!\nSTDERR:\n{result.stderr}"
+        assert (
+            "Usage:" in result.stdout or "Commands:" in result.stdout
+        ), f"Help output doesn't look right:\n{result.stdout}"
         assert len(result.stdout) > 50, "Help text is too short/empty"
 
 
@@ -48,24 +38,27 @@ class TestCLIInit:
     """Test CLI init command actually creates valid files."""
 
     def test_init_contest_creates_valid_file(self, tmp_path):
-        """Test that init contest command creates a valid YAML file."""
+        """Test that contest template can create valid YAML file."""
         import yaml
 
-        from dom.core.services.init.contest import initialize_contest
+        from dom.templates.init import contest_template
 
         output_file = tmp_path / "contest.yml"
 
-        # This should create a file with prompts (we'll use defaults)
-        # For now, test the service function directly
-        _ = initialize_contest(
-            output_path=output_file,
+        # Render template directly (init functions are interactive)
+        rendered = contest_template.render(
             name="Test Contest",
             shortname="test2024",
-            start="2024-01-01T00:00:00",
+            start_time="2024-01-01T00:00:00",
             duration="5:00:00",
-            penalty_time=20,
+            penalty_time="20",
             allow_submit=True,
+            teams="teams.csv",
+            delimiter=",",
         )
+
+        # Write to file
+        output_file.write_text(rendered)
 
         # Should create the file
         assert output_file.exists()
@@ -81,18 +74,22 @@ class TestCLIInit:
         assert config["contests"][0]["shortname"] == "test2024"
 
     def test_init_infra_creates_valid_file(self, tmp_path):
-        """Test that init infra command creates a valid YAML file."""
+        """Test that infra template can create valid YAML file."""
         import yaml
 
-        from dom.core.services.init.infra import initialize_infrastructure
+        from dom.templates.init import infra_template
 
         output_file = tmp_path / "infra.yml"
 
-        _ = initialize_infrastructure(
-            output_path=output_file,
+        # Render template directly (init functions are interactive)
+        rendered = infra_template.render(
             port=8080,
             judges=4,
+            password="test_password",
         )
+
+        # Write to file
+        output_file.write_text(rendered)
 
         # Should create the file
         assert output_file.exists()
@@ -102,29 +99,28 @@ class TestCLIInit:
             config = yaml.safe_load(f)
 
         # Validate structure
-        assert "infrastructure" in config
-        assert config["infrastructure"]["platform_port"] == 8080
-        assert config["infrastructure"]["judgehosts"] == 4
+        assert "infra" in config
+        assert config["infra"]["port"] == 8080
+        assert config["infra"]["judges"] == 4
 
     def test_init_problems_creates_valid_file(self, tmp_path):
-        """Test that init problems command creates a valid YAML file."""
+        """Test that problems template can create valid YAML file."""
         import yaml
 
-        from dom.core.services.init.problems import initialize_problems
+        from dom.templates.init import problems_template
 
         output_file = tmp_path / "problems.yml"
 
-        # Create a fake problem archive
-        problem_archive = tmp_path / "test-problem.zip"
-        problem_archive.write_bytes(b"fake zip content")
-
-        _ = initialize_problems(
-            output_path=output_file,
-            archive=str(problem_archive),
+        # Render template directly (init functions are interactive)
+        rendered = problems_template.render(
+            archive="problems/test-problem.zip",
             platform="DOMjudge",
             color="#FF0000",
         )
 
+        # Write to file
+        output_file.write_text(rendered)
+
         # Should create the file
         assert output_file.exists()
 
@@ -132,10 +128,10 @@ class TestCLIInit:
         with output_file.open() as f:
             config = yaml.safe_load(f)
 
-        # Validate structure
-        assert "problems" in config
-        assert len(config["problems"]) >= 1
-        assert config["problems"][0]["platform"] == "DOMjudge"
+        # Validate structure - problems template renders a list directly
+        assert isinstance(config, list)
+        assert len(config) >= 1
+        assert config[0]["platform"] == "DOMjudge"
 
 
 @pytest.mark.e2e
@@ -144,11 +140,51 @@ class TestConfigLoading:
 
     def test_load_valid_contest_config(self, tmp_path):
         """Test loading a valid contest configuration."""
+        import zipfile
+
         import yaml
 
         from dom.core.config.loaders.contest import load_contests_from_config
         from dom.infrastructure.secrets.manager import SecretsManager
         from dom.types.config.raw import RawContestConfig
+
+        # Create problems.yaml file that the config references
+        problems_file = tmp_path / "problems.yaml"
+
+        # Create a valid minimal DOMjudge problem archive
+        problem_archive = tmp_path / "problem1.zip"
+        with zipfile.ZipFile(problem_archive, "w") as zf:
+            # Minimal DOMjudge problem structure
+            zf.writestr(
+                "problem.yaml",
+                yaml.dump(
+                    {
+                        "name": "Test Problem",
+                        "short_name": "testprob",
+                        "label": "A",
+                        "timelimit": 1.0,
+                        "color": "#FF0000",
+                        "externalid": "test-1",
+                        "limits": {},
+                        "validation": "default",
+                    }
+                ),
+            )
+            zf.writestr(
+                "domjudge-problem.ini",
+                "short-name=testprob\ntimelimit=1.0\ncolor=#FF0000\nexternalid=test-1\n",
+            )
+
+        # Use absolute path in problems.yaml so it resolves correctly
+        problems_data = [
+            {"archive": str(problem_archive), "platform": "DOMjudge", "color": "#FF0000"}
+        ]
+        with problems_file.open("w") as f:
+            yaml.dump(problems_data, f)
+
+        # Create teams.csv file
+        teams_file = tmp_path / "teams.csv"
+        teams_file.write_text("id,name,affiliation\n1,Team A,Org A\n")
 
         # Create valid config
         config_data = {
@@ -174,6 +210,9 @@ class TestConfigLoading:
 
         # Load config
         secrets = SecretsManager(tmp_path / ".secrets")
+        secrets.set(
+            "admin_password", "test_admin_password"
+        )  # Required for team password generation
         raw_contest = RawContestConfig(**config_data)
 
         contests = load_contests_from_config([raw_contest], config_file, secrets)
@@ -182,8 +221,9 @@ class TestConfigLoading:
         assert len(contests) == 1
         contest = contests[0]
         assert contest.name == "Test Contest"
-        assert contest.shortname == "test2024"
-        assert contest.start_time == "2024-01-01T00:00:00"
+        assert contest.shortname == "TEST2024"  # Shortnames are normalized to uppercase
+        # start_time is converted to datetime object
+        assert str(contest.start_time) == "2024-01-01 00:00:00"
         assert contest.duration == "5:00:00"
 
     def test_load_invalid_contest_config_fails(self, tmp_path):
@@ -250,9 +290,9 @@ class TestVersionConsistency:
 
         # Should follow semantic versioning (major.minor.patch)
         version_pattern = r"^\d+\.\d+\.\d+(-\w+)?$"
-        assert re.match(version_pattern, dom.__version__), (
-            f"Invalid version format: {dom.__version__}"
-        )
+        assert re.match(
+            version_pattern, dom.__version__
+        ), f"Invalid version format: {dom.__version__}"
 
 
 @pytest.mark.e2e
@@ -266,16 +306,16 @@ class TestSecretsManager:
         secrets_dir = tmp_path / ".secrets"
         manager = SecretsManager(secrets_dir)
 
-        # Store a secret
-        manager.store_secret("test_key", "test_value", "Test Secret")
+        # Store a secret (correct API is set)
+        manager.set("test_key", "test_value")
 
         # Should be able to retrieve it
-        value = manager.get_secret("test_key")
+        value = manager.get("test_key")
         assert value == "test_value"
 
         # Should persist across instances
         manager2 = SecretsManager(secrets_dir)
-        value2 = manager2.get_secret("test_key")
+        value2 = manager2.get("test_key")
         assert value2 == "test_value"
 
     def test_secrets_manager_missing_key_returns_none(self, tmp_path):
@@ -285,7 +325,7 @@ class TestSecretsManager:
         secrets_dir = tmp_path / ".secrets"
         manager = SecretsManager(secrets_dir)
 
-        value = manager.get_secret("nonexistent_key")
+        value = manager.get("nonexistent_key")
         assert value is None
 
     def test_secrets_manager_updates_existing_secret(self, tmp_path):
@@ -296,11 +336,11 @@ class TestSecretsManager:
         manager = SecretsManager(secrets_dir)
 
         # Store initial value
-        manager.store_secret("test_key", "old_value", "Test Secret")
+        manager.set("test_key", "old_value")
 
         # Update it
-        manager.store_secret("test_key", "new_value", "Test Secret")
+        manager.set("test_key", "new_value")
 
         # Should retrieve new value
-        value = manager.get_secret("test_key")
+        value = manager.get("test_key")
         assert value == "new_value"
