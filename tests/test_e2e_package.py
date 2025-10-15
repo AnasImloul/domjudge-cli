@@ -124,9 +124,9 @@ class TestResourceFiles:
         # Check infra templates
         infra_path = templates_path / "infra"
         assert infra_path.exists(), "infra template directory should exist"
-        assert (infra_path / "docker-compose.yml.j2").exists(), (
-            "docker-compose template should exist"
-        )
+        assert (
+            infra_path / "docker-compose.yml.j2"
+        ).exists(), "docker-compose template should exist"
 
         # Check init templates
         init_path = templates_path / "init"
