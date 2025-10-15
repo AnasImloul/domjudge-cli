@@ -32,12 +32,17 @@ def initialize_contest():
         parser=ValidatorBuilder.datetime("%Y-%m-%d %H:%M:%S").build(),
     )
 
-    h, m, s = ask(
+    duration_result = ask(
         "Duration (HH:MM:SS)",
         console=console,
         default="05:00:00",
         parser=ValidatorBuilder.duration_hms().build(),
     )
+    if isinstance(duration_result, tuple):
+        h, m, s = duration_result
+    else:
+        # Fallback if not a tuple
+        h, m, s = 5, 0, 0
     duration_str = f"{h:02d}:{m:02d}:{s:02d}"
 
     penalty_minutes = ask(
@@ -80,7 +85,10 @@ def initialize_contest():
     table.add_column("Value", style="green")
     table.add_row("Name", name)
     table.add_row("Shortname", shortname)
-    table.add_row("Start time", start_dt.strftime("%Y-%m-%d %H:%M:%S"))
+    table.add_row(
+        "Start time",
+        start_dt.strftime("%Y-%m-%d %H:%M:%S") if hasattr(start_dt, "strftime") else str(start_dt),
+    )
     table.add_row("Duration", duration_str)
     table.add_row("Penalty time", f"{penalty_minutes} minutes")
     table.add_row("Allow submit", "Yes" if allow_submit else "No")
@@ -90,7 +98,11 @@ def initialize_contest():
     rendered = contest_template.render(
         name=name,
         shortname=shortname,
-        start_time=format_datetime(start_dt.strftime("%Y-%m-%d %H:%M:%S")),
+        start_time=format_datetime(
+            start_dt.strftime("%Y-%m-%d %H:%M:%S")
+            if hasattr(start_dt, "strftime")
+            else str(start_dt)
+        ),
         duration=format_duration(duration_str),
         penalty_time=str(penalty_minutes),
         allow_submit=str(allow_submit).lower(),

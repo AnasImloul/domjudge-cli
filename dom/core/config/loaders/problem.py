@@ -185,56 +185,53 @@ def load_domjudge_problem(archive_path: Path) -> ProblemPackage:
         )
 
 
-def load_problem(problem: RawProblem, with_statement: bool, idx: int) -> tuple[ProblemPackage, int]:
+def load_problem(
+    archive_path: Path, platform: str, color: str, with_statement: bool, idx: int
+) -> tuple[ProblemPackage, int]:
     """
     Import a problem based on its format.
     - 'domjudge': load directly
     - 'polygon': convert and load
     - Else: raise exception
     """
-    problem_format = (problem.platform or "").strip().lower()
+    problem_format = (platform or "").strip().lower()
 
     if problem_format == "domjudge":
-        problem_package = load_domjudge_problem(Path(problem.archive))
+        problem_package = load_domjudge_problem(archive_path)
     elif problem_format == "polygon":
-        problem_package = convert_and_load_problem(
-            Path(problem.archive), with_statement=with_statement
-        )
+        problem_package = convert_and_load_problem(archive_path, with_statement=with_statement)
     else:
         raise ValueError(
-            f"Unsupported problem platform: '{problem.platform}' (must be 'domjudge' or 'polygon')"
+            f"Unsupported problem platform: '{platform}' (must be 'domjudge' or 'polygon')"
         )
 
-    problem_package.ini.color = get_hex_color(problem.color)
+    problem_package.ini.color = get_hex_color(color)
     return problem_package, idx
 
 
 def load_problems_from_config(
     problem_config: Union[RawProblemsConfig, list[RawProblem]],
     with_statement: bool,
-    config_path: str,
+    config_path: Path,
 ):
     if isinstance(problem_config, RawProblemsConfig):
-        file_path = problem_config.from_
-
         # Resolve file_path relative to the directory of config_path
-        config_dir = Path(config_path).resolve().parent
-        file_path_obj = config_dir / file_path
-        file_path = str(file_path_obj)
+        config_dir = config_path.resolve().parent
+        file_path = config_dir / problem_config.from_
 
-        if not (file_path.endswith(".yml") or file_path.endswith(".yaml")):
+        if file_path.suffix.lower() not in (".yml", ".yaml"):
             print(
                 f"[ERROR] Problems file '{file_path}' must be a .yml or .yaml file.",
                 file=sys.stderr,
             )
             raise ValueError(f"Invalid file extension for problems file: {file_path}")
 
-        if not file_path_obj.exists():
+        if not file_path.exists():
             print(f"[ERROR] Problems file '{file_path}' does not exist.", file=sys.stderr)
             raise FileNotFoundError(f"Problems file not found: {file_path}")
 
         try:
-            with file_path_obj.open() as f:
+            with file_path.open() as f:
                 loaded_data = yaml.safe_load(f)
                 if not isinstance(loaded_data, list):
                     print(
@@ -257,21 +254,24 @@ def load_problems_from_config(
         print("[ERROR] Invalid problem configuration.", file=sys.stderr)
         raise TypeError("Invalid problem configuration type.")
 
-    # Validate archives are unique
-    archive_paths = [str(Path(problem.archive).resolve()) for problem in problems]
-    if len(archive_paths) != len(set(archive_paths)):
-        duplicates = {x for x in archive_paths if archive_paths.count(x) > 1}
+    # Validate archives are unique and convert to Path objects
+    archive_paths = [Path(problem.archive).resolve() for problem in problems]
+    archive_paths_str = [str(p) for p in archive_paths]
+    if len(archive_paths_str) != len(set(archive_paths_str)):
+        duplicates = {x for x in archive_paths_str if archive_paths_str.count(x) > 1}
         raise ValueError(f"Duplicate archives detected: {', '.join(duplicates)}")
 
-    for _idx, problem in enumerate(problems, start=1):
-        if not Path(problem.archive).exists():
-            raise FileNotFoundError(f"Archive not found: {problem.archive}")
+    for archive_path in archive_paths:
+        if not archive_path.exists():
+            raise FileNotFoundError(f"Archive not found: {archive_path}")
 
     # Load problems with progress bar
     with ProcessPoolExecutor() as executor:
         futures = {
-            executor.submit(load_problem, problem, with_statement, i): problem
-            for i, problem in enumerate(problems)
+            executor.submit(
+                load_problem, archive_path, problem.platform, problem.color, with_statement, i
+            ): problem
+            for i, (problem, archive_path) in enumerate(zip(problems, archive_paths, strict=False))
         }
         problem_packages = []
         for future in tqdm(as_completed(futures), total=len(futures), desc="Loading problems"):

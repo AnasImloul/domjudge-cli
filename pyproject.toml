@@ -142,6 +142,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]  # Allow unused imports in __init__.py
 "tests/**/*.py" = ["ARG", "PLR2004", "S101", "PLC0415"]  # Allow test patterns and lazy imports
+"dom/cli/**/*.py" = ["B008"] # Allow function call `typer.Option` in argument defaults
 
 [tool.ruff.lint.isort]
 known-first-party = ["dom"]

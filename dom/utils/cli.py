@@ -16,14 +16,14 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-def ensure_dom_directory() -> str:
+def ensure_dom_directory() -> Path:
     """
     Ensure that the .dom directory exists in the current working directory.
     Returns the absolute path to the .dom folder.
     """
     dom_path = Path.cwd() / ".dom"
     dom_path.mkdir(exist_ok=True)
-    return str(dom_path)
+    return dom_path
 
 
 def get_secrets_manager() -> SecretsManager:
@@ -33,7 +33,7 @@ def get_secrets_manager() -> SecretsManager:
     Returns:
         Configured SecretsManager instance
     """
-    return SecretsManager(Path(ensure_dom_directory()))
+    return SecretsManager(ensure_dom_directory())
 
 
 def cli_command(func: Callable[..., T]) -> Callable[..., T]:
@@ -82,7 +82,7 @@ def cli_command(func: Callable[..., T]) -> Callable[..., T]:
     return wrapper
 
 
-def find_config_or_default(file: str | None) -> str:
+def find_config_or_default(file: Path | None) -> Path:
     """
     Find configuration file or use default.
 
@@ -97,28 +97,28 @@ def find_config_or_default(file: str | None) -> str:
         FileExistsError: If both .yaml and .yml exist
     """
     if file:
-        if not Path(file).is_file():
+        if not file.is_file():
             raise FileNotFoundError(f"Specified config file '{file}' not found.")
         return file
 
-    yaml_exists = Path("dom-judge.yaml").is_file()
-    yml_exists = Path("dom-judge.yml").is_file()
+    yaml_path = Path("dom-judge.yaml")
+    yml_path = Path("dom-judge.yml")
 
-    if yaml_exists and yml_exists:
+    if yaml_path.is_file() and yml_path.is_file():
         raise FileExistsError(
             "Both 'dom-judge.yaml' and 'dom-judge.yml' exist. "
             "Please specify which one to use with --file."
         )
-    if not yaml_exists and not yml_exists:
+    if not yaml_path.is_file() and not yml_path.is_file():
         raise FileNotFoundError(
             "No 'dom-judge.yaml' or 'dom-judge.yml' found. "
             "Please specify a config file with --file or run 'dom init' first."
         )
 
-    return "dom-judge.yaml" if yaml_exists else "dom-judge.yml"
+    return yaml_path if yaml_path.is_file() else yml_path
 
 
-def check_file_exists(file: str) -> bool:
+def check_file_exists(file: Path) -> bool:
     """
     Check if file exists and raise error if it does.
 
@@ -131,7 +131,7 @@ def check_file_exists(file: str) -> bool:
     Raises:
         FileExistsError: If file exists
     """
-    if Path(file).is_file():
+    if file.is_file():
         raise FileExistsError(
             f"File '{file}' already exists. "
             "Rename or remove the existing file, or use --overwrite to replace it."
@@ -139,7 +139,7 @@ def check_file_exists(file: str) -> bool:
     return False
 
 
-def ask_override_if_exists(output_file: str) -> bool:
+def ask_override_if_exists(output_file: Path) -> bool:
     """
     Ask user whether to override if the output file exists.
 
@@ -149,7 +149,7 @@ def ask_override_if_exists(output_file: str) -> bool:
     Returns:
         True if should proceed, False if should skip
     """
-    if Path(output_file).exists():
+    if output_file.exists():
         override = Confirm.ask(
             f"File '{output_file}' exists. Do you want to override it?",
             default=False,

@@ -1,7 +1,5 @@
 """Infrastructure destruction service."""
 
-from pathlib import Path
-
 from dom.infrastructure.docker.containers import DockerClient
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
@@ -25,7 +23,7 @@ def destroy_infra_and_platform(secrets: SecretsManager) -> None:
     logger.warning("🔥 DESTROY: Tearing down infrastructure...")
 
     docker = DockerClient()
-    compose_file = str(Path(ensure_dom_directory()) / "docker-compose.yml")
+    compose_file = ensure_dom_directory() / "docker-compose.yml"
 
     docker.stop_all_services(compose_file=compose_file)
     secrets.clear_all()

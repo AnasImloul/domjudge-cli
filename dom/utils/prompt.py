@@ -17,19 +17,19 @@ def ask(
     parser: Callable[[str], T] | None = None,
     password: bool = False,
     show_default: bool = True,
-) -> T:
+) -> T | str:
     """Prompt once; parse; reprompt on error. All looping is hidden here."""
     while True:
-        raw = Prompt.ask(
+        raw: str = Prompt.ask(
             message,
-            default=default,
+            default=default or "",
             show_default=show_default,
             password=password,
             console=console,
         )
         try:
-            value = parser(raw) if parser else raw  # type: ignore[arg-type]
-            return value  # type: ignore[return-value]
+            value: T | str = parser(raw) if parser else raw
+            return value
         except Invalid as e:
             console.print(f"[red]{e}[/red]")
         except Exception as e:

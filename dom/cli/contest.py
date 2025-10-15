@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import jmespath
 import typer
@@ -29,7 +30,7 @@ contest_command = typer.Typer()
 @contest_command.command("apply")
 @cli_command
 def apply_from_config(
-    file: str = typer.Option(
+    file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying them"),
@@ -146,7 +147,7 @@ def verify_problemset_command(
     contest: str = typer.Argument(
         ..., help="Name of the contest to verify its problemset", callback=validate_contest_name
     ),
-    file: str = typer.Option(
+    file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
 ) -> None:
@@ -165,7 +166,7 @@ def verify_problemset_command(
 @contest_command.command("inspect")
 @cli_command
 def inspect_contests_command(
-    file: str = typer.Option(
+    file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
     format: str = typer.Option(None, "--format", help="JMESPath expression to filter output."),

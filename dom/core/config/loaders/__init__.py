@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from dom.infrastructure.config import load_config as load_raw_config
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.types.config.processed import ContestConfig, DomConfig, InfraConfig
@@ -6,7 +8,7 @@ from .contest import load_contest_from_config, load_contests_from_config
 from .infra import load_infra_from_config
 
 
-def load_config(file_path: str | None, secrets: SecretsManager) -> DomConfig:
+def load_config(file_path: Path | None, secrets: SecretsManager) -> DomConfig:
     """
     Load complete DOMjudge configuration.
 
@@ -29,13 +31,13 @@ def load_config(file_path: str | None, secrets: SecretsManager) -> DomConfig:
     )
 
 
-def load_infrastructure_config(file_path: str | None) -> InfraConfig:
+def load_infrastructure_config(file_path: Path | None) -> InfraConfig:
     """Load infrastructure configuration only."""
     config = load_raw_config(file_path)
     return load_infra_from_config(config.infra, config_path=config.loaded_from)
 
 
-def load_contests_config(file_path: str | None, secrets: SecretsManager) -> list[ContestConfig]:
+def load_contests_config(file_path: Path | None, secrets: SecretsManager) -> list[ContestConfig]:
     """
     Load contests configuration.
 
@@ -55,7 +57,7 @@ def load_contests_config(file_path: str | None, secrets: SecretsManager) -> list
 
 
 def load_contest_config(
-    file_path: str | None, contest_name: str, secrets: SecretsManager
+    file_path: Path | None, contest_name: str, secrets: SecretsManager
 ) -> ContestConfig:
     """
     Load a specific contest configuration by name.

@@ -23,8 +23,8 @@ class TestEnsureDomDirectory:
         """Test that .dom directory is created if it doesn't exist."""
         monkeypatch.chdir(tmp_path)
         dom_path = ensure_dom_directory()
-        assert Path(dom_path).exists()
-        assert dom_path == str(tmp_path / ".dom")
+        assert dom_path.exists()
+        assert dom_path == tmp_path / ".dom"
 
     def test_returns_existing_directory(self, tmp_path, monkeypatch):
         """Test that existing .dom directory is returned."""
@@ -33,7 +33,7 @@ class TestEnsureDomDirectory:
 
         monkeypatch.chdir(tmp_path)
         dom_path = ensure_dom_directory()
-        assert dom_path == str(dom_dir)
+        assert dom_path == dom_dir
 
 
 class TestGetSecretsManager:
@@ -105,13 +105,13 @@ class TestFindConfigOrDefault:
         config_file = tmp_path / "custom-config.yaml"
         config_file.write_text("test: config")
 
-        result = find_config_or_default(str(config_file))
-        assert result == str(config_file)
+        result = find_config_or_default(config_file)
+        assert result == config_file
 
     def test_raises_error_if_specified_file_not_exists(self):
         """Test that FileNotFoundError is raised if specified file doesn't exist."""
         with pytest.raises(FileNotFoundError, match="not found"):
-            find_config_or_default("nonexistent.yaml")
+            find_config_or_default(Path("nonexistent.yaml"))
 
     def test_finds_yaml_file_by_default(self, tmp_path, monkeypatch):
         """Test that dom-judge.yaml is found by default."""
@@ -123,7 +123,7 @@ class TestFindConfigOrDefault:
         monkeypatch.chdir(tmp_path)
 
         result = find_config_or_default(None)
-        assert result == "dom-judge.yaml"
+        assert result == Path("dom-judge.yaml")
 
     def test_finds_yml_file_by_default(self, tmp_path, monkeypatch):
         """Test that dom-judge.yml is found if .yaml doesn't exist."""
@@ -135,7 +135,7 @@ class TestFindConfigOrDefault:
         monkeypatch.chdir(tmp_path)
 
         result = find_config_or_default(None)
-        assert result == "dom-judge.yml"
+        assert result == Path("dom-judge.yml")
 
     def test_raises_error_if_both_yaml_and_yml_exist(self):
         """Test that error is raised if both .yaml and .yml exist."""
@@ -163,11 +163,11 @@ class TestCheckFileExists:
         existing_file.write_text("exists")
 
         with pytest.raises(FileExistsError, match="already exists"):
-            check_file_exists(str(existing_file))
+            check_file_exists(existing_file)
 
     def test_returns_false_if_file_not_exists(self, tmp_path):
         """Test that False is returned if file doesn't exist."""
         nonexistent_file = tmp_path / "nonexistent.txt"
 
-        result = check_file_exists(str(nonexistent_file))
+        result = check_file_exists(nonexistent_file)
         assert result is False

@@ -21,7 +21,7 @@ app.add_typer(init_command, name="init", help="Initialize DOMjudge configuration
 def main() -> None:
     """Main entry point with logging initialization."""
     # Initialize logging
-    log_dir = Path(ensure_dom_directory())
+    log_dir = ensure_dom_directory()
     log_file = log_dir / "domjudge-cli.log"
     setup_logging(level="INFO", log_file=log_file, enable_rich=True)
 

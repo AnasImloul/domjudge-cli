@@ -17,8 +17,8 @@ def callback(overwrite: bool):
         )
     )
     if not overwrite:
-        check_file_exists("dom-judge.yaml")
-        check_file_exists("dom-judge.yml")
+        check_file_exists(Path("dom-judge.yaml"))
+        check_file_exists(Path("dom-judge.yml"))
 
     domjudge_output_file = "dom-judge.yml" if Path("dom-judge.yml").exists() else "dom-judge.yaml"
     problems_output_file = "problems.yml" if Path("problems.yml").exists() else "problems.yaml"

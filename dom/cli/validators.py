@@ -4,6 +4,8 @@ This module provides Typer-compatible validators using the centralized validatio
 All validation logic is defined in dom.validation.rules and adapted here for CLI use.
 """
 
+from pathlib import Path
+
 from dom.validation import ValidationRules, for_typer
 
 # ------------------------------------------------------------
@@ -22,14 +24,17 @@ def validate_contest_name(value: str | None) -> str | None:
     return for_typer(ValidationRules.contest_name())(value)  # type: ignore[no-any-return]
 
 
-def validate_file_path(value: str | None) -> str | None:
+def validate_file_path(value: str | None) -> Path | None:
     """
-    Validate YAML configuration file path.
+    Validate YAML configuration file path and convert to Path object.
 
     Uses: ValidationRules.config_file_path()
     Rules: See dom.validation.rules.ValidationRules.config_file_path()
     """
-    return for_typer(ValidationRules.config_file_path())(value)  # type: ignore[no-any-return]
+    if value is None:
+        return None
+    validated = for_typer(ValidationRules.config_file_path())(value)
+    return Path(validated) if validated else None
 
 
 def validate_port(value: int | None) -> int | None:

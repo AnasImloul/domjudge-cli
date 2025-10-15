@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
 from dom.templates.infra import docker_compose_template
@@ -21,8 +19,7 @@ def generate_docker_compose(
         judge_password: Password for judgedaemon authentication
     """
     dom_folder = ensure_dom_directory()
-
-    output_file = Path(dom_folder) / "docker-compose.yml"
+    output_file = dom_folder / "docker-compose.yml"
 
     rendered = docker_compose_template.render(
         platform_port=infra_config.port,

@@ -129,10 +129,10 @@ def initialize_problems():
     console.print("Add the problems for your contest")
 
     output_file = check_existing_files()
-    if not ask_override_if_exists(output_file):
+    if not ask_override_if_exists(Path(output_file)):
         return None
 
-    archive = ask("Problems directory path", default="./problems", console=console)  # type: ignore[var-annotated]
+    archive = ask("Problems directory path", default="./problems", console=console)
     archive = ensure_archive_dir(archive)
     problems = list_problem_files(archive)
 
@@ -141,7 +141,7 @@ def initialize_problems():
         if not ask_bool("Continue without problems?", default=True, console=console):
             raise typer.Exit(code=1)
 
-    platform = ask("Platform name", console=console, default="Polygon")  # type: ignore[var-annotated]
+    platform = ask("Platform name", console=console, default="Polygon")
 
     problem_configs: list[tuple[str, str]] = []
     if problems:

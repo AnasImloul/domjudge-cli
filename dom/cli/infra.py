@@ -22,7 +22,7 @@ infra_command = typer.Typer()
 
 @infra_command.command("apply")
 def apply_from_config(
-    file: str = typer.Option(
+    file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
 ) -> None:
@@ -32,7 +32,7 @@ def apply_from_config(
     try:
         # Dependency injection: create secrets manager at entry point
         config = load_infrastructure_config(file)
-        secrets = SecretsManager(Path(ensure_dom_directory()))
+        secrets = SecretsManager(ensure_dom_directory())
         apply_infra_and_platform(config, secrets)
     except DomJudgeCliError as e:
         logger.error(f"Failed to apply infrastructure: {e}")
@@ -58,7 +58,7 @@ def destroy_all(
 
     try:
         # Dependency injection: create secrets manager at entry point
-        secrets = SecretsManager(Path(ensure_dom_directory()))
+        secrets = SecretsManager(ensure_dom_directory())
         destroy_infra_and_platform(secrets)
     except DomJudgeCliError as e:
         logger.error(f"Failed to destroy infrastructure: {e}")
@@ -70,7 +70,7 @@ def destroy_all(
 
 @infra_command.command("status")
 def check_status(
-    file: str = typer.Option(
+    file: Path = typer.Option(
         None,
         "-f",
         "--file",

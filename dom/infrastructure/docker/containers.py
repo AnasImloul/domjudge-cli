@@ -59,7 +59,7 @@ class DockerClient:
                 "or fix your docker permissions."
             ) from None
 
-    def start_services(self, services: list[str], compose_file: str) -> None:
+    def start_services(self, services: list[str], compose_file: Path) -> None:
         """
         Start Docker services using docker compose.
 
@@ -71,7 +71,16 @@ class DockerClient:
             DockerError: If services fail to start
         """
         logger.info(f"Starting services: {', '.join(services)}")
-        cmd = [*self._cmd, "compose", "-f", compose_file, "up", "-d", "--remove-orphans", *services]
+        cmd = [
+            *self._cmd,
+            "compose",
+            "-f",
+            str(compose_file),
+            "up",
+            "-d",
+            "--remove-orphans",
+            *services,
+        ]
 
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)  # nosec B603
@@ -83,7 +92,7 @@ class DockerClient:
             )
             raise DockerError(f"Failed to start services: {e}") from e
 
-    def stop_all_services(self, compose_file: str) -> None:
+    def stop_all_services(self, compose_file: Path) -> None:
         """
         Stop all Docker services.
 
@@ -94,7 +103,7 @@ class DockerClient:
             DockerError: If services fail to stop
         """
         logger.info("Stopping all services")
-        cmd = [*self._cmd, "compose", "-f", compose_file, "down", "-v"]
+        cmd = [*self._cmd, "compose", "-f", str(compose_file), "down", "-v"]
 
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)  # nosec B603
@@ -310,4 +319,4 @@ class DockerClient:
             temp_sql_path = Path(temp_sql_file)
             if temp_sql_path.exists():
                 temp_sql_path.unlink()
-                logger.debug(f"Cleaned up temporary SQL file: {temp_sql_file}")
+                logger.debug(f"Cleaned up temporary SQL file: {temp_sql_path}")

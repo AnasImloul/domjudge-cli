@@ -4,8 +4,6 @@ This module handles the orchestration of Docker containers and platform configur
 for DOMjudge infrastructure deployment.
 """
 
-from pathlib import Path
-
 from dom.infrastructure.docker.containers import DockerClient
 from dom.infrastructure.docker.template import generate_docker_compose
 from dom.infrastructure.secrets.manager import SecretsManager
@@ -37,7 +35,7 @@ def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsManager)
     """
     # Initialize Docker client
     docker = DockerClient()
-    compose_file = str(Path(ensure_dom_directory()) / "docker-compose.yml")
+    compose_file = ensure_dom_directory() / "docker-compose.yml"
 
     logger.info("Step 1: Generating initial docker-compose configuration...")
     # Temporary password before real one is fetched from domserver

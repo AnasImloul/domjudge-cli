@@ -1,4 +1,5 @@
 from itertools import chain
+from pathlib import Path
 
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.types.config.processed import ContestConfig
@@ -11,7 +12,7 @@ from .team import load_teams_from_config
 
 
 def load_contest_from_config(
-    raw_contest: RawContestConfig, config_path: str, secrets: SecretsManager
+    raw_contest: RawContestConfig, config_path: Path, secrets: SecretsManager
 ) -> ContestConfig:
     """
     Load contest configuration from raw config.
@@ -51,7 +52,7 @@ def load_contest_from_config(
 
 
 def load_contests_from_config(
-    raw_contests: list[RawContestConfig], config_path: str, secrets: SecretsManager
+    raw_contests: list[RawContestConfig], config_path: Path, secrets: SecretsManager
 ) -> list[ContestConfig]:
     """
     Load all contests from raw configuration.

@@ -10,19 +10,18 @@ from dom.types.team import Team
 logger = get_logger(__name__)
 
 
-def read_teams_file(file_path: str, delimiter: str | None = None) -> list[list[str]]:
-    file_path_obj = Path(file_path)
-    if not file_path_obj.exists():
+def read_teams_file(file_path: Path, delimiter: str | None = None) -> list[list[str]]:
+    if not file_path.exists():
         raise FileNotFoundError(f"Teams file not found: {file_path}")
 
-    ext = file_path.split(".")[-1].lower()
+    ext = file_path.suffix.lstrip(".").lower()
     if ext not in ("csv", "tsv"):
         raise ValueError(f"Unsupported file extension '{ext}'. Only .csv and .tsv are allowed.")
 
     delimiter = delimiter or ("," if ext == "csv" else "\t")
 
     teams = []
-    with file_path_obj.open(newline="", encoding="utf-8") as f:
+    with file_path.open(newline="", encoding="utf-8") as f:
         reader = csv.reader(f, delimiter=delimiter)
         for row in reader:
             if any(cell.strip() for cell in row):
@@ -42,7 +41,7 @@ def parse_from_template(template: str, row: list[str]) -> str:
     return name
 
 
-def load_teams_from_config(team_config: RawTeamsConfig, config_path: str, secrets: SecretsManager):
+def load_teams_from_config(team_config: RawTeamsConfig, config_path: Path, secrets: SecretsManager):
     """
     Load teams from configuration file.
 
@@ -54,20 +53,17 @@ def load_teams_from_config(team_config: RawTeamsConfig, config_path: str, secret
     Returns:
         List of Team objects
     """
-    file_path = team_config.from_
-
     # Resolve file_path relative to the directory of config_path
-    config_dir = Path(config_path).resolve().parent
-    file_path_obj = config_dir / file_path
-    file_path = str(file_path_obj)
+    config_dir = config_path.resolve().parent
+    file_path = config_dir / team_config.from_
 
-    file_format = file_path.split(".")[-1]
+    file_format = file_path.suffix.lstrip(".").lower()
 
     if file_format not in ("csv", "tsv"):
         logger.error(f"Teams file '{file_path}' must be a .csv or .tsv file")
         raise ValueError(f"Invalid file extension for teams file: {file_path}")
 
-    if not file_path_obj.exists():
+    if not file_path.exists():
         logger.error(f"Teams file '{file_path}' does not exist")
         raise FileNotFoundError(f"Teams file not found: {file_path}")
 

@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 from typing import Union
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
@@ -97,7 +98,7 @@ class RawContestConfig(BaseModel):
 class RawDomConfig(BaseModel):
     infra: RawInfraConfig = RawInfraConfig()
     contests: list[RawContestConfig] = []  # Always a list, never None
-    loaded_from: str
+    loaded_from: Path
 
     class Config:
         frozen = True

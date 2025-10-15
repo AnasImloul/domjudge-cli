@@ -99,14 +99,13 @@ class ProblemService:
             return problem_id  # type: ignore[no-any-return]
 
         # Create new problem
-        temp_zip_path = ""
+        temp_zip_path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_zip:
-                temp_zip_path = temp_zip.name
-                problem_package.write_to_zip(Path(temp_zip_path))
+                temp_zip_path = Path(temp_zip.name)
+                problem_package.write_to_zip(temp_zip_path)
 
-            temp_zip_path_obj = Path(temp_zip_path)
-            with temp_zip_path_obj.open("rb") as f:
+            with temp_zip_path.open("rb") as f:
                 files = {"zip": (f.name, f, "application/zip")}
                 response = self.client.post(
                     "/api/v4/problems", files=files, invalidate_cache="all_problems"
@@ -119,8 +118,8 @@ class ProblemService:
                 logger.info(f"Created problem (ID: {problem_id})")
                 return problem_id  # type: ignore[no-any-return]
         finally:
-            if temp_zip_path_obj.exists():
-                temp_zip_path_obj.unlink()
+            if temp_zip_path and temp_zip_path.exists():
+                temp_zip_path.unlink()
 
     def add_to_contest(self, contest_id: str, problem_package: ProblemPackage) -> str:
         """

@@ -61,15 +61,12 @@ class SubmissionService:
         auth = HTTPBasicAuth(team.name, team.password.get_secret_value())
 
         # Create temp file
-        with tempfile.NamedTemporaryFile(
-            delete=False, mode="wb", suffix=Path(file_name).suffix
-        ) as tmp_file:
+        file_suffix = Path(file_name).suffix
+        with tempfile.NamedTemporaryFile(delete=False, mode="wb", suffix=file_suffix) as tmp_file:
             tmp_file.write(source_code)
-            tmp_file_path = tmp_file.name
-
-        tmp_file_path_obj = Path(tmp_file_path)
+            tmp_file_path = Path(tmp_file.name)
         try:
-            with tmp_file_path_obj.open("rb") as code_file:
+            with tmp_file_path.open("rb") as code_file:
                 files = {"code": (file_name, code_file, "text/x-source-code")}
                 data = {"problem": problem_id, "language": language, "team": team.id}
 
@@ -87,8 +84,8 @@ class SubmissionService:
             logger.error(f"Submission failed for '{file_name}': {e.response.text}")
             raise APIError(f"Submission failed: {e.response.text}") from e
         finally:
-            if tmp_file_path_obj.exists():
-                tmp_file_path_obj.unlink()
+            if tmp_file_path.exists():
+                tmp_file_path.unlink()
 
     def get_judgement(self, contest_id: str, submission_id: str) -> models.JudgingWrapper | None:
         """
