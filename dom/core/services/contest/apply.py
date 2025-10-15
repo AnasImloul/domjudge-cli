@@ -104,7 +104,7 @@ class ContestApplicationService:
                 extra={
                     "contest_id": result.id,
                     "contest_shortname": contest.shortname,
-                    "created": result.created,
+                    "was_created": result.created,
                 },
             )
 
