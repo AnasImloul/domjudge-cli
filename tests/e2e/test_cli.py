@@ -268,9 +268,15 @@ class TestVersionConsistency:
 
     def test_version_matches_pyproject(self):
         """Test that __version__ matches version in pyproject.toml."""
-        import tomllib
+        import sys
 
         import dom
+
+        # Python 3.11+ has tomllib built-in, 3.10 needs tomli
+        if sys.version_info >= (3, 11):
+            import tomllib
+        else:
+            import tomli as tomllib
 
         # Read version from pyproject.toml
         pyproject_path = Path(dom.__file__).parent.parent / "pyproject.toml"
