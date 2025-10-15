@@ -1,6 +1,6 @@
 typer~=0.15.2
 PyYAML~=6.0.2
-pydantic~=2.11.3
+pydantic>=2.11.3,<2.13.0
 pydantic[email]~=2.11.3
 p2d~=0.3.0
 bcrypt~=4.3.0
