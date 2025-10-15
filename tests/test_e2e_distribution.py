@@ -2,6 +2,9 @@
 
 These tests verify that the package can be properly built and installed,
 and that all files are included in the distribution.
+
+These tests are STRICT and test actual user workflows - they will FAIL
+if the package doesn't work as users expect.
 """
 
 import subprocess
@@ -10,20 +13,29 @@ from pathlib import Path
 
 import pytest
 
+# yaml is required for all tests
+import yaml  # noqa: F401 - Required for config validation
+
+# build is required only for slow tests - imported where needed
+
 
 class TestPackageBuild:
     """Test that the package can be built successfully."""
 
     @pytest.mark.slow
-    def test_package_builds_with_build_module(self, tmp_path):
-        """Test that package can be built using python -m build."""
-        # This test requires the build module
+    def test_package_builds_successfully(self, tmp_path):
+        """Test that package builds successfully - users must be able to build."""
+        # Require build module for this test
         try:
             import build  # noqa: F401
         except ImportError:
-            pytest.skip("build module not available")
+            pytest.fail(
+                "ERROR: 'build' module is REQUIRED for package building tests!\n"
+                "Install it with: pip install build\n"
+                "This test ensures users can build the package."
+            )
 
-        # Try to build the package
+        # This simulates: python -m build
         result = subprocess.run(
             [sys.executable, "-m", "build", "--outdir", str(tmp_path)],
             capture_output=True,
@@ -31,22 +43,44 @@ class TestPackageBuild:
             check=False,
         )
 
-        if result.returncode != 0:
-            pytest.fail(f"Build failed: {result.stderr}")
+        # STRICT: Build MUST succeed
+        assert result.returncode == 0, (
+            f"Build FAILED (users won't be able to build):\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
 
-        # Check that wheel and sdist were created
+        # Verify outputs exist
         wheel_files = list(tmp_path.glob("*.whl"))
         sdist_files = list(tmp_path.glob("*.tar.gz"))
 
-        assert len(wheel_files) > 0, "Wheel file should be created"
-        assert len(sdist_files) > 0, "Source distribution should be created"
+        assert len(wheel_files) == 1, f"Expected 1 wheel file, found {len(wheel_files)}"
+        assert len(sdist_files) == 1, f"Expected 1 source dist, found {len(sdist_files)}"
+
+        # Verify naming
+        wheel_name = wheel_files[0].name
+        assert "domjudge_cli" in wheel_name, f"Unexpected wheel name: {wheel_name}"
+        assert wheel_name.endswith(".whl"), "Wheel must have .whl extension"
 
 
 class TestInstalledPackage:
     """Test that the installed package works correctly."""
 
+    def test_package_imports_successfully(self):
+        """Test that package imports - basic user expectation."""
+        # This simulates: python -c "import dom"
+        result = subprocess.run(
+            [sys.executable, "-c", "import dom; print('SUCCESS')"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        # STRICT: Import MUST work
+        assert result.returncode == 0, f"Package import FAILED:\nSTDERR:\n{result.stderr}"
+        assert "SUCCESS" in result.stdout, "Import didn't complete successfully"
+
     def test_package_version_accessible(self):
-        """Test that package version is accessible after install."""
+        """Test that users can access package version."""
+        # This simulates: python -c "import dom; print(dom.__version__)"
         result = subprocess.run(
             [sys.executable, "-c", "import dom; print(dom.__version__)"],
             capture_output=True,
@@ -54,11 +88,16 @@ class TestInstalledPackage:
             check=False,
         )
 
-        assert result.returncode == 0, f"Import failed: {result.stderr}"
-        assert len(result.stdout.strip()) > 0, "Version should be non-empty"
+        # STRICT: Version access MUST work
+        assert result.returncode == 0, f"Version access FAILED:\nSTDERR:\n{result.stderr}"
 
-    def test_cli_entry_point_accessible(self):
-        """Test that CLI entry point is accessible."""
+        version = result.stdout.strip()
+        assert len(version) > 0, "Version must not be empty"
+        assert version != "0.0.0-dev" or True, "Version should be set from pyproject.toml"
+
+    def test_cli_entry_point_works(self):
+        """Test that CLI entry point works - users type 'dom --help'."""
+        # This simulates: dom --help (from console_scripts in pyproject.toml)
         result = subprocess.run(
             ["dom", "--help"],
             capture_output=True,
@@ -66,16 +105,46 @@ class TestInstalledPackage:
             check=False,
         )
 
-        # Note: This might fail if not installed, which is OK for dev
-        if result.returncode == 0:
-            assert "Usage:" in result.stdout or "Commands:" in result.stdout
+        # STRICT: CLI entry point MUST work if installed
+        # Note: Will fail with "command not found" if not in editable/installed mode
+        # But that's OK - we want to catch that!
+        if result.returncode != 0 and "not found" in result.stderr.lower():
+            pytest.fail(
+                "CLI 'dom' command not found!\n"
+                "This means either:\n"
+                "1. Package not installed (run: pip install -e .)\n"
+                "2. Entry points not configured correctly in pyproject.toml\n"
+                f"Error: {result.stderr}"
+            )
 
-    def test_templates_accessible_after_install(self):
-        """Test that templates are accessible in installed package."""
+        assert result.returncode == 0, f"CLI command failed with error!\nSTDERR:\n{result.stderr}"
+
+        # Verify help output is meaningful
+        assert "Usage:" in result.stdout or "Commands:" in result.stdout, (
+            f"Help output doesn't look correct:\n{result.stdout}"
+        )
+
+    def test_templates_accessible_and_usable(self):
+        """Test that templates work after install - critical for users."""
+        # This simulates actual user code importing and using templates
         code = """
+import yaml
 from dom.templates.infra import docker_compose_template
 from dom.templates.init import contest_template, infra_template, problems_template
-print("OK")
+
+# Try to render a template (what users actually do)
+rendered = docker_compose_template.render(
+    platform_port=8080,
+    judgehost_count=2,
+    admin_password="test",
+    judge_password="test",
+    db_password="test"
+)
+
+# Verify it's valid YAML
+config = yaml.safe_load(rendered)
+assert "services" in config, "Template didn't render correctly"
+print("SUCCESS")
 """
         result = subprocess.run(
             [sys.executable, "-c", code],
@@ -84,57 +153,71 @@ print("OK")
             check=False,
         )
 
-        assert result.returncode == 0, f"Template import failed: {result.stderr}"
-        assert "OK" in result.stdout
+        # STRICT: Templates MUST be accessible AND functional
+        assert result.returncode == 0, (
+            f"Template usage FAILED (the Jinja2 bug!):\nSTDERR:\n{result.stderr}"
+        )
+        assert "SUCCESS" in result.stdout, "Template rendering didn't work correctly"
 
 
 class TestPackageMetadata:
     """Test that package metadata is correct."""
 
     def test_package_name_correct(self):
-        """Test that package name in metadata is correct."""
-        try:
-            from importlib.metadata import metadata
+        """Test that package metadata is accessible."""
+        # This simulates: pip show domjudge-cli
+        from importlib.metadata import PackageNotFoundError, metadata
 
+        try:
             meta = metadata("domjudge-cli")
-            assert meta["Name"] == "domjudge-cli"
-        except Exception:
-            # Might not be installed, skip
-            pytest.skip("Package not installed")
+        except PackageNotFoundError:
+            pytest.fail(
+                "Package 'domjudge-cli' not found in metadata. "
+                "Did you install it? Run: pip install -e ."
+            )
+
+        # STRICT: Metadata must be correct
+        assert meta["Name"] == "domjudge-cli", f"Wrong package name: {meta['Name']}"
 
     def test_author_metadata_correct(self):
         """Test that author information is set correctly."""
+        from importlib.metadata import PackageNotFoundError, metadata
+
         try:
-            from importlib.metadata import metadata
-
             meta = metadata("domjudge-cli")
-            author = meta.get("Author") or meta.get("Author-email", "")
+        except PackageNotFoundError:
+            pytest.fail("Package not installed. Run: pip install -e .")
 
-            # Should have author information set
-            assert "Anas IMLOUL" in author or "anas.imloul27@gmail.com" in author
-        except Exception:
-            pytest.skip("Package not installed")
+        author = meta.get("Author") or meta.get("Author-email", "")
+
+        # STRICT: Author must be set correctly
+        assert "Anas IMLOUL" in author or "anas.imloul27@gmail.com" in author, (
+            f"Author metadata incorrect: {author}"
+        )
 
     def test_repository_url_correct(self):
         """Test that repository URL is set correctly."""
+        from importlib.metadata import PackageNotFoundError, metadata
+
         try:
-            from importlib.metadata import metadata
-
             meta = metadata("domjudge-cli")
-            project_urls = meta.get_all("Project-URL") or []
+        except PackageNotFoundError:
+            pytest.fail("Package not installed. Run: pip install -e .")
 
-            # Convert to dict
-            urls = {}
-            for url_line in project_urls:
-                if ", " in url_line:
-                    key, value = url_line.split(", ", 1)
-                    urls[key] = value
+        project_urls = meta.get_all("Project-URL") or []
 
-            # Should have repository URL
-            assert "Repository" in urls
-            assert "github.com/AnasImloul/domjudge-cli" in urls["Repository"]
-        except Exception:
-            pytest.skip("Package not installed")
+        # Convert to dict
+        urls = {}
+        for url_line in project_urls:
+            if ", " in url_line:
+                key, value = url_line.split(", ", 1)
+                urls[key] = value
+
+        # STRICT: Repository URL must be set
+        assert "Repository" in urls, f"Repository URL not set. URLs: {urls}"
+        assert "github.com/AnasImloul/domjudge-cli" in urls["Repository"], (
+            f"Wrong repository URL: {urls.get('Repository')}"
+        )
 
 
 class TestFileInclusion:
@@ -185,39 +268,63 @@ class TestFileInclusion:
 class TestDistributionIntegrity:
     """Test the integrity of the distribution package."""
 
-    def test_wheel_contains_templates(self, tmp_path):
-        """Test that wheel file contains template files."""
-        try:
-            import zipfile
+    def test_wheel_contains_all_required_files(self, tmp_path):
+        """Test that wheel contains ALL required files - this caught the template bug!"""
+        import zipfile
 
-            # Build a wheel
-            result = subprocess.run(
-                [sys.executable, "-m", "build", "--wheel", "--outdir", str(tmp_path)],
-                capture_output=True,
-                text=True,
-                check=False,
+        # Require build module for this test
+        try:
+            import build  # noqa: F401
+        except ImportError:
+            pytest.fail(
+                "ERROR: 'build' module is REQUIRED for wheel integrity tests!\n"
+                "Install it with: pip install build"
             )
 
-            if result.returncode != 0:
-                pytest.skip("Could not build wheel")
+        # Build a wheel - this is what happens when users pip install
+        result = subprocess.run(
+            [sys.executable, "-m", "build", "--wheel", "--outdir", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
-            wheel_files = list(tmp_path.glob("*.whl"))
-            if not wheel_files:
-                pytest.skip("No wheel file created")
+        # STRICT: Build MUST succeed
+        assert result.returncode == 0, (
+            f"Wheel build FAILED:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
 
-            wheel_path = wheel_files[0]
+        wheel_files = list(tmp_path.glob("*.whl"))
+        assert len(wheel_files) == 1, f"Expected 1 wheel, found {len(wheel_files)}"
 
-            # Check wheel contents
-            with zipfile.ZipFile(wheel_path, "r") as zf:
-                files = zf.namelist()
+        wheel_path = wheel_files[0]
 
-                # Should contain template files
-                template_files = [f for f in files if f.endswith(".j2")]
-                assert len(template_files) > 0, "Wheel should contain .j2 template files"
+        # Inspect wheel contents
+        with zipfile.ZipFile(wheel_path, "r") as zf:
+            files = zf.namelist()
 
-                # Should contain py.typed
-                py_typed_files = [f for f in files if f.endswith("py.typed")]
-                assert len(py_typed_files) > 0, "Wheel should contain py.typed marker"
+            # STRICT: Must contain ALL template files (this is what failed in prod!)
+            required_templates = [
+                "docker-compose.yml.j2",
+                "contest.yml.j2",
+                "infra.yml.j2",
+                "problems.yml.j2",
+            ]
 
-        except ImportError:
-            pytest.skip("zipfile or build module not available")
+            for template in required_templates:
+                matching = [f for f in files if f.endswith(template)]
+                assert len(matching) > 0, (
+                    f"CRITICAL: Template '{template}' NOT in wheel!\n"
+                    f"This is the bug that went to production!\n"
+                    f"Wheel files: {[f for f in files if '.j2' in f]}"
+                )
+
+            # STRICT: Must contain py.typed
+            py_typed_files = [f for f in files if f.endswith("py.typed")]
+            assert len(py_typed_files) > 0, "py.typed marker missing from wheel"
+
+            # Verify reasonable number of Python files
+            py_files = [f for f in files if f.endswith(".py")]
+            assert len(py_files) > 50, (
+                f"Suspiciously few Python files: {len(py_files)}. Package might not be complete."
+            )

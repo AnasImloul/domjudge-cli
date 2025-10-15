@@ -12,10 +12,11 @@ import pytest
 
 
 class TestCLIHelp:
-    """Test that CLI help commands work correctly."""
+    """Test that CLI help commands work - users expect --help to work!"""
 
-    def test_main_help_works(self):
-        """Test that main help command runs without error."""
+    def test_main_help_must_work(self):
+        """Test that 'dom --help' works - first thing users try."""
+        # Try: dom --help
         result = subprocess.run(
             ["dom", "--help"],
             capture_output=True,
@@ -23,34 +24,23 @@ class TestCLIHelp:
             check=False,
         )
 
-        # Should succeed (or fail because not installed, which is OK)
-        if result.returncode == 0:
-            assert "Usage:" in result.stdout or "Commands:" in result.stdout
-            assert len(result.stdout) > 50  # Should have substantial help text
+        # If not in PATH, try python -m dom
+        if result.returncode != 0:
+            result = subprocess.run(
+                [sys.executable, "-m", "dom", "--help"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
 
-    def test_contest_help_works(self):
-        """Test that contest help command works."""
-        result = subprocess.run(
-            [sys.executable, "-m", "dom.cli.contest", "--help"],
-            capture_output=True,
-            text=True,
-            check=False,
+        # STRICT: Help MUST work
+        assert result.returncode == 0, (
+            f"Help command FAILED! Users can't get help!\nSTDERR:\n{result.stderr}"
         )
-
-        if result.returncode == 0:
-            assert "contest" in result.stdout.lower() or "Usage:" in result.stdout
-
-    def test_infra_help_works(self):
-        """Test that infra help command works."""
-        result = subprocess.run(
-            [sys.executable, "-m", "dom.cli.infra", "--help"],
-            capture_output=True,
-            text=True,
-            check=False,
+        assert "Usage:" in result.stdout or "Commands:" in result.stdout, (
+            f"Help output doesn't look right:\n{result.stdout}"
         )
-
-        if result.returncode == 0:
-            assert "infra" in result.stdout.lower() or "Usage:" in result.stdout
+        assert len(result.stdout) > 50, "Help text is too short/empty"
 
 
 @pytest.mark.e2e
@@ -260,9 +250,9 @@ class TestVersionConsistency:
 
         # Should follow semantic versioning (major.minor.patch)
         version_pattern = r"^\d+\.\d+\.\d+(-\w+)?$"
-        assert re.match(
-            version_pattern, dom.__version__
-        ), f"Invalid version format: {dom.__version__}"
+        assert re.match(version_pattern, dom.__version__), (
+            f"Invalid version format: {dom.__version__}"
+        )
 
 
 @pytest.mark.e2e
