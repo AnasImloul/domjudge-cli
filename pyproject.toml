@@ -70,6 +70,14 @@ packages = ["dom"]
 [tool.hatch.build.targets.wheel.force-include]
 "dom/py.typed" = "dom/py.typed"
 
+# Include all template files in the package
+[tool.hatch.build]
+include = [
+    "dom/**/*.py",
+    "dom/**/*.j2",
+    "dom/py.typed",
+]
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/dom",
