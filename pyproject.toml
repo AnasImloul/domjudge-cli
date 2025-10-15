@@ -1,0 +1,224 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "domjudge-cli"
+version = "0.2.15"
+description = "CLI tool for managing DOMjudge contests and infrastructure"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+keywords = ["domjudge", "cli", "contest", "programming"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    # Runtime dependencies
+    "typer>=0.15.2,<1.0",
+    "PyYAML>=6.0.2,<7.0",
+    "pydantic>=2.11.3,<3.0",
+    "pydantic[email]>=2.11.3,<3.0",
+    "p2d>=0.3.0,<1.0",
+    "bcrypt>=4.3.0,<5.0",
+    "webcolors>=24.11.1,<25.0",
+    "requests>=2.32.3,<3.0",
+    "Jinja2>=3.1.6,<4.0",
+    "typeguard>=4.4.2,<5.0",
+    "jmespath>=1.0.1,<2.0",
+    "tqdm>=4.67.1,<5.0",
+    "cryptography>=43.0.0,<44.0",
+    "rich>=13.7.0,<14.0",
+    # Development and testing dependencies (included for CLI tool)
+    "pytest>=8.0.0,<9.0",
+    "pytest-cov>=5.0.0,<6.0",
+    "pytest-mock>=3.14.0,<4.0",
+    "mypy>=1.11.0,<2.0",
+    "ruff>=0.6.0,<1.0",
+    "black>=24.0.0,<25.0",
+    "pre-commit>=3.8.0,<4.0",
+    "types-PyYAML>=6.0.12,<7.0",
+    "types-requests>=2.32.0,<3.0",
+    "bandit[toml]>=1.7.0,<2.0",
+    "import-linter>=2.0,<3.0",
+]
+
+[project.scripts]
+dom = "dom.cli.__init__:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/domjudge-cli"
+Repository = "https://github.com/yourusername/domjudge-cli"
+Issues = "https://github.com/yourusername/domjudge-cli/issues"
+
+# ===== Tool Configurations =====
+
+[tool.hatch.build.targets.wheel]
+packages = ["dom"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"dom/py.typed" = "dom/py.typed"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/dom",
+    "/tests",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml",
+]
+
+# UV-specific settings (optional - UV works with standard dependencies)
+[tool.uv]
+# No separate dev-dependencies - all in main dependencies for CLI tool
+
+# ===== Black - Code Formatter =====
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+  | \.venv
+  | \.mypy_cache
+  | \.pytest_cache
+  | __pycache__
+  | build
+  | dist
+)/
+'''
+
+# ===== Ruff - Fast Python Linter =====
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = [
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    ".git",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "TID",    # flake8-tidy-imports
+    "PTH",    # flake8-use-pathlib
+    "PL",     # pylint
+    "RUF",    # ruff-specific rules
+]
+ignore = [
+    "E501",   # line too long (handled by black)
+    "PLR0911", # too many return statements
+    "PLR0913", # too many arguments
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR2004", # magic value comparison
+    "UP007",   # Use X | Y for type annotations (keep Optional for now)
+    "SIM116",  # Use dictionary instead of if-elif (stylistic preference)
+    "SIM117",  # Use single with statement (sometimes clearer with separate statements)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # Allow unused imports in __init__.py
+"tests/**/*.py" = ["ARG", "PLR2004", "S101", "PLC0415"]  # Allow test patterns and lazy imports
+"dom/cli/**/*.py" = ["B008"] # Allow function call `typer.Option` in argument defaults
+
+[tool.ruff.lint.isort]
+known-first-party = ["dom"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# ===== MyPy - Static Type Checker =====
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # Start relaxed, can tighten later
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+strict_equality = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "p2d.*",
+    "webcolors.*",
+    "typeguard.*",
+    "jmespath.*",
+    "tqdm.*",
+]
+ignore_missing_imports = true
+
+# ===== Pytest - Testing Framework =====
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",                    # Show summary of all test outcomes
+    "--strict-markers",       # Raise error on unregistered markers
+    "--strict-config",        # Raise error on config issues
+    "--cov=dom",             # Coverage for dom package
+    "--cov-report=term-missing", # Show missing lines in coverage report
+    "--cov-report=html",     # Generate HTML coverage report
+    "--cov-report=xml",      # Generate XML coverage report for CI
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+# ===== Coverage =====
+[tool.coverage.run]
+source = ["dom"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+# ===== Bandit - Security Linter =====
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "build", "dist"]
+skips = ["B101"]  # Skip assert warnings (OK in tests)

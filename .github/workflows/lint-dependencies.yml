@@ -1,0 +1,35 @@
+name: Check Dependency Layering
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check-dependencies:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install uv
+        uv pip install --system -e .
+
+    - name: Check dependency layering
+      run: |
+        lint-imports
+
+    - name: Report status
+      if: failure()
+      run: |
+        echo "::error::Dependency layering violations found!"
+        echo "Please fix the import violations shown above."
+        echo "See scripts/README.md for dependency rules."

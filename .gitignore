@@ -175,3 +175,25 @@ cython_debug/
 
 # Generated files
 generated
+
+# Development tools
+.pre-commit-cache/
+
+# IDE specific
+.vscode/settings.json
+.idea/
+
+# Type checking
+.pyright/
+
+# Coverage reports
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Bandit
+.bandit
+
+# Local config files
+*.local.yml
+*.local.yaml

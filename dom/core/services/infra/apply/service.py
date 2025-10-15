@@ -1,56 +1,80 @@
-import os
+"""Infrastructure and platform deployment service.
 
+This module handles the orchestration of Docker containers and platform configuration
+for DOMjudge infrastructure deployment.
+"""
+
+from dom.infrastructure.docker.containers import DockerClient
 from dom.infrastructure.docker.template import generate_docker_compose
-from dom.infrastructure.docker.containers import (
-    start_services,
-    fetch_judgedaemon_password,
-    wait_for_container_healthy,
-    fetch_admin_init_password,
-    update_admin_password,
-)
+from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig
-from dom.infrastructure.secrets.manager import (
-    load_or_default_secret,
-    load_secret,
-    save_secret,
-)
+from dom.types.secrets import SecretsProvider
 from dom.utils.cli import ensure_dom_directory
 
+logger = get_logger(__name__)
 
-def apply_infra_and_platform(infra_config: InfraConfig) -> None:
-    compose_file = os.path.join(ensure_dom_directory(), "docker-compose.yml")
 
-    print("Step 1: Generating initial docker-compose...")
-    generate_docker_compose(infra_config, judge_password="TEMP")
+def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsProvider) -> None:
+    """
+    Deploy and configure DOMjudge infrastructure.
 
-    print("Step 2: Starting core services (MariaDB + Domserver + MySQL Client)...")
-    start_services(["mariadb", "mysql-client", "domserver"], compose_file)
+    This orchestrates the deployment of all infrastructure components including:
+    - Docker Compose generation
+    - MariaDB database
+    - DOMjudge server
+    - Judgehost containers
+    - Admin password configuration
 
-    print("Waiting for Domserver to be healthy...")
-    wait_for_container_healthy("dom-cli-domserver")
+    Args:
+        infra_config: Infrastructure configuration
+        secrets: Secrets manager for storing and retrieving secrets
 
-    print("Step 3: Fetching judgedaemon password...")
-    judge_password = fetch_judgedaemon_password()
+    Raises:
+        DockerError: If any Docker operation fails
+        SecretsError: If secrets management fails
+    """
+    # Initialize Docker client
+    docker = DockerClient()
+    compose_file = ensure_dom_directory() / "docker-compose.yml"
 
-    print("Step 4: Regenerating docker-compose with real judgedaemon password...")
-    generate_docker_compose(infra_config, judge_password=judge_password)
+    logger.info("Step 1: Generating initial docker-compose configuration...")
+    # Temporary password before real one is fetched from domserver
+    generate_docker_compose(infra_config, secrets=secrets, judge_password="TEMP")  # nosec B106
 
-    print("Step 5: Starting judgehosts...")
+    logger.info("Step 2: Starting core services (MariaDB + Domserver + MySQL Client)...")
+    docker.start_services(["mariadb", "mysql-client", "domserver"], compose_file)
+
+    logger.info("Waiting for Domserver to be healthy...")
+    docker.wait_for_container_healthy("dom-cli-domserver")
+
+    logger.info("Step 3: Fetching judgedaemon password...")
+    judge_password = docker.fetch_judgedaemon_password()
+
+    logger.info("Step 4: Regenerating docker-compose with real judgedaemon password...")
+    generate_docker_compose(infra_config, secrets=secrets, judge_password=judge_password)
+
+    logger.info(f"Step 5: Starting {infra_config.judges} judgehosts...")
     judgehost_services = [f"judgehost-{i + 1}" for i in range(infra_config.judges)]
-    start_services(judgehost_services, compose_file)
+    docker.start_services(judgehost_services, compose_file)
 
-    print("Step 6: Updating admin password...")
+    logger.info("Step 6: Updating admin password...")
     admin_password = (
-        infra_config.password.get_secret_value() if infra_config.password else None
-        or load_or_default_secret("admin_password")
-        or fetch_admin_init_password()
+        infra_config.password.get_secret_value()
+        if infra_config.password
+        else None or secrets.get("admin_password") or docker.fetch_admin_init_password()
     )
 
-    update_admin_password(
+    docker.update_admin_password(
         new_password=admin_password,
         db_user="domjudge",
-        db_password=load_secret("db_password"),
+        db_password=secrets.get_required("db_password"),
     )
-    save_secret("admin_password", admin_password)
+    secrets.set("admin_password", admin_password)
 
-    print("✅ Infrastructure and platform are ready!")
+    logger.info(
+        "✅ Infrastructure and platform are ready!",
+        extra={"port": infra_config.port, "judgehosts": infra_config.judges},
+    )
+    logger.info(f"   - DOMjudge server: http://localhost:{infra_config.port}")
+    logger.info(f"   - Judgehosts: {infra_config.judges} active")
+    logger.info("   - Admin password: stored securely")

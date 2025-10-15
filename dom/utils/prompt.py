@@ -1,30 +1,34 @@
-from typing import Callable, Optional, TypeVar, Iterable
-from rich.prompt import Prompt, Confirm
+from collections.abc import Callable, Iterable
+from typing import TypeVar
+
 from rich.console import Console
+from rich.prompt import Confirm, Prompt
+
 from dom.utils.validators import Invalid
 
 T = TypeVar("T")
+
 
 def ask(
     message: str,
     *,
     console: Console,
-    default: Optional[str] = None,
-    parser: Optional[Callable[[str], T]] = None,
+    default: str | None = None,
+    parser: Callable[[str], T] | None = None,
     password: bool = False,
     show_default: bool = True,
-) -> T:
+) -> T | str:
     """Prompt once; parse; reprompt on error. All looping is hidden here."""
     while True:
-        raw = Prompt.ask(
+        raw: str = Prompt.ask(
             message,
-            default=default,
+            default=default or "",
             show_default=show_default,
             password=password,
             console=console,
         )
         try:
-            value = parser(raw) if parser else raw  # type: ignore[assignment]
+            value: T | str = parser(raw) if parser else raw
             return value
         except Invalid as e:
             console.print(f"[red]{e}[/red]")
@@ -32,16 +36,18 @@ def ask(
             console.print(f"[red]{e}[/red]")
             console.print("[red]Invalid value.[/red]")
 
+
 def ask_bool(message: str, *, console: Console, default: bool = True) -> bool:
     return Confirm.ask(message, default=default, console=console)
+
 
 def ask_choice(
     message: str,
     *,
     console: Console,
     choices: Iterable[str],
-    default: Optional[str] = None,
-    normalizer: Optional[Callable[[str], str]] = None,
+    default: str | None = None,
+    normalizer: Callable[[str], str] | None = None,
     show_default: bool = True,
 ) -> str:
     """Prompt with a fixed set of string choices; reprompts on invalid."""
@@ -54,6 +60,6 @@ def ask_choice(
             show_default=show_default,
             console=console,
         )
-        key = normalizer(raw) if normalizer else raw
+        key = normalizer(raw) if normalizer and raw else raw
         if key in normalized:
             return normalized[key]

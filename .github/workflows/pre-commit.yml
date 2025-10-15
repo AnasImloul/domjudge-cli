@@ -1,0 +1,27 @@
+name: Pre-commit
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+
+jobs:
+  pre-commit:
+    name: Pre-commit checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run pre-commit on all files
+        run: pre-commit run --all-files --show-diff-on-failure

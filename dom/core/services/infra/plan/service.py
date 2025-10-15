@@ -8,4 +8,4 @@ def plan_infra_and_platform(config: DomConfig) -> None:
 
     print("🔍 PLAN: Checking contests...")
     for contest in config.contests:
-        print(f"Would create/update contest: {contest.get('name')}")
+        print(f"Would create/update contest: {contest.get('name')}")  # type: ignore[attr-defined]
