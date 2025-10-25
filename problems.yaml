@@ -1,0 +1,43 @@
+- archive: "problems/distance-neighborhood-easy-8$linux.zip"
+  platform: "Polygon"
+  color: "#ffa500"
+
+- archive: "problems/jnjd25-xor-query-3$linux.zip"
+  platform: "Polygon"
+  color: "#008000"
+
+- archive: "problems/cumulative-min-1$linux.zip"
+  platform: "Polygon"
+  color: "#a52a2a"
+
+- archive: "problems/jnjd2025-cosmic-expansion-3$linux.zip"
+  platform: "Polygon"
+  color: "#808080"
+
+- archive: "problems/gnome-3$linux.zip"
+  platform: "Polygon"
+  color: "#ff00ff"
+
+- archive: "problems/watermelon-6$linux.zip"
+  platform: "Polygon"
+  color: "#ffc0cb"
+
+- archive: "problems/jnjd2025-geocentric-orbits-4$linux.zip"
+  platform: "Polygon"
+  color: "#800080"
+
+- archive: "problems/jnjd25-tiles-8$linux.zip"
+  platform: "Polygon"
+  color: "#008080"
+
+- archive: "problems/bitwalker-4$linux.zip"
+  platform: "Polygon"
+  color: "#ff0000"
+
+- archive: "problems/prefix-game-4$linux.zip"
+  platform: "Polygon"
+  color: "#00ffff"
+
+- archive: "problems/jnjd25-hashmap-zellij-1$linux.zip"
+  platform: "Polygon"
+  color: "#0000ff"

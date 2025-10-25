@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from pathlib import Path
 
 import jmespath
@@ -15,19 +16,22 @@ from dom.core.operations.contest import (
 )
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
-from dom.utils.cli import cli_command, get_secrets_manager
+from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 logger = get_logger(__name__)
 contest_command = typer.Typer()
 
 
 @contest_command.command("apply")
+@add_global_options
 @cli_command
 def apply_from_config(
     file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying them"),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001  # noqa: ARG001
 ) -> None:
     """
     Apply configuration to contests on the platform.
@@ -37,7 +41,7 @@ def apply_from_config(
     """
     # Create execution context
     secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets, dry_run=dry_run)
+    context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
 
     # Build and execute an operation pipeline
     if dry_run:
@@ -47,7 +51,7 @@ def apply_from_config(
         )
 
         if result.is_success():
-            _preview_contest_changes(result.unwrap(), secrets)
+            _preview_contest_changes(result.unwrap(), secrets, verbose=verbose)
     else:
         # For actual apply, execute operations
         # Execute the load operation first
@@ -62,7 +66,7 @@ def apply_from_config(
         apply_runner.run(context)
 
 
-def _preview_contest_changes(config, secrets: SecretsManager) -> None:
+def _preview_contest_changes(config, secrets: SecretsManager, verbose: bool = False) -> None:
     """
     Preview what changes would be made without applying them.
 
@@ -71,13 +75,14 @@ def _preview_contest_changes(config, secrets: SecretsManager) -> None:
     Args:
         config: Complete DOMjudge configuration
         secrets: Secrets manager for retrieving credentials
+        verbose: Whether verbose logging is enabled
     """
     console = Console()
     console.print("\n[bold cyan]🔍 DRY RUN - Preview Mode[/bold cyan]\n")
     console.print("[dim]No changes will be applied to the platform[/dim]\n")
 
     # Use operation to plan changes
-    context = OperationContext(secrets=secrets)
+    context = OperationContext(secrets=secrets, verbose=verbose)
     plan_operation = PlanContestChangesOperation(config)
     runner = OperationRunner(plan_operation, show_progress=False)
     result = runner.run(context)
@@ -96,6 +101,7 @@ def _preview_contest_changes(config, secrets: SecretsManager) -> None:
 
 
 @contest_command.command("verify-problemset")
+@add_global_options
 @cli_command
 def verify_problemset_command(
     contest: str = typer.Argument(
@@ -104,6 +110,8 @@ def verify_problemset_command(
     file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Verify the problemset of the specified contest.
@@ -112,7 +120,7 @@ def verify_problemset_command(
     """
     # Create execution context
     secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets)
+    context = OperationContext(secrets=secrets, verbose=verbose)
 
     # Verify problemset using operation
     verify_runner = OperationRunner(VerifyProblemsetOperation(file, contest))
@@ -120,6 +128,7 @@ def verify_problemset_command(
 
 
 @contest_command.command("inspect")
+@add_global_options
 @cli_command
 def inspect_contests_command(
     file: Path = typer.Option(
@@ -129,6 +138,8 @@ def inspect_contests_command(
     show_secrets: bool = typer.Option(
         False, "--show-secrets", help="Include secret values instead of masking them"
     ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Inspect loaded configuration. By default secret fields are masked;
@@ -136,7 +147,7 @@ def inspect_contests_command(
     """
     # Create execution context
     secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets)
+    context = OperationContext(secrets=secrets, verbose=verbose)
 
     # Load configuration
     load_runner = OperationRunner(LoadConfigOperation(file), show_progress=False)
@@ -151,5 +162,11 @@ def inspect_contests_command(
     if format:
         data = jmespath.search(format, data)
 
+    # Custom JSON encoder to handle datetime objects
+    def json_serializer(obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        raise TypeError(f"Type {type(obj)} not serializable")
+
     # pretty-print or just print the dict
-    typer.echo(json.dumps(data, ensure_ascii=False, indent=2))
+    typer.echo(json.dumps(data, ensure_ascii=False, indent=2, default=json_serializer))

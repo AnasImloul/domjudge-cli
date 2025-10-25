@@ -4,6 +4,58 @@ This module contains configuration constants used throughout the application.
 These values can be overridden through configuration files or environment variables.
 """
 
+from enum import Enum
+
+# ============================================================
+# Secret Keys
+# ============================================================
+
+
+class SecretKeys(str, Enum):
+    """
+    Enumeration of all secret keys used in the application.
+
+    Using an enum instead of magic strings provides:
+    - Compile-time checking (import errors instead of runtime KeyErrors)
+    - IDE autocompletion
+    - Easy refactoring (find all usages)
+    - Self-documentation
+
+    Usage:
+        >>> secrets.get(SecretKeys.ADMIN_PASSWORD.value)
+        >>> secrets.set(SecretKeys.DB_PASSWORD.value, "secret")
+    """
+
+    # Infrastructure secrets
+    ADMIN_PASSWORD = "admin_password"
+    DB_PASSWORD = "db_password"
+    JUDGEDAEMON_PASSWORD = "judgedaemon_password"
+
+    # API credentials
+    API_USERNAME = "api_username"
+    API_PASSWORD = "api_password"
+
+    # Contest-specific secrets
+    TEAM_PASSWORD_PREFIX = "team_password_"  # Followed by team ID
+
+    @classmethod
+    def team_password_key(cls, team_id: str) -> str:
+        """
+        Generate a team-specific password key.
+
+        Args:
+            team_id: Team identifier
+
+        Returns:
+            Secret key for the team's password
+
+        Example:
+            >>> SecretKeys.team_password_key("team-123")
+            'team_password_team-123'
+        """
+        return f"{cls.TEAM_PASSWORD_PREFIX.value}{team_id}"
+
+
 # ============================================================
 # ID Generation
 # ============================================================
@@ -89,6 +141,31 @@ HEALTH_CHECK_TIMEOUT = 60
 
 # Health check polling interval in seconds
 HEALTH_CHECK_INTERVAL = 2
+
+
+class ContainerNames(str, Enum):
+    """Container name constants for DOMjudge infrastructure.
+
+    Usage:
+        container_name = ContainerNames.DOMSERVER.with_prefix(prefix)
+        # Returns: "prefix-domserver"
+    """
+
+    DOMSERVER = "domserver"
+    MARIADB = "mariadb"
+    MYSQL_CLIENT = "mysql-client"
+    JUDGEHOST = "judgehost"
+
+    def with_prefix(self, prefix: str) -> str:
+        """Get full container name with prefix.
+
+        Args:
+            prefix: Container prefix (e.g., 'domjudge-abc123')
+
+        Returns:
+            Full container name (e.g., 'domjudge-abc123-domserver')
+        """
+        return f"{prefix}-{self.value}"
 
 
 # ============================================================

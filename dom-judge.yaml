@@ -1,0 +1,22 @@
+infra:
+  port: 8080
+  judges: 2
+  password: "eZUziaFC9qStzw8s"
+
+contests:
+  - name: "jnjd"
+    shortname: "jnjd"
+    start_time: "2025-08-30T13:56:01+00:00"
+    duration: "05:00:00.000"
+    penalty_time: 20
+    allow_submit: true
+
+    problems:
+      from: "problems.yaml"
+
+    teams:
+      from: "teams.csv"
+      delimiter: ","
+      rows: "2-50"
+      name: "$2"
+      affiliation: "$3"

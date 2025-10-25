@@ -1,10 +1,10 @@
 networks:
-  dom-cli-domjudge:
-    name: dom-cli-domjudge
+  {{ container_prefix }}-domjudge:
+    name: {{ container_prefix }}-domjudge
 
 services:
   mariadb:
-    container_name: dom-cli-mariadb
+    container_name: {{ container_prefix }}-mariadb
     image: mariadb
     platform: linux/x86_64
     environment:
@@ -13,34 +13,32 @@ services:
       - MYSQL_USER=domjudge
       - MYSQL_PASSWORD={{ db_password }}
     networks:
-      - dom-cli-domjudge
-    ports:
-      - "3306:3306"
+      - {{ container_prefix }}-domjudge
     restart: unless-stopped
 
   mysql-client:
-    container_name: dom-cli-mysql-client
+    container_name: {{ container_prefix }}-mysql-client
     image: mysql:8
     platform: linux/x86_64
     entrypoint: tail -f /dev/null  # So it keeps running and stays idle
     networks:
-      - dom-cli-domjudge
+      - {{ container_prefix }}-domjudge
     depends_on:
       - mariadb
     restart: unless-stopped
 
   domserver:
-    container_name: dom-cli-domserver
+    container_name: {{ container_prefix }}-domserver
     image: domjudge/domserver:8.2.0
     platform: linux/x86_64
     environment:
-      - MYSQL_HOST=dom-cli-mariadb
+      - MYSQL_HOST={{ container_prefix }}-mariadb
       - MYSQL_ROOT_PASSWORD={{ db_password }}
       - MYSQL_DATABASE=domjudge
       - MYSQL_USER=domjudge
       - MYSQL_PASSWORD={{ db_password }}
     networks:
-      - dom-cli-domjudge
+      - {{ container_prefix }}-domjudge
     ports:
       - "{{ platform_port }}:80"
     depends_on:
@@ -49,7 +47,7 @@ services:
 
 {% for i in range(judgehost_count) %}
   judgehost-{{i+1}}:
-    container_name: dom-cli-judgehost-{{i+1}}
+    container_name: {{ container_prefix }}-judgehost-{{i+1}}
     hostname: judgedaemon-{{i+1}}
     image: domjudge/judgehost:8.2.0
     platform: linux/x86_64
@@ -58,10 +56,10 @@ services:
       - /sys/fs/cgroup:/sys/fs/cgroup
     environment:
       - DAEMON_ID={{i+1}}
-      - DOMSERVER_BASEURL=http://dom-cli-domserver/
+      - DOMSERVER_BASEURL=http://{{ container_prefix }}-domserver/
       - JUDGEDAEMON_PASSWORD={{ judgedaemon_password }}
     networks:
-      - dom-cli-domjudge
+      - {{ container_prefix }}-domjudge
     depends_on:
       - domserver
     restart: unless-stopped

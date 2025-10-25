@@ -1,7 +1,6 @@
 """Problem management service for DOMjudge API."""
 
 import tempfile
-import time
 from pathlib import Path
 from typing import Any
 
@@ -81,28 +80,6 @@ class ProblemService:
         logger.info(f"Found {len(all_problems)} unique problems")
         return all_problems
 
-    def list_all_system_problems(self) -> dict[str, Any]:
-        """
-        List all problems in the DOMjudge system (not just contest-linked).
-
-        Returns:
-            Dictionary mapping external IDs to problem data
-        """
-        try:
-            data = self.client.get("/api/v4/problems")
-            all_problems: dict[str, Any] = {}
-            if isinstance(data, list):
-                for problem in data:
-                    if isinstance(problem, dict):
-                        externalid = problem.get("externalid")
-                        if externalid:
-                            all_problems[externalid] = problem
-            logger.info(f"Found {len(all_problems)} problems in system")
-            return all_problems
-        except Exception as e:
-            logger.warning(f"Failed to fetch system problems: {e}")
-            return {}
-
     def create_or_get(self, problem_package: ProblemPackage) -> str:
         """
         Create a problem or get existing one by external ID.
@@ -130,64 +107,16 @@ class ProblemService:
 
             with temp_zip_path.open("rb") as f:
                 files = {"zip": (f.name, f, "application/zip")}
-                try:
-                    response = self.client.post(
-                        "/api/v4/problems", files=files, invalidate_cache="all_problems"
-                    )
+                response = self.client.post(
+                    "/api/v4/problems", files=files, invalidate_cache="all_problems"
+                )
 
-                    if "problem_id" not in response:
-                        raise APIError(f"No 'problem_id' in response: {response}")
+                if "problem_id" not in response:
+                    raise APIError(f"No 'problem_id' in response: {response}")
 
-                    problem_id = response["problem_id"]
-                    logger.info(f"Created problem (ID: {problem_id})")
-                    return problem_id  # type: ignore[no-any-return]
-                except APIError as e:
-                    # If it's a duplicate error, try to find the existing problem
-                    if "already exists" in str(e).lower() or "duplicate" in str(e).lower():
-                        logger.info(
-                            f"Problem with externalid '{externalid}' already exists, "
-                            "refreshing cache to find it..."
-                        )
-
-                        # Retry with delays to allow system to settle
-                        for attempt in range(3):
-                            # Invalidate cache and fetch all contest problems again
-                            if self.client.cache:
-                                self.client.cache.invalidate("all_problems")
-                                self.client.cache.invalidate("contests_list")
-
-                            # Small delay to allow system to propagate
-                            if attempt > 0:
-                                time.sleep(0.5 * attempt)
-                                logger.debug(
-                                    f"Retry attempt {attempt + 1} to find problem '{externalid}'"
-                                )
-
-                            # Try to find in all contest problems
-                            all_problems = self.list_all()
-                            if externalid in all_problems:
-                                problem_id = all_problems[externalid]["id"]
-                                logger.info(
-                                    f"Found existing problem '{externalid}' (ID: {problem_id})"
-                                )
-                                return problem_id  # type: ignore[no-any-return]
-
-                            # Try system problems as fallback
-                            system_problems = self.list_all_system_problems()
-                            if externalid in system_problems:
-                                problem_id = system_problems[externalid]["id"]
-                                logger.info(
-                                    f"Found existing problem '{externalid}' (ID: {problem_id})"
-                                )
-                                return problem_id  # type: ignore[no-any-return]
-
-                        # If we still can't find it after retries, log a warning and re-raise
-                        logger.warning(
-                            f"Problem '{externalid}' already exists according to API, "
-                            "but couldn't find it in any contest after multiple attempts. "
-                            "This may indicate the problem exists in the system but isn't linked to any contest yet."
-                        )
-                    raise
+                problem_id = response["problem_id"]
+                logger.info(f"Created problem (ID: {problem_id})")
+                return problem_id  # type: ignore[no-any-return]
         finally:
             if temp_zip_path and temp_zip_path.exists():
                 temp_zip_path.unlink()

@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from functools import wraps
+from hashlib import sha256
 from pathlib import Path
 from typing import TypeVar
 
@@ -26,6 +27,34 @@ def ensure_dom_directory() -> Path:
     return dom_path
 
 
+def get_container_prefix() -> str:
+    """
+    Generate a unique container prefix based on the current working directory.
+
+    This allows multiple DOMjudge instances to run simultaneously from different
+    directories without naming collisions. The prefix is generated from a hash
+    of the absolute path to ensure it's deterministic and filesystem-safe.
+
+    Returns:
+        A container prefix like 'domjudge-abc123' based on the directory path
+
+    Example:
+        >>> # In /home/user/contest1:
+        >>> get_container_prefix()
+        'domjudge-a3f4b2'
+        >>> # In /home/user/contest2:
+        >>> get_container_prefix()
+        'domjudge-c7e891'
+    """
+    # Get absolute path of current working directory
+    cwd = Path.cwd().resolve()
+
+    # Generate a short hash from the path (first 6 chars of SHA256)
+    path_hash = sha256(str(cwd).encode()).hexdigest()[:6]
+
+    return f"domjudge-{path_hash}"
+
+
 def get_secrets_manager() -> SecretsManager:
     """
     Get initialized secrets manager for the current project.
@@ -34,6 +63,47 @@ def get_secrets_manager() -> SecretsManager:
         Configured SecretsManager instance
     """
     return SecretsManager(ensure_dom_directory())
+
+
+def add_global_options(func: Callable[..., T]) -> Callable[..., T]:
+    """
+    Decorator that adds global CLI options to any command function.
+
+    This decorator automatically adds the following global options:
+    - --verbose: Enable verbose logging output
+    - --no-color: Disable colored output
+
+    The options are added as parameters to the function, so they can be used
+    directly in the command implementation.
+
+    Usage:
+        @app.command()
+        @add_global_options
+        def my_command(arg: str, verbose: bool = False, no_color: bool = False):
+            # Command logic here
+            pass
+    """
+
+    @wraps(func)
+    def wrapper(
+        *args,
+        verbose: bool = typer.Option(False, "--verbose", help="Enable verbose logging output"),
+        no_color: bool = typer.Option(False, "--no-color", help="Disable colored output"),
+        **kwargs,
+    ) -> T:
+        # Configure logging for this command
+        from dom.logging_config import setup_logging
+
+        log_dir = ensure_dom_directory()
+        log_file = log_dir / "domjudge-cli.log"
+        log_level = "DEBUG" if verbose else "INFO"
+        setup_logging(
+            level=log_level, log_file=log_file, enable_rich=not no_color, console_output=verbose
+        )
+
+        return func(*args, verbose=verbose, no_color=no_color, **kwargs)
+
+    return wrapper
 
 
 def cli_command(func: Callable[..., T]) -> Callable[..., T]:

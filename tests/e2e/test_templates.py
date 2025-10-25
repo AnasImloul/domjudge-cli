@@ -70,10 +70,11 @@ class TestTemplateRendering:
         from dom.templates.infra import docker_compose_template
 
         rendered = docker_compose_template.render(
+            container_prefix="dom-cli",
             platform_port=12345,
             judgehost_count=2,
             admin_password="test_admin_pass",
-            judge_password="test_judge_pass",
+            judgedaemon_password="test_judge_pass",
             db_password="test_db_pass",
         )
 
@@ -96,6 +97,8 @@ class TestTemplateRendering:
         assert mariadb["container_name"] == "dom-cli-mariadb"
         assert "MYSQL_DATABASE=domjudge" in mariadb["environment"]
         assert any("MYSQL_PASSWORD=" in env for env in mariadb["environment"])
+        # MariaDB should NOT expose ports to allow multiple deployments
+        assert "ports" not in mariadb, "MariaDB should not expose ports to host"
 
         # Validate domserver service
         domserver = services["domserver"]

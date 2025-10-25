@@ -1,0 +1,83 @@
+networks:
+  domjudge-3b0ea0-domjudge:
+    name: domjudge-3b0ea0-domjudge
+
+services:
+  mariadb:
+    container_name: domjudge-3b0ea0-mariadb
+    image: mariadb
+    platform: linux/x86_64
+    environment:
+      - MYSQL_ROOT_PASSWORD=siOIWcFjVjWexDIm
+      - MYSQL_DATABASE=domjudge
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=siOIWcFjVjWexDIm
+    networks:
+      - domjudge-3b0ea0-domjudge
+    restart: unless-stopped
+
+  mysql-client:
+    container_name: domjudge-3b0ea0-mysql-client
+    image: mysql:8
+    platform: linux/x86_64
+    entrypoint: tail -f /dev/null  # So it keeps running and stays idle
+    networks:
+      - domjudge-3b0ea0-domjudge
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+  domserver:
+    container_name: domjudge-3b0ea0-domserver
+    image: domjudge/domserver:8.2.0
+    platform: linux/x86_64
+    environment:
+      - MYSQL_HOST=domjudge-3b0ea0-mariadb
+      - MYSQL_ROOT_PASSWORD=siOIWcFjVjWexDIm
+      - MYSQL_DATABASE=domjudge
+      - MYSQL_USER=domjudge
+      - MYSQL_PASSWORD=siOIWcFjVjWexDIm
+    networks:
+      - domjudge-3b0ea0-domjudge
+    ports:
+      - "8080:80"
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+
+  judgehost-1:
+    container_name: domjudge-3b0ea0-judgehost-1
+    hostname: judgedaemon-1
+    image: domjudge/judgehost:8.2.0
+    platform: linux/x86_64
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    environment:
+      - DAEMON_ID=1
+      - DOMSERVER_BASEURL=http://domjudge-3b0ea0-domserver/
+      - JUDGEDAEMON_PASSWORD=f2rxHIugn0x69PEE/6qj0KQ2/3n4vGCO
+    networks:
+      - domjudge-3b0ea0-domjudge
+    depends_on:
+      - domserver
+    restart: unless-stopped
+
+  judgehost-2:
+    container_name: domjudge-3b0ea0-judgehost-2
+    hostname: judgedaemon-2
+    image: domjudge/judgehost:8.2.0
+    platform: linux/x86_64
+    privileged: true
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+    environment:
+      - DAEMON_ID=2
+      - DOMSERVER_BASEURL=http://domjudge-3b0ea0-domserver/
+      - JUDGEDAEMON_PASSWORD=f2rxHIugn0x69PEE/6qj0KQ2/3n4vGCO
+    networks:
+      - domjudge-3b0ea0-domjudge
+    depends_on:
+      - domserver
+    restart: unless-stopped

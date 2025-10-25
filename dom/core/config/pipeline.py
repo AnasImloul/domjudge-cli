@@ -275,20 +275,3 @@ def create_infra_config_pipeline() -> ConfigPipeline:
         .add_stage(ValidateSchemaStage())
         .add_stage(ParseInfraConfigStage())
     )
-
-
-def create_full_config_pipeline() -> ConfigPipeline:
-    """
-    Create a declarative pipeline for loading complete configuration.
-
-    Returns:
-        Configured pipeline
-    """
-    # This would need to be implemented to combine infra and contests
-    # For now, keeping it simple
-    return (
-        ConfigPipeline()
-        .add_stage(FindConfigFileStage())
-        .add_stage(LoadYAMLStage())
-        .add_stage(ValidateSchemaStage())
-    )

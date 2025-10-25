@@ -5,21 +5,62 @@ This module provides health check functionality for DOMjudge infrastructure.
 
 import json
 import subprocess  # nosec B404
+from pathlib import Path
 
+import yaml
 from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from dom.constants import CONTAINER_PREFIX
 from dom.exceptions import DockerError
 from dom.infrastructure.docker import DockerClient
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
+from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 
 
-def check_infrastructure_status(config: InfraConfig | None = None) -> InfrastructureStatus:
+def _get_expected_services_from_compose() -> dict[str, str]:
+    """
+    Parse the generated docker-compose.yml to extract expected services and container names.
+
+    This avoids hardcoding services and ensures the status check matches
+    the actual docker-compose configuration.
+
+    Returns:
+        Dictionary mapping service names to container names
+
+    Raises:
+        FileNotFoundError: If docker-compose.yml doesn't exist
+    """
+    compose_file = ensure_dom_directory() / "docker-compose.yml"
+
+    if not compose_file.exists():
+        logger.warning(f"Docker compose file not found at {compose_file}")
+        return {}
+
+    try:
+        with Path(compose_file).open() as f:
+            compose_data = yaml.safe_load(f)
+
+        # Extract service names and container names from the compose file
+        services = {}
+        for service_name, service_config in compose_data.get("services", {}).items():
+            container_name = service_config.get("container_name", service_name)
+            services[service_name] = container_name
+
+        logger.debug(
+            f"Found {len(services)} services in docker-compose.yml: {list(services.keys())}"
+        )
+        return services
+
+    except Exception as e:
+        logger.error(f"Failed to parse docker-compose.yml: {e}", exc_info=True)
+        return {}
+
+
+def check_infrastructure_status(config: InfraConfig | None = None) -> InfrastructureStatus:  # noqa: ARG001
     """
     Check the status of DOMjudge infrastructure.
 
@@ -30,8 +71,11 @@ def check_infrastructure_status(config: InfraConfig | None = None) -> Infrastruc
     - Judgehost containers status
     - MySQL client container status
 
+    The expected services are determined by parsing the generated docker-compose.yml
+    file to avoid split-brain issues between configuration and status checks.
+
     Args:
-        config: Infrastructure configuration (optional, used to know expected services)
+        config: Infrastructure configuration (optional, kept for backwards compatibility)
 
     Returns:
         InfrastructureStatus object with detailed status information
@@ -54,21 +98,16 @@ def check_infrastructure_status(config: InfraConfig | None = None) -> Infrastruc
         logger.error(f"Docker is not available: {e}")
         return status
 
-    # Define expected services
-    expected_services = [
-        "domserver",
-        "mariadb",
-        "mysql-client",
-    ]
+    # Get expected services from docker-compose.yml
+    expected_services = _get_expected_services_from_compose()
 
-    # Add judgehosts if config provided
-    if config:
-        for i in range(config.judges):
-            expected_services.append(f"judgehost-{i}")
+    if not expected_services:
+        logger.warning("No services found in docker-compose.yml or file doesn't exist")
+        # Return early if no compose file exists
+        return status
 
     # Check each service
-    for service_name in expected_services:
-        container_name = f"{CONTAINER_PREFIX}-{service_name}"
+    for service_name, container_name in expected_services.items():
         service_status, details = _check_container_status(docker, container_name)
         status.services[service_name] = service_status
         status.service_details[service_name] = details
@@ -101,11 +140,11 @@ def _check_container_status(
         Tuple of (ServiceStatus, details_dict)
     """
     try:
-        # Check if container exists and get its status
+        # First check if container exists and get its state
         cmd = [
             *docker._cmd,
             "inspect",
-            "--format={{.State.Status}}|{{.State.Health.Status}}",
+            "--format={{.State.Status}}",
             container_name,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603
@@ -117,14 +156,24 @@ def _check_container_status(
                 "error": "Container not found",
             }
 
-        # Parse output
-        parts = result.stdout.strip().split("|")
-        container_status = parts[0] if parts else "unknown"
-        health_status = parts[1] if len(parts) > 1 else "no_healthcheck"
+        container_status = result.stdout.strip()
 
         # Determine service status
         if container_status != "running":
             return ServiceStatus.STOPPED, {"container": container_name, "state": container_status}
+
+        # Check if container has health check configured
+        health_cmd = [
+            *docker._cmd,
+            "inspect",
+            "--format={{if .State.Health}}{{.State.Health.Status}}{{else}}no_healthcheck{{end}}",
+            container_name,
+        ]
+        health_result = subprocess.run(health_cmd, capture_output=True, text=True, check=False)  # nosec B603
+
+        health_status = (
+            health_result.stdout.strip() if health_result.returncode == 0 else "no_healthcheck"
+        )
 
         if health_status == "healthy":
             return ServiceStatus.HEALTHY, {

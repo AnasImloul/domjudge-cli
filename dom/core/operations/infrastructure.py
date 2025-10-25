@@ -70,6 +70,15 @@ class ApplyInfrastructureOperation(Operation[None]):
     def execute(self, context: OperationContext) -> OperationResult[None]:
         """Execute infrastructure deployment."""
         try:
+            # Validate prerequisites before deployment
+            from dom.utils.validation import (
+                validate_infrastructure_prerequisites,
+                warn_if_privileged_port,
+            )
+
+            validate_infrastructure_prerequisites(self.config.port)
+            warn_if_privileged_port(self.config.port)
+
             apply_infra_and_platform(self.config, context.secrets)
             return OperationResult.success(None, "Infrastructure deployed successfully")
         except Exception as e:
@@ -80,6 +89,15 @@ class ApplyInfrastructureOperation(Operation[None]):
 class DestroyInfrastructureOperation(Operation[None]):
     """Destroy all infrastructure components."""
 
+    def __init__(self, remove_volumes: bool = False):
+        """
+        Initialize infrastructure destruction operation.
+
+        Args:
+            remove_volumes: If True, delete volumes (PERMANENT DATA LOSS)
+        """
+        self.remove_volumes = remove_volumes
+
     def describe(self) -> str:
         """Describe what this operation does."""
         return "Destroy all infrastructure and platform components"
@@ -87,7 +105,7 @@ class DestroyInfrastructureOperation(Operation[None]):
     def execute(self, context: OperationContext) -> OperationResult[None]:
         """Execute infrastructure destruction."""
         try:
-            destroy_infra_and_platform(context.secrets)
+            destroy_infra_and_platform(context.secrets, self.remove_volumes)
             return OperationResult.success(None, "Infrastructure destroyed successfully")
         except Exception as e:
             logger.error(f"Failed to destroy infrastructure: {e}", exc_info=True)

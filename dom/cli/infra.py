@@ -12,17 +12,21 @@ from dom.core.operations.infrastructure import (
 )
 from dom.exceptions import DomJudgeCliError
 from dom.logging_config import get_logger
-from dom.utils.cli import get_secrets_manager
+from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 logger = get_logger(__name__)
 infra_command = typer.Typer()
 
 
 @infra_command.command("apply")
+@add_global_options
+@cli_command
 def apply_from_config(
     file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Apply configuration to infrastructure and platform.
@@ -30,7 +34,7 @@ def apply_from_config(
     try:
         # Create execution context
         secrets = get_secrets_manager()
-        context = OperationContext(secrets=secrets)
+        context = OperationContext(secrets=secrets, verbose=verbose)
 
         # Load configuration
         load_runner = OperationRunner(LoadInfraConfigOperation(file))
@@ -56,26 +60,63 @@ def apply_from_config(
 
 
 @infra_command.command("destroy")
+@add_global_options
+@cli_command
 def destroy_all(
     confirm: bool = typer.Option(False, "--confirm", help="Confirm destruction"),
+    force_delete_volumes: bool = typer.Option(
+        False, "--force-delete-volumes", help="Delete volumes (PERMANENT DATA LOSS)"
+    ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Destroy all infrastructure and platform resources.
 
-    WARNING: This will permanently remove all containers, volumes, and data.
+    By default, Docker volumes (containing contest data) are PRESERVED.
+    Use --force-delete-volumes to permanently delete all data.
     """
+    from rich.prompt import Confirm
+
+    from dom.logging_config import console
+
     if not confirm:
         typer.echo("❗ Use --confirm to actually destroy infrastructure.")
-        typer.echo("   This action is irreversible and will delete all data.")
+        typer.echo("   Containers will be stopped. Use --force-delete-volumes to also delete data.")
         raise typer.Exit(code=1)
+
+    # Prompt for volume deletion BEFORE starting the spinner
+    remove_volumes = force_delete_volumes
+    if not force_delete_volumes:
+        console.print("\n[yellow]⚠️  Volume Preservation Notice[/yellow]")
+        console.print(
+            "Docker volumes (containing contest data, database) will be [green]PRESERVED[/green] by default."
+        )
+        console.print(
+            "To completely remove all data, use the [cyan]--force-delete-volumes[/cyan] flag."
+        )
+        console.print()
+
+        # Ask if they want to delete anyway
+        delete_confirm = Confirm.ask(
+            "[red]Do you want to DELETE ALL VOLUMES? (This is PERMANENT and CANNOT be undone)[/red]",
+            default=False,
+            console=console,
+        )
+        remove_volumes = delete_confirm
+
+    if remove_volumes:
+        console.print(
+            "\n[red]⚠️  WARNING: DELETING ALL VOLUMES - THIS WILL PERMANENTLY DELETE ALL CONTEST DATA![/red]\n"
+        )
 
     try:
         # Create execution context
         secrets = get_secrets_manager()
-        context = OperationContext(secrets=secrets)
+        context = OperationContext(secrets=secrets, verbose=verbose)
 
-        # Destroy infrastructure
-        runner = OperationRunner(DestroyInfrastructureOperation())
+        # Destroy infrastructure with volume option
+        runner = OperationRunner(DestroyInfrastructureOperation(remove_volumes))
         result = runner.run(context)
 
         if not result.is_success():
@@ -90,6 +131,8 @@ def destroy_all(
 
 
 @infra_command.command("status")
+@add_global_options
+@cli_command
 def check_status(
     file: Path = typer.Option(
         None,
@@ -101,6 +144,8 @@ def check_status(
     json_output: bool = typer.Option(
         False, "--json", help="Output in JSON format instead of human-readable"
     ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Check the health status of DOMjudge infrastructure.
@@ -121,7 +166,7 @@ def check_status(
         if file:
             load_runner = OperationRunner(LoadInfraConfigOperation(file), show_progress=False)
             secrets = get_secrets_manager()
-            context = OperationContext(secrets=secrets)
+            context = OperationContext(secrets=secrets, verbose=verbose)
             load_result = load_runner.run(context)
 
             if load_result.is_success():
@@ -129,7 +174,7 @@ def check_status(
 
         # Check and print infrastructure status
         secrets = get_secrets_manager()
-        context = OperationContext(secrets=secrets)
+        context = OperationContext(secrets=secrets, verbose=verbose)
 
         # Use unified operation that checks and prints
         print_status_runner = OperationRunner(
