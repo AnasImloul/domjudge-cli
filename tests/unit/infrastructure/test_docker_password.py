@@ -32,13 +32,10 @@ def test_bcrypt_password_escaping():
         # Find the SQL query in the command
         sql_query = cmd[-1]  # Last argument is the --execute query
 
-        # Verify $ characters are escaped to $$
-        assert "$$2b$$05$$" in sql_query, "Bcrypt $ should be escaped to $$"
-
-        # Verify the query structure is correct
-        assert "SET @password = " in sql_query
-        assert "UPDATE domjudge.user SET password = @password" in sql_query
+        # Verify the query structure is correct (direct UPDATE with escaped password)
+        assert "UPDATE domjudge.user SET password = " in sql_query
         assert "WHERE username = 'admin'" in sql_query
+        assert bcrypt_hash in sql_query, "Original bcrypt hash should be in the query"
 
 
 def test_bcrypt_password_with_single_quotes():
@@ -59,10 +56,11 @@ def test_bcrypt_password_with_single_quotes():
         cmd = mock_run.call_args[0][0]
         sql_query = cmd[-1]
 
-        # Single quotes should be doubled for SQL escaping
-        assert "test''value" in sql_query, "Single quotes should be doubled"
-        # $ should still be escaped
-        assert "$$2b$$05$$" in sql_query
+        # Single quotes should be escaped with backslash
+        assert "test\\'value" in sql_query, "Single quotes should be escaped with backslash"
+        # Verify the query structure
+        assert "UPDATE domjudge.user SET password = " in sql_query
+        assert "WHERE username = 'admin'" in sql_query
 
 
 def test_docker_exec_failure_handling():
@@ -105,15 +103,13 @@ def test_various_bcrypt_formats():
                 hashed_password=bcrypt_hash, db_user="domjudge", db_password="test_password"
             )
 
-            # Verify $ characters are properly escaped
+            # Verify the SQL query structure
             cmd = mock_run.call_args[0][0]
             sql_query = cmd[-1]
 
-            # Count $ characters in original vs escaped
-            original_dollar_count = bcrypt_hash.count("$")
-            escaped_dollar_count = sql_query.count("$$")
-
-            # Each $ should become $$, so escaped count should equal original count
+            # Verify the query structure is correct
+            assert "UPDATE domjudge.user SET password = " in sql_query
+            assert "WHERE username = 'admin'" in sql_query
             assert (
-                escaped_dollar_count >= original_dollar_count
-            ), f"Not all $ characters were escaped in {bcrypt_hash}"
+                bcrypt_hash in sql_query
+            ), f"Original bcrypt hash should be in the query: {bcrypt_hash}"
