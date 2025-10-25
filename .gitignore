@@ -197,3 +197,11 @@ coverage.xml
 # Local config files
 *.local.yml
 *.local.yaml
+
+# Local configuration and data files
+.dom/
+dom-judge.yaml
+problems.yaml
+teams.csv
+problems/
+.import_linter_cache/
