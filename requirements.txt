@@ -11,5 +11,5 @@ typeguard~=4.4.2
 jmespath~=1.0.1
 tqdm~=4.67.1
 cryptography>=43.0,<46.1
-rich~=13.7.0
+rich>=13.7,<14.3
 pytest>=8.0,<8.5
