@@ -62,7 +62,7 @@ def calculate_delay(attempt: int, config: RetryConfig) -> float:
     if config.jitter:
         # Add jitter: ±25% of the calculated delay
         jitter_amount = delay * 0.25
-        delay += random.uniform(-jitter_amount, jitter_amount)
+        delay += random.uniform(-jitter_amount, jitter_amount)  # nosec B311
 
     return max(0, delay)
 
@@ -210,7 +210,7 @@ class RetryableOperation:
         """Enter retry context."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit retry context."""
         return False
 

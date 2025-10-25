@@ -27,16 +27,16 @@ class SecretKeys(str, Enum):
     """
 
     # Infrastructure secrets
-    ADMIN_PASSWORD = "admin_password"
-    DB_PASSWORD = "db_password"
-    JUDGEDAEMON_PASSWORD = "judgedaemon_password"
+    ADMIN_PASSWORD = "admin_password"  # nosec B105
+    DB_PASSWORD = "db_password"  # nosec B105
+    JUDGEDAEMON_PASSWORD = "judgedaemon_password"  # nosec B105
 
     # API credentials
     API_USERNAME = "api_username"
-    API_PASSWORD = "api_password"
+    API_PASSWORD = "api_password"  # nosec B105
 
     # Contest-specific secrets
-    TEAM_PASSWORD_PREFIX = "team_password_"  # Followed by team ID
+    TEAM_PASSWORD_PREFIX = "team_password_"  # nosec B105  # Followed by team ID
 
     @classmethod
     def team_password_key(cls, team_id: str) -> str:

@@ -25,7 +25,7 @@ class DeploymentStep(str, Enum):
     START_DOMSERVER = "start_domserver"
     START_MYSQL_CLIENT = "start_mysql_client"
     START_JUDGEHOSTS = "start_judgehosts"
-    UPDATE_ADMIN_PASSWORD = "update_admin_password"
+    UPDATE_ADMIN_PASSWORD = "update_admin_password"  # nosec B105
     REGENERATE_COMPOSE = "regenerate_compose"
 
 
@@ -199,7 +199,7 @@ def with_rollback(transaction: DeploymentTransaction) -> Callable:
     """
 
     def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+        def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
