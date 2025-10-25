@@ -15,13 +15,13 @@ UV_SYSTEM_FLAG := $(if $(or $(CI),$(if $(VIRTUAL_ENV),,1)),--system,)
 
 setup: ensure-uv ## Complete setup (run this first)
 	@echo "Installing package..."
-	@uv pip install $(UV_SYSTEM_FLAG) -e .
+	@uv pip install $(UV_SYSTEM_FLAG) -e ".[dev]"
 	@echo "Installing pre-commit hooks..."
 	@pre-commit install
 	@echo "✓ Setup complete"
 
 install: ensure-uv ## Install/reinstall package
-	uv pip install $(UV_SYSTEM_FLAG) -e .
+	uv pip install $(UV_SYSTEM_FLAG) -e ".[dev]"
 
 test: ## Run tests with coverage
 	pytest --cov --cov-report=term-missing --cov-report=html -v
