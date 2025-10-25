@@ -1,4 +1,4 @@
-typer~=0.15.2
+typer>=0.15.2,<0.21.0
 PyYAML~=6.0.2
 pydantic>=2.11.3,<2.13.0
 pydantic[email]>=2.11.3,<2.13.0
