@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import typer
+from rich.prompt import Confirm
 
 from dom.cli.validators import validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
@@ -11,7 +12,7 @@ from dom.core.operations.infrastructure import (
     PrintInfrastructureStatusOperation,
 )
 from dom.exceptions import DomJudgeCliError
-from dom.logging_config import get_logger
+from dom.logging_config import console, get_logger
 from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 logger = get_logger(__name__)
@@ -76,10 +77,6 @@ def destroy_all(
     By default, Docker volumes (containing contest data) are PRESERVED.
     Use --force-delete-volumes to permanently delete all data.
     """
-    from rich.prompt import Confirm
-
-    from dom.logging_config import console
-
     if not confirm:
         typer.echo("❗ Use --confirm to actually destroy infrastructure.")
         typer.echo("   Containers will be stopped. Use --force-delete-volumes to also delete data.")

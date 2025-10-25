@@ -7,6 +7,7 @@ for better user experience and automation integration.
 import json
 import sys
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Any
 
 from rich.progress import (
@@ -145,7 +146,7 @@ class ProgressTracker:
             self._emit_json(event)
         # Progress bar mode
         elif self._progress is not None:
-            self._progress.update(task_id, advance=advance, completed=completed, status=status)
+            self._progress.update(task_id, advance=advance, completed=completed, status=status)  # type: ignore[arg-type]
 
     def finish(self) -> None:
         """Finish progress tracking and cleanup."""
@@ -174,15 +175,13 @@ class ProgressTracker:
 
     def _get_timestamp(self) -> str:
         """Get current timestamp in ISO format."""
-        from datetime import datetime
-
         return datetime.utcnow().isoformat() + "Z"
 
     def __enter__(self) -> "ProgressTracker":
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit context manager."""
         self.finish()
         return False

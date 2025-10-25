@@ -9,7 +9,7 @@ from rich.prompt import Confirm
 
 from dom.exceptions import DomJudgeCliError
 from dom.infrastructure.secrets.manager import SecretsManager
-from dom.logging_config import console, get_logger
+from dom.logging_config import console, get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -92,8 +92,6 @@ def add_global_options(func: Callable[..., T]) -> Callable[..., T]:
         **kwargs,
     ) -> T:
         # Configure logging for this command
-        from dom.logging_config import setup_logging
-
         log_dir = ensure_dom_directory()
         log_file = log_dir / "domjudge-cli.log"
         log_level = "DEBUG" if verbose else "INFO"

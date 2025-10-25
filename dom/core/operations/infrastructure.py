@@ -12,6 +12,10 @@ from dom.core.services.infra.status import (
 )
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig, InfrastructureStatus
+from dom.utils.validation import (
+    validate_infrastructure_prerequisites,
+    warn_if_privileged_port,
+)
 
 from .base import Operation, OperationContext, OperationResult
 
@@ -71,11 +75,6 @@ class ApplyInfrastructureOperation(Operation[None]):
         """Execute infrastructure deployment."""
         try:
             # Validate prerequisites before deployment
-            from dom.utils.validation import (
-                validate_infrastructure_prerequisites,
-                warn_if_privileged_port,
-            )
-
             validate_infrastructure_prerequisites(self.config.port)
             warn_if_privileged_port(self.config.port)
 

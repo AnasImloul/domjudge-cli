@@ -7,6 +7,7 @@ including starting services, checking health, and managing passwords.
 import re
 import subprocess  # nosec B404
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from dom.constants import HEALTH_CHECK_INTERVAL, HEALTH_CHECK_TIMEOUT, ContainerNames
@@ -185,8 +186,6 @@ class DockerClient:
         Raises:
             DockerError: If any container becomes unhealthy or times out
         """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
         logger.info(f"Waiting for {len(container_names)} containers to become healthy...")
 
         failures: list[tuple[str, Exception]] = []
@@ -339,7 +338,7 @@ class DockerClient:
             escaped_password = hashed_password.replace("\\", "\\\\").replace("'", "\\'")
 
             # Build SQL query with escaped password
-            sql_query = f"UPDATE domjudge.user SET password = '{escaped_password}' WHERE username = 'admin';"
+            sql_query = f"UPDATE domjudge.user SET password = '{escaped_password}' WHERE username = 'admin';"  # nosec B608
 
             cmd = [
                 *self._cmd,

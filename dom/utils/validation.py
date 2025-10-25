@@ -4,11 +4,13 @@ This module provides validation checks that run before operations begin,
 ensuring prerequisites are met and giving users actionable feedback.
 """
 
+import socket
 import subprocess  # nosec B404
 from pathlib import Path
 
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
 from dom.logging_config import console, get_logger
+from dom.utils.cli import get_container_prefix
 
 logger = get_logger(__name__)
 
@@ -78,16 +80,12 @@ def is_port_used_by_domjudge(port: int) -> bool:
     Returns:
         True if port is used by DOMjudge containers, False otherwise
     """
-    import subprocess
-
     try:
-        from dom.utils.cli import get_container_prefix
-
         container_prefix = get_container_prefix()
         domserver_container = f"{container_prefix}-domserver"
 
         # Check if domserver container exists and is using this port
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603, B607
             ["docker", "ps", "--filter", f"name={domserver_container}", "--format", "{{.Ports}}"],
             capture_output=True,
             text=True,
@@ -123,8 +121,6 @@ def validate_port_available(port: int, allow_domjudge: bool = True) -> None:
     Raises:
         InfrastructureError: If port is already in use by another process
     """
-    import socket
-
     try:
         # Try to bind to the port
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
