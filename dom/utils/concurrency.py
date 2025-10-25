@@ -163,7 +163,7 @@ class BoundedExecutor:
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit context manager."""
         self.shutdown(wait=True)
         return False

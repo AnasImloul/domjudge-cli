@@ -196,7 +196,7 @@ class CircuitBreaker:
                 if self._failure_count >= self.config.failure_threshold:
                     self._transition_to_open()
 
-    def call(self, func: Callable[..., T], *args, **kwargs) -> T:  # type: ignore[misc]
+    def call(self, func: Callable[..., T], *args, **kwargs) -> T:
         """
         Execute function with circuit breaker protection.
 
@@ -246,7 +246,7 @@ class CircuitBreaker:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore[no-untyped-def]
+    def __exit__(self, exc_type, exc_val, exc_tb):
         """Exit circuit breaker context."""
         if exc_type is None:
             self.record_success()

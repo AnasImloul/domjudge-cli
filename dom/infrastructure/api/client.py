@@ -75,8 +75,8 @@ class DomJudgeClient:
 
         self.session = requests.Session()
         self.session.auth = HTTPBasicAuth(username=username, password=password)
-        # Set reasonable timeout
-        self.session.timeout = (10, 30)  # (connect timeout, read timeout)
+        # Set reasonable timeout (will be used in requests)
+        self.timeout = (10, 30)  # (connect timeout, read timeout)
 
         # Initialize cache and rate limiter
         self.cache = TTLCache(default_ttl=cache_ttl) if enable_cache else None
@@ -189,7 +189,7 @@ class DomJudgeClient:
 
         # Make request
         try:
-            response = self.session.get(self.url(path), timeout=(10, 30), **kwargs)
+            response = self.session.get(self.url(path), timeout=self.timeout, **kwargs)
             if not response.ok:
                 self.handle_response_error(response)
 
@@ -229,11 +229,12 @@ class DomJudgeClient:
 
         # Apply circuit breaker if enabled
         if self.circuit_breaker:
+            cb = self.circuit_breaker  # Type narrowing
 
             def _call_with_cb() -> dict[str, Any]:
-                return self.circuit_breaker.call(_call)  # type: ignore[misc]
+                return cb.call(_call)
         else:
-            _call_with_cb = _call  # type: ignore[assignment]
+            _call_with_cb = _call
 
         # Apply retry if enabled
         if self.enable_retry:
@@ -251,7 +252,7 @@ class DomJudgeClient:
 
         # Make request
         try:
-            response = self.session.post(self.url(path), timeout=(10, 30), **kwargs)
+            response = self.session.post(self.url(path), timeout=self.timeout, **kwargs)
             if not response.ok:
                 self.handle_response_error(response)
 
@@ -285,11 +286,12 @@ class DomJudgeClient:
 
         # Apply circuit breaker if enabled
         if self.circuit_breaker:
+            cb = self.circuit_breaker  # Type narrowing
 
             def _call_with_cb() -> dict[str, Any]:
-                return self.circuit_breaker.call(_call)  # type: ignore[misc]
+                return cb.call(_call)
         else:
-            _call_with_cb = _call  # type: ignore[assignment]
+            _call_with_cb = _call
 
         # Apply retry if enabled
         if self.enable_retry:
@@ -307,7 +309,7 @@ class DomJudgeClient:
 
         # Make request
         try:
-            response = self.session.put(self.url(path), timeout=(10, 30), **kwargs)
+            response = self.session.put(self.url(path), timeout=self.timeout, **kwargs)
             if not response.ok:
                 self.handle_response_error(response)
 
@@ -341,11 +343,12 @@ class DomJudgeClient:
 
         # Apply circuit breaker if enabled
         if self.circuit_breaker:
+            cb = self.circuit_breaker  # Type narrowing
 
             def _call_with_cb() -> dict[str, Any]:
-                return self.circuit_breaker.call(_call)  # type: ignore[misc]
+                return cb.call(_call)
         else:
-            _call_with_cb = _call  # type: ignore[assignment]
+            _call_with_cb = _call
 
         # Apply retry if enabled
         if self.enable_retry:
@@ -361,7 +364,7 @@ class DomJudgeClient:
 
         # Make request
         try:
-            response = self.session.delete(self.url(path), timeout=(10, 30), **kwargs)
+            response = self.session.delete(self.url(path), timeout=self.timeout, **kwargs)
             if not response.ok:
                 self.handle_response_error(response)
 
@@ -390,11 +393,12 @@ class DomJudgeClient:
 
         # Apply circuit breaker if enabled
         if self.circuit_breaker:
+            cb = self.circuit_breaker  # Type narrowing
 
-            def _call_with_cb() -> dict[str, Any]:
-                return self.circuit_breaker.call(_call)  # type: ignore[misc]
+            def _call_with_cb() -> None:
+                return cb.call(_call)
         else:
-            _call_with_cb = _call  # type: ignore[assignment]
+            _call_with_cb = _call
 
         # Apply retry if enabled
         if self.enable_retry:

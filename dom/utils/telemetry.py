@@ -246,7 +246,7 @@ def track_operation(operation_name: str, tags: dict[str, str] | None = None):
     """
 
     def decorator(func):
-        def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+        def wrapper(*args, **kwargs):
             metrics = get_metrics_collector()
 
             # Track invocation

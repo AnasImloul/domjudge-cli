@@ -186,7 +186,7 @@ def validate_config_file(config_path: Path | None) -> Path:
     # Validate file exists
     if not config_path.exists():
         raise ConfigError(
-            f"Configuration file not found: {config_path}\n" "Please check the path and try again."
+            f"Configuration file not found: {config_path}\nPlease check the path and try again."
         )
 
     # Validate it's a file (not directory)
@@ -206,7 +206,7 @@ def validate_config_file(config_path: Path | None) -> Path:
             "Please check file permissions."
         ) from None
     except Exception as e:
-        raise ConfigError(f"Cannot read configuration file: {config_path}\n" f"Error: {e}") from e
+        raise ConfigError(f"Cannot read configuration file: {config_path}\nError: {e}") from e
 
     logger.debug(f"Configuration file validated: {config_path}")
     return config_path

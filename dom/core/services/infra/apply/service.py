@@ -52,6 +52,10 @@ def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsProvider
         """Inner deployment function with rollback support."""
         docker = transaction.docker_client
         compose_file = transaction.compose_file
+
+        # Type assertions - these are guaranteed to be set by the transaction
+        assert docker is not None, "Docker client must be initialized"
+        assert compose_file is not None, "Compose file must be initialized"
         container_prefix = get_container_prefix()
 
         logger.info("Step 1: Generating initial docker-compose configuration...")
