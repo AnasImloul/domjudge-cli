@@ -26,7 +26,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: make install
+        run: uv pip install --system -e ".[dev]"
 
       - name: Format code
         run: make format
