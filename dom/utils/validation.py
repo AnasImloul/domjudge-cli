@@ -228,18 +228,18 @@ def validate_infrastructure_prerequisites(port: int | None = None) -> None:
     # Check Docker
     try:
         validate_docker_available()
-        logger.info("✓ Docker is available")
+        logger.info("+ Docker is available")
     except DockerError:
-        logger.error("✗ Docker validation failed")
+        logger.error("x Docker validation failed")
         raise
 
     # Check port if specified
     if port is not None:
         try:
             validate_port_available(port)
-            logger.info(f"✓ Port {port} is available")
+            logger.info(f"+ Port {port} is available")
         except InfrastructureError:
-            logger.error(f"✗ Port {port} is not available")
+            logger.error(f"x Port {port} is not available")
             raise
 
     logger.info("Prerequisites validated successfully")
@@ -253,6 +253,6 @@ def warn_if_privileged_port(port: int) -> None:
         port: Port number to check
     """
     if port < 1024:
-        console.print(f"[yellow]⚠️  Warning: Port {port} is privileged (< 1024)[/yellow]")
+        console.print(f"[yellow]** Warning: Port {port} is privileged (< 1024)[/yellow]")
         console.print("[yellow]   You may need to run with sudo or use a port >= 1024[/yellow]\n")
         logger.warning(f"Using privileged port: {port}")

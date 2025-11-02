@@ -52,16 +52,43 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
             # Create organization if team has affiliation
             organization_id = None
             if entity.affiliation is not None:
-                organization_id = self._create_organization(entity.affiliation, context)
+                organization_id = self._create_organization(
+                    entity.affiliation, entity.country, context
+                )
 
-            # Create team
+            # Use composite key for unique team identification
+            # Teams are uniquely identified by (name, affiliation, country)
+            # This allows different organizations to have teams with the same name
+            composite_key = entity.composite_key
+
+            # Generate consistent team ID based on composite key
+            # This ensures the same team gets the same ID across contests
+            team_id = str(hash(composite_key) % HASH_MODULUS)
+
+            # Use composite key as the global team name for consistency
+            # Username is already set to team{hash} by the config loader
+            team_name = f"{entity.username}|{composite_key}"
+
+            # Use original team name as display_name for clean scoreboard
+            display_name = entity.name
+
+            logger.debug(
+                f"Creating team: name={display_name}, username={entity.username}, "
+                f"team_id={team_id}, affiliation={entity.affiliation}, country={entity.country}"
+            )
+
+            # Use contest-specific group if available, otherwise fall back to default
+            group_ids = (
+                [context.team_group_id] if context.team_group_id else [DEFAULT_TEAM_GROUP_ID]
+            )
+
             team_result = self.client.teams.add_to_contest(
                 contest_id=context.contest_id,
                 team_data=AddTeam(
-                    id=str(hash(entity.name) % HASH_MODULUS),
-                    name=f"{entity.username}({entity.name})",
-                    display_name=entity.name,
-                    group_ids=[DEFAULT_TEAM_GROUP_ID],
+                    id=team_id,
+                    name=team_name,
+                    display_name=display_name,
+                    group_ids=group_ids,
                     organization_id=organization_id,
                 ),
             )
@@ -122,25 +149,39 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
             )
             return ServiceResult.fail(TeamError(error_msg), f"Unexpected error for '{entity.name}'")
 
-    def _create_organization(self, affiliation: str, context: ServiceContext) -> str:
+    def _create_organization(
+        self, affiliation: str, country: str | None, context: ServiceContext
+    ) -> str:
         """
         Create organization for team affiliation.
 
+        Organizations are uniquely identified by (affiliation, country).
+        This allows different institutions in different countries to have the same name.
+
         Args:
             affiliation: Organization name
+            country: ISO 3166-1 alpha-3 country code (e.g., "MAR", "USA")
             context: Service context
 
         Returns:
             Organization ID
         """
+        # Use country or default to ensure consistent org ID generation
+        org_country = country or DEFAULT_COUNTRY_CODE
+
+        # Generate unique org ID based on affiliation + country
+        # This ensures "MIT|USA" and "MIT|GBR" are treated as different organizations
+        org_composite_key = f"{affiliation}|{org_country}"
+        org_id = str(hash(org_composite_key) % HASH_MODULUS)
+
         org_result = self.client.organizations.add_to_contest(
             contest_id=context.contest_id,  # type: ignore[arg-type]
             organization=AddOrganization(
-                id=str(hash(affiliation) % HASH_MODULUS),
+                id=org_id,
                 shortname=affiliation,
                 name=affiliation,
                 formal_name=affiliation,
-                country=DEFAULT_COUNTRY_CODE,
+                country=org_country,
             ),
         )
         return org_result.id

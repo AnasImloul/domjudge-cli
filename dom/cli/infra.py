@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import typer
-from rich.prompt import Confirm
 
 from dom.cli.validators import validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
@@ -26,28 +25,52 @@ def apply_from_config(
     file: Path = typer.Option(
         None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
     ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying them"),
     verbose: bool = False,
     no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Apply configuration to infrastructure and platform.
+
+    Use --dry-run to preview what changes would be made without actually applying them.
     """
     try:
         # Create execution context
         secrets = get_secrets_manager()
-        context = OperationContext(secrets=secrets, verbose=verbose)
 
-        # Load configuration
+        # Load configuration (always runs, even in dry-run mode, since it's read-only)
+        load_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
         load_runner = OperationRunner(LoadInfraConfigOperation(file))
-        load_result = load_runner.run(context)
+        load_result = load_runner.run(load_context)
 
         if not load_result.is_success():
             raise typer.Exit(code=1)
 
-        # Apply infrastructure
         config = load_result.unwrap()
+
+        if dry_run:
+            # Display dry-run preview
+            console.print("\n[bold cyan]DRY RUN - Preview Mode[/bold cyan]\n")
+            console.print("[dim]No changes will be made to the infrastructure[/dim]\n")
+            console.print("[yellow]Would deploy:[/yellow]")
+            console.print(f"  - DOMserver on port {config.port}")
+            console.print("  - MariaDB database")
+            console.print(f"  - {config.judges} judgehost(s)")
+            console.print("  - MySQL client container")
+            console.print()
+            console.print("[yellow]Would configure:[/yellow]")
+            console.print("  - Admin password (from secrets)")
+            console.print("  - Database password (auto-generated)")
+            console.print("  - Judgedaemon authentication")
+            console.print()
+            console.print("[green]+[/green] To actually apply, run without --dry-run")
+            console.print("[dim]  Example: dom infra apply[/dim]")
+            return
+
+        # Apply infrastructure with actual context
+        apply_context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
         apply_runner = OperationRunner(ApplyInfrastructureOperation(config))
-        apply_result = apply_runner.run(context)
+        apply_result = apply_runner.run(apply_context)
 
         if not apply_result.is_success():
             raise typer.Exit(code=1)
@@ -68,6 +91,9 @@ def destroy_all(
     force_delete_volumes: bool = typer.Option(
         False, "--force-delete-volumes", help="Delete volumes (PERMANENT DATA LOSS)"
     ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview what would be destroyed without actually destroying"
+    ),
     verbose: bool = False,
     no_color: bool = False,  # noqa: ARG001
 ) -> None:
@@ -76,16 +102,29 @@ def destroy_all(
 
     By default, Docker volumes (containing contest data) are PRESERVED.
     Use --force-delete-volumes to permanently delete all data.
+    Use --dry-run to preview what would be destroyed without actually destroying.
     """
+    if dry_run:
+        console.print("\n[bold cyan]DRY RUN - Preview Mode[/bold cyan]\n")
+        console.print("[dim]No changes will be made to the infrastructure[/dim]\n")
+        console.print("[yellow]Would destroy:[/yellow]")
+        console.print("  - All DOMjudge containers (domserver, judgehosts, mariadb, mysql-client)")
+        if force_delete_volumes:
+            console.print("  - [red]All Docker volumes (PERMANENT DATA LOSS)[/red]")
+        else:
+            console.print("  - [green]Volumes would be PRESERVED[/green]")
+        console.print()
+        console.print("[green]+[/green] To actually destroy, run without --dry-run")
+        console.print("[dim]  Example: dom infra destroy --confirm --force-delete-volumes[/dim]")
+        return
+
     if not confirm:
-        typer.echo("❗ Use --confirm to actually destroy infrastructure.")
+        typer.echo("! Use --confirm to actually destroy infrastructure.")
         typer.echo("   Containers will be stopped. Use --force-delete-volumes to also delete data.")
         raise typer.Exit(code=1)
 
-    # Prompt for volume deletion BEFORE starting the spinner
-    remove_volumes = force_delete_volumes
     if not force_delete_volumes:
-        console.print("\n[yellow]⚠️  Volume Preservation Notice[/yellow]")
+        console.print("\n[yellow]** Volume Preservation Notice[/yellow]")
         console.print(
             "Docker volumes (containing contest data, database) will be [green]PRESERVED[/green] by default."
         )
@@ -94,26 +133,18 @@ def destroy_all(
         )
         console.print()
 
-        # Ask if they want to delete anyway
-        delete_confirm = Confirm.ask(
-            "[red]Do you want to DELETE ALL VOLUMES? (This is PERMANENT and CANNOT be undone)[/red]",
-            default=False,
-            console=console,
-        )
-        remove_volumes = delete_confirm
-
-    if remove_volumes:
+    if force_delete_volumes:
         console.print(
-            "\n[red]⚠️  WARNING: DELETING ALL VOLUMES - THIS WILL PERMANENTLY DELETE ALL CONTEST DATA![/red]\n"
+            "\n[red]** WARNING: DELETING ALL VOLUMES - THIS WILL PERMANENTLY DELETE ALL CONTEST DATA![/red]\n"
         )
 
     try:
         # Create execution context
         secrets = get_secrets_manager()
-        context = OperationContext(secrets=secrets, verbose=verbose)
+        context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
 
         # Destroy infrastructure with volume option
-        runner = OperationRunner(DestroyInfrastructureOperation(remove_volumes))
+        runner = OperationRunner(DestroyInfrastructureOperation(force_delete_volumes))
         result = runner.run(context)
 
         if not result.is_success():

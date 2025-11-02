@@ -4,6 +4,7 @@ This module provides focused service classes for different DOMjudge resources:
 - ContestService: Contest operations
 - ProblemService: Problem operations
 - TeamService: Team operations
+- GroupService: Team group/category operations
 - UserService: User operations
 - OrganizationService: Organization operations
 - SubmissionService: Submission operations
@@ -12,6 +13,7 @@ Each service is focused on a single resource type and follows Single Responsibil
 """
 
 from .contests import ContestService
+from .groups import GroupService
 from .organizations import OrganizationService
 from .problems import ProblemService
 from .submissions import SubmissionService
@@ -20,6 +22,7 @@ from .users import UserService
 
 __all__ = [
     "ContestService",
+    "GroupService",
     "OrganizationService",
     "ProblemService",
     "SubmissionService",

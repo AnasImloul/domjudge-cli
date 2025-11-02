@@ -79,7 +79,6 @@ DEFAULT_TEAM_GROUP_ID = "3"
 
 # Default country code for organizations when not specified
 # ISO 3166-1 alpha-3 country code
-# TODO: Make this configurable per contest/organization
 DEFAULT_COUNTRY_CODE = "MAR"
 
 

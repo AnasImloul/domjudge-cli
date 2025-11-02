@@ -49,6 +49,7 @@ class RawProblem(BaseModel):
     archive: str
     platform: str
     color: str
+    with_statement: bool = True
 
     class Config:
         frozen = True
@@ -60,6 +61,7 @@ class RawTeamsConfig(BaseModel):
     rows: str
     name: str
     affiliation: str
+    country: str | None = None  # ISO 3166-1 alpha-3 country code (e.g., "MAR", "USA", "FRA")
 
     class Config:
         frozen = True
@@ -74,7 +76,6 @@ class RawContestConfig(BaseModel):
     duration: str | None = None
     penalty_time: int = 0
     allow_submit: bool = True
-    with_statement: bool = False
 
     problems: Union[RawProblemsConfig, list[RawProblem]]
     teams: RawTeamsConfig

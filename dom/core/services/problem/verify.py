@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 
-from tqdm import tqdm
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from dom.core.services.contest.temp import create_temp_contest
 from dom.core.services.submission.submit import submit_problem
@@ -45,26 +45,42 @@ def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: Secre
 async def _run_submissions(client: DomJudgeAPI, contest_id: str, team, problems):
     """
     Submits all problems asynchronously and collects results,
-    showing progress with tqdm.
+    showing progress with Rich.
     """
     # 1) schedule submission-tasks with a progress bar
     tasks = []
-    for problem in tqdm(problems, desc="Scheduling submissions", unit="prob"):
-        assert problem.id is not None
-        problem_tasks = await submit_problem(
-            client=client, contest_id=contest_id, problem=problem, team=team
-        )
-        tasks.extend(problem_tasks)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]Scheduling submissions..."),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+    ) as progress:
+        task = progress.add_task("Scheduling", total=len(problems))
+        for problem in problems:
+            assert problem.id is not None
+            problem_tasks = await submit_problem(
+                client=client, contest_id=contest_id, problem=problem, team=team
+            )
+            tasks.extend(problem_tasks)
+            progress.update(task, advance=1)
 
     # 2) collect results as they complete, with a second bar
     results = []
-    for fut in tqdm(
-        asyncio.as_completed(tasks), total=len(tasks), desc="Gathering verdicts", unit="task"
-    ):
-        judgement, (problem, expected_verdict, file_name) = await fut
-        actual = judgement.judgement_type_id or "unknown"
-        rt = float(judgement.max_run_time or 0.0)
-        results.append((problem, VERDICT.get(expected_verdict), actual, file_name, rt))
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]Gathering verdicts..."),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+    ) as progress:
+        task = progress.add_task("Gathering", total=len(tasks))
+        for fut in asyncio.as_completed(tasks):
+            judgement, (problem, expected_verdict, file_name) = await fut
+            actual = judgement.judgement_type_id or "unknown"
+            rt = float(judgement.max_run_time or 0.0)
+            results.append((problem, VERDICT.get(expected_verdict), actual, file_name, rt))
+            progress.update(task, advance=1)
     return results
 
 

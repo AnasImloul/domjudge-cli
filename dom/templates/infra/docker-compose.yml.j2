@@ -2,6 +2,12 @@ networks:
   {{ container_prefix }}-domjudge:
     name: {{ container_prefix }}-domjudge
 
+volumes:
+  {{ container_prefix }}-mariadb-data:
+    name: {{ container_prefix }}-mariadb-data
+  {{ container_prefix }}-domserver-data:
+    name: {{ container_prefix }}-domserver-data
+
 services:
   mariadb:
     container_name: {{ container_prefix }}-mariadb
@@ -12,6 +18,8 @@ services:
       - MYSQL_DATABASE=domjudge
       - MYSQL_USER=domjudge
       - MYSQL_PASSWORD={{ db_password }}
+    volumes:
+      - {{ container_prefix }}-mariadb-data:/var/lib/mysql
     networks:
       - {{ container_prefix }}-domjudge
     restart: unless-stopped
@@ -37,6 +45,8 @@ services:
       - MYSQL_DATABASE=domjudge
       - MYSQL_USER=domjudge
       - MYSQL_PASSWORD={{ db_password }}
+    volumes:
+      - {{ container_prefix }}-domserver-data:/var/domjudge
     networks:
       - {{ container_prefix }}-domjudge
     ports:

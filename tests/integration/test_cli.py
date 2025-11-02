@@ -27,7 +27,6 @@ contests:
     duration: "5:00:00.000"
     penalty_time: 20
     allow_submit: true
-    with_statement: false
 
     problems:
       - archive: "problem1.zip"

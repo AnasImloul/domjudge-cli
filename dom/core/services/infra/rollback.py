@@ -71,7 +71,7 @@ class DeploymentTransaction:
             logger.info("No deployment steps to rollback")
             return
 
-        console.print("\n[yellow]⚠️  Deployment failed - initiating rollback...[/yellow]")
+        console.print("\n[yellow]** Deployment failed - initiating rollback...[/yellow]")
         logger.warning(
             f"Rolling back {len(self.completed_steps)} deployment steps",
             extra={"steps_count": len(self.completed_steps)},
@@ -102,7 +102,7 @@ class DeploymentTransaction:
 
         if failures:
             console.print(
-                f"\n[red]✗ Rollback completed with {len(failures)} failures[/red]",
+                f"\n[red]x Rollback completed with {len(failures)} failures[/red]",
             )
             console.print("[yellow]Manual cleanup may be required:[/yellow]")
             for failure in failures:
@@ -112,7 +112,7 @@ class DeploymentTransaction:
                 extra={"failure_count": len(failures)},
             )
         else:
-            console.print("\n[green]✓ Rollback completed successfully[/green]")
+            console.print("\n[green]+ Rollback completed successfully[/green]")
             logger.info("Rollback completed successfully")
 
     def _default_rollback(self, step: DeploymentStep) -> None:
