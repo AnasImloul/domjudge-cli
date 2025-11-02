@@ -1,11 +1,15 @@
-"""Declarative operations for initialization."""
+"""Initialize project operation."""
 
+from dom.core.operations.base import Operation, OperationContext, OperationResult
 from dom.core.services.init import callback as init_service_callback
 from dom.logging_config import get_logger
 
-from .base import Operation, OperationContext, OperationResult
-
 logger = get_logger(__name__)
+
+
+# ============================================================================
+# Operation
+# ============================================================================
 
 
 class InitializeProjectOperation(Operation[None]):
@@ -24,7 +28,7 @@ class InitializeProjectOperation(Operation[None]):
         """Describe what this operation does."""
         return "Initialize DomJudge CLI project"
 
-    def execute(self, context: OperationContext) -> OperationResult[None]:  # noqa: ARG002
+    def execute(self, _context: OperationContext) -> OperationResult[None]:
         """Execute project initialization."""
         try:
             init_service_callback(overwrite=self.overwrite)

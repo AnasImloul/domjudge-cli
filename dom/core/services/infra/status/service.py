@@ -221,15 +221,15 @@ def print_status_human_readable(status: InfrastructureStatus) -> None:
 
     # Overall status
     if status.is_healthy():
-        console.print("✅ [bold green]Infrastructure Status: HEALTHY[/bold green]\n")
+        console.print("[OK] [bold green]Infrastructure Status: HEALTHY[/bold green]\n")
     else:
-        console.print("❌ [bold red]Infrastructure Status: UNHEALTHY[/bold red]\n")
+        console.print("[!!] [bold red]Infrastructure Status: UNHEALTHY[/bold red]\n")
 
     # Docker status
     if status.docker_available:
-        console.print("✓ [green]Docker daemon: Running[/green]")
+        console.print("+ [green]Docker daemon: Running[/green]")
     else:
-        console.print("✗ [red]Docker daemon: Not available[/red]")
+        console.print("x [red]Docker daemon: Not available[/red]")
         if status.docker_error:
             console.print(f"  Error: {status.docker_error}")
         return
@@ -244,10 +244,10 @@ def print_status_human_readable(status: InfrastructureStatus) -> None:
 
     # Status icons and colors
     status_format = {
-        ServiceStatus.HEALTHY: ("✓", "green"),
-        ServiceStatus.UNHEALTHY: ("✗", "red"),
-        ServiceStatus.STARTING: ("⟳", "yellow"),
-        ServiceStatus.STOPPED: ("■", "red"),
+        ServiceStatus.HEALTHY: ("+", "green"),
+        ServiceStatus.UNHEALTHY: ("x", "red"),
+        ServiceStatus.STARTING: ("~", "yellow"),
+        ServiceStatus.STOPPED: ("#", "red"),
         ServiceStatus.MISSING: ("?", "dim"),
     }
 
@@ -279,10 +279,10 @@ def print_status_human_readable(status: InfrastructureStatus) -> None:
     console.print(f"[dim]{healthy_count}/{total_count} services healthy[/dim]")
 
     if status.is_healthy():
-        console.print("\n✅ [green]Ready to accept commands[/green]")
+        console.print("\n[OK] [green]Ready to accept commands[/green]")
     else:
         console.print(
-            "\n⚠️  [yellow]Some services are not healthy. Infrastructure may not be fully operational.[/yellow]"
+            "\n[**] [yellow]Some services are not healthy. Infrastructure may not be fully operational.[/yellow]"
         )
 
 

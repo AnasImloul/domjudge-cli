@@ -57,7 +57,9 @@ def load_contests_config(file_path: Path | None, secrets: SecretsProvider) -> li
 
 
 def load_contest_config(
-    file_path: Path | None, contest_name: str, secrets: SecretsProvider
+    file_path: Path | None,
+    contest_name: str,
+    secrets: SecretsProvider,
 ) -> ContestConfig:
     """
     Load a specific contest configuration by name.
@@ -85,7 +87,9 @@ def load_contest_config(
     for contest in config.contests:
         if contest.shortname == contest_name:
             return load_contest_from_config(
-                contest, config_path=config.loaded_from, secrets=secrets
+                contest,
+                config_path=config.loaded_from,
+                secrets=secrets,
             )
 
     available_contests = [contest.shortname for contest in config.contests]

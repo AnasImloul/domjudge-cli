@@ -36,7 +36,7 @@ def callback(overwrite: bool):
     if problems_content:
         Path(problems_output_file).write_text(problems_content.strip() + "\n")
 
-    console.print("\n[bold green]✓ Success![/bold green] Configuration files created successfully:")
+    console.print("\n[bold green]+ Success![/bold green] Configuration files created successfully:")
     console.print("  • [bold]dom-judge.yaml[/bold] - Main configuration")
     if problems_content:
         console.print("  • [bold]problems.yaml[/bold] - Problem definitions")

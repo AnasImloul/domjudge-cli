@@ -58,8 +58,25 @@ class ContestApplicationService:
         # Create contest
         contest_id = self._create_contest(contest)
 
-        # Create service context for this contest
-        context = ServiceContext(client=self.client, contest_id=contest_id)
+        # Create contest-specific team group for scoreboard filtering
+        shortname = contest.shortname or "contest"
+        group_name = f"{shortname.upper()} Teams"
+        group_result = self.client.groups.create_for_contest(
+            contest_id=contest_id, name=group_name, group_id=f"{shortname}-teams"
+        )
+        team_group_id = group_result.id
+
+        logger.info(
+            f"Created team group '{group_name}' (ID: {team_group_id}) for contest {contest.shortname}"
+        )
+
+        # Create service context for this contest with the group
+        context = ServiceContext(
+            client=self.client,
+            contest_id=contest_id,
+            contest_shortname=contest.shortname,
+            team_group_id=team_group_id,
+        )
 
         # Apply resources concurrently
         self._apply_contest_resources(contest, context)

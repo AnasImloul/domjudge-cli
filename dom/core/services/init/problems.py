@@ -36,7 +36,7 @@ def ensure_archive_dir(archive: str) -> str:
         if ask_bool(f"Create directory {archive_path}?", default=True, console=console):
             try:
                 archive_path.mkdir(parents=True, exist_ok=True)
-                console.print(f"[green]✓ Created directory {archive_path}[/green]")
+                console.print(f"[green]+ Created directory {archive_path}[/green]")
             except Exception as e:
                 console.print(f"[bold red]Error creating directory:[/bold red] {e!s}")
                 raise typer.Exit(code=1) from e
@@ -44,7 +44,7 @@ def ensure_archive_dir(archive: str) -> str:
             console.print("[yellow]Please create the directory and run this wizard again.[/yellow]")
             raise typer.Exit(code=1) from None
     else:
-        console.print(f"[green]✓ Directory found: {archive_path}[/green]")
+        console.print(f"[green]+ Directory found: {archive_path}[/green]")
 
     return str(archive_path)
 

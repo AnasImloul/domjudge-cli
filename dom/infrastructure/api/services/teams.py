@@ -55,13 +55,14 @@ class TeamService:
         Returns:
             CreateResult with team ID and creation status
         """
-        # Check if team already exists
+        # Check if team already exists in this contest
         for team in self.list_for_contest(contest_id):
             if team["name"] == team_data.name:
                 logger.info(f"Team '{team_data.name}' already exists in contest {contest_id}")
                 return CreateResult(id=team["id"], created=False, data=team)
 
-        # Create new team
+        # Create new team in this contest
+        # Note: Each contest gets its own team instance, but with consistent global identifiers
         data = json.loads(team_data.model_dump_json(exclude_unset=True))
         response = self.client.post(
             f"/api/v4/contests/{contest_id}/teams",
@@ -73,6 +74,6 @@ class TeamService:
             raise APIError(f"No 'id' in team creation response: {response}")
 
         team_id = response["id"]
-        logger.info(f"Created team '{team_data.name}' (ID: {team_id})")
+        logger.info(f"Created team '{team_data.name}' (ID: {team_id}) in contest {contest_id}")
 
         return CreateResult(id=team_id, created=True, data=response)

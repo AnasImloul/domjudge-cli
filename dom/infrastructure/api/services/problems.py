@@ -115,7 +115,7 @@ class ProblemService:
                     raise APIError(f"No 'problem_id' in response: {response}")
 
                 problem_id = response["problem_id"]
-                logger.info(f"Created problem (ID: {problem_id})")
+                logger.info(f"Created problem '{externalid}' (ID: {problem_id})")
                 return problem_id  # type: ignore[no-any-return]
         finally:
             if temp_zip_path and temp_zip_path.exists():
@@ -140,10 +140,10 @@ class ProblemService:
             logger.info(f"Problem {problem_id} already linked to contest {contest_id}")
             return problem_id
 
-        # Link to contest
+        # Link to contest - use letter for scoreboard, full name comes from global problem
         self.client.put(
             f"/api/v4/contests/{contest_id}/problems/{problem_id}",
-            json={"label": problem_package.yaml.name, "color": problem_package.ini.color},
+            json={"label": problem_package.ini.short_name, "color": problem_package.ini.color},
             invalidate_cache=f"contest_{contest_id}_problems",
         )
 

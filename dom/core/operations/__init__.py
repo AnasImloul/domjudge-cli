@@ -4,14 +4,32 @@ This module provides a declarative way to define and execute operations
 with consistent error handling, logging, and validation.
 """
 
-from .base import Operation, OperationContext, OperationResult
+# Core abstractions
+# Operations by domain
+from . import contest, infrastructure, init
+from .base import (
+    ExecutableStep,
+    Operation,
+    OperationContext,
+    OperationResult,
+    OperationStep,
+    SteppedOperation,
+)
 from .builders import OperationBuilder
 from .runner import OperationRunner
 
 __all__ = [
+    # Core abstractions
+    "ExecutableStep",
     "Operation",
     "OperationBuilder",
     "OperationContext",
     "OperationResult",
     "OperationRunner",
+    "OperationStep",
+    "SteppedOperation",
+    # Domain modules
+    "contest",
+    "infrastructure",
+    "init",
 ]

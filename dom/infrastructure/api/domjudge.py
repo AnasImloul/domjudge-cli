@@ -27,6 +27,7 @@ from dom.constants import DEFAULT_CACHE_TTL, DEFAULT_RATE_BURST, DEFAULT_RATE_LI
 from dom.infrastructure.api.client import DomJudgeClient
 from dom.infrastructure.api.services import (
     ContestService,
+    GroupService,
     OrganizationService,
     ProblemService,
     SubmissionService,
@@ -49,6 +50,7 @@ class DomJudgeAPI:
         api.contests      - Contest operations
         api.problems      - Problem operations
         api.teams         - Team operations
+        api.groups        - Team group/category operations
         api.users         - User operations
         api.organizations - Organization operations
         api.submissions   - Submission operations
@@ -101,6 +103,7 @@ class DomJudgeAPI:
         self.contests = ContestService(self.client)
         self.problems = ProblemService(self.client)
         self.teams = TeamService(self.client)
+        self.groups = GroupService(self.client)
         self.users = UserService(self.client)
         self.organizations = OrganizationService(self.client)
         self.submissions = SubmissionService(self.client)

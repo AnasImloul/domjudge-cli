@@ -28,10 +28,22 @@ class ServiceContext:
 
     client: DomJudgeAPI
     contest_id: str | None = None
+    contest_shortname: str | None = None
+    team_group_id: str | None = None  # Contest-specific team group for scoreboard filtering
 
-    def for_contest(self, contest_id: str) -> "ServiceContext":
+    def for_contest(
+        self,
+        contest_id: str,
+        contest_shortname: str | None = None,
+        team_group_id: str | None = None,
+    ) -> "ServiceContext":
         """Create new context for a specific contest."""
-        return ServiceContext(client=self.client, contest_id=contest_id)
+        return ServiceContext(
+            client=self.client,
+            contest_id=contest_id,
+            contest_shortname=contest_shortname,
+            team_group_id=team_group_id,
+        )
 
 
 @dataclass

@@ -74,7 +74,8 @@ def assign_problem_letters(problems: list[ProblemPackage]) -> list[ProblemPackag
         letter = assign_problem_letter(i)
 
         # Create new objects instead of mutating (respecting immutability)
-        updated_yaml = problem.yaml.model_copy(update={"name": letter})
+        # Keep the original human-friendly name, don't overwrite with letter
+        updated_yaml = problem.yaml.model_copy()
         updated_ini = problem.ini.model_copy(update={"externalid": letter, "short_name": letter})
 
         # Create new problem package with updated configs

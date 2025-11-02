@@ -46,6 +46,9 @@ class OrganizationService:
         """
         Add an organization to a contest or get existing one.
 
+        Organizations are uniquely identified by (name, country).
+        This allows different institutions in different countries to have the same name.
+
         Args:
             contest_id: Contest identifier
             organization: Organization data to add
@@ -53,24 +56,29 @@ class OrganizationService:
         Returns:
             CreateResult with organization ID and creation status
         """
-        # Check if organization already exists
+        # Check if organization already exists (by name AND country)
         existing_orgs = self.list_for_contest(contest_id)
 
         for org in existing_orgs:
-            if org.get("name") == organization.name:
+            # Organizations are unique by (name, country) combination
+            if org.get("name") == organization.name and org.get("country") == organization.country:
                 logger.info(
-                    f"Organization '{organization.name}' already exists in contest {contest_id}"
+                    f"Organization '{organization.name}' (country: {organization.country}) "
+                    f"already exists in contest {contest_id}"
                 )
                 return CreateResult(id=organization.id or org["id"], created=False, data=org)
 
         # Create new organization
         payload = json.loads(organization.model_dump_json(exclude_unset=True))
+        logger.debug(f"Creating organization with payload: {payload}")
         response = self.client.post(f"/api/v4/contests/{contest_id}/organizations", json=payload)
 
         if "id" not in response:
             raise APIError(f"No 'id' in organization creation response: {response}")
 
         org_id = response["id"]
-        logger.info(f"Created organization '{organization.name}' (ID: {org_id})")
+        logger.info(
+            f"Created organization '{organization.name}' (ID: {org_id}, country: {organization.country})"
+        )
 
         return CreateResult(id=organization.id or org_id, created=True, data=response)

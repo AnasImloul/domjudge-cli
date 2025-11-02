@@ -1,12 +1,17 @@
 """Base operation types for declarative operations."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from dom.logging_config import get_logger
 from dom.types.secrets import SecretsProvider
+
+if TYPE_CHECKING:
+    from typing import Any
 
 logger = get_logger(__name__)
 
@@ -19,6 +24,96 @@ class OperationStatus(str, Enum):
     SUCCESS = "success"
     FAILURE = "failure"
     SKIPPED = "skipped"
+
+
+@dataclass
+class OperationStep:
+    """
+    Represents a single step in an operation.
+
+    Steps allow operations to declare their work upfront, enabling:
+    - Better progress tracking
+    - Step-by-step execution
+    - Clear visibility into operation phases
+    - Easier testing and debugging
+    """
+
+    name: str
+    description: str
+    weight: float = 1.0  # Relative weight for progress calculation
+
+    def __str__(self) -> str:
+        """String representation for display."""
+        return self.description
+
+
+class ExecutableStep(ABC):
+    """
+    Base class for executable operation steps.
+
+    Each step is a self-contained unit of work with its own execution logic.
+    This follows the Command pattern, making steps reusable and testable.
+
+    Example:
+        >>> class LoadConfigStep(ExecutableStep):
+        ...     def __init__(self, config_path: Path):
+        ...         super().__init__("load", "Load configuration file")
+        ...         self.config_path = config_path
+        ...
+        ...     def execute(self, context: OperationContext) -> Any:
+        ...         return load_config(self.config_path)
+    """
+
+    def __init__(self, name: str, description: str, weight: float = 1.0):
+        """
+        Initialize an executable step.
+
+        Args:
+            name: Unique identifier for the step
+            description: Human-readable description
+            weight: Relative weight for progress calculation
+        """
+        self.name = name
+        self.description = description
+        self.weight = weight
+
+    @abstractmethod
+    def execute(self, context: OperationContext) -> Any:
+        """
+        Execute this step.
+
+        Args:
+            context: Execution context with dependencies
+
+        Returns:
+            Step result (can be any type)
+
+        Raises:
+            Exception: If step execution fails
+        """
+
+    def should_execute(self, _context: OperationContext) -> bool:
+        """
+        Determine if this step should be executed.
+
+        Override this to implement conditional step execution.
+        Default implementation returns True (always execute).
+
+        Args:
+            context: Execution context
+
+        Returns:
+            True if step should be executed, False to skip
+        """
+        return True
+
+    def to_operation_step(self) -> OperationStep:
+        """Convert to OperationStep for compatibility."""
+        return OperationStep(self.name, self.description, self.weight)
+
+    def __str__(self) -> str:
+        """String representation for display."""
+        return self.description
 
 
 @dataclass
@@ -38,7 +133,7 @@ class OperationContext:
     verbose: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    def with_metadata(self, **kwargs: Any) -> "OperationContext":
+    def with_metadata(self, **kwargs: Any) -> OperationContext:
         """Create new context with additional metadata."""
         new_metadata = {**self.metadata, **kwargs}
         return OperationContext(
@@ -63,17 +158,17 @@ class OperationResult(Generic[T]):
     message: str = ""
 
     @classmethod
-    def success(cls, data: T | None = None, message: str = "") -> "OperationResult[T]":
+    def success(cls, data: T | None = None, message: str = "") -> OperationResult[T]:
         """Create a successful result."""
         return cls(status=OperationStatus.SUCCESS, data=data, message=message)
 
     @classmethod
-    def failure(cls, error: Exception, message: str = "") -> "OperationResult[T]":
+    def failure(cls, error: Exception, message: str = "") -> OperationResult[T]:
         """Create a failed result."""
         return cls(status=OperationStatus.FAILURE, error=error, message=message)
 
     @classmethod
-    def skipped(cls, message: str = "") -> "OperationResult[T]":
+    def skipped(cls, message: str = "") -> OperationResult[T]:
         """Create a skipped result."""
         return cls(status=OperationStatus.SKIPPED, message=message)
 
@@ -140,7 +235,7 @@ class Operation(ABC, Generic[T]):
             Description of the operation
         """
 
-    def validate(self, context: OperationContext) -> list[str]:  # noqa: ARG002
+    def validate(self, _context: OperationContext) -> list[str]:
         """
         Validate that the operation can be executed.
 
@@ -164,3 +259,106 @@ class Operation(ABC, Generic[T]):
     def __str__(self) -> str:
         """String representation for logging."""
         return self.describe()
+
+
+class SteppedOperation(Operation[T], ABC):
+    """
+    Operation that declares its execution steps upfront.
+
+    This provides better user experience by:
+    - Showing what steps will be performed before execution
+    - Tracking progress through each step
+    - Making the operation more transparent and predictable
+
+    Subclasses must implement:
+    - define_steps(): Return list of ExecutableStep instances
+
+    The base execute() method is implemented to:
+    - Iterate through all defined steps
+    - Track step progress
+    - Handle step errors
+    - Accumulate step results
+
+    Example:
+        >>> class DeployInfraOperation(SteppedOperation[None]):
+        ...     def describe(self) -> str:
+        ...         return "Deploy infrastructure"
+        ...
+        ...     def define_steps(self) -> list[ExecutableStep]:
+        ...         return [
+        ...             ValidatePrerequisitesStep(),
+        ...             GenerateComposeStep(self.config),
+        ...             StartContainersStep(self.config),
+        ...         ]
+    """
+
+    @abstractmethod
+    def define_steps(self) -> list[ExecutableStep]:
+        """
+        Define the steps this operation will perform.
+
+        Steps are executed in order. Each step should represent a
+        meaningful unit of work that can be tracked independently.
+
+        Returns:
+            List of executable steps
+        """
+
+    def execute(self, context: OperationContext) -> OperationResult[T]:
+        """
+        Execute all steps in sequence.
+
+        This method is implemented by SteppedOperation and should not
+        be overridden. Instead, implement individual ExecutableStep classes.
+
+        Args:
+            context: Execution context
+
+        Returns:
+            Operation result
+        """
+        steps = self.define_steps()
+        step_results: dict[str, Any] = {}
+
+        try:
+            for step in steps:
+                # Check if step should be executed
+                if not step.should_execute(context):
+                    logger.info(f"Skipping step: {step.name}")
+                    continue
+
+                # Execute the step
+                result = step.execute(context)
+                step_results[step.name] = result
+
+            # Build final result from step results
+            final_result = self._build_result(step_results, context)
+            return final_result
+
+        except Exception as e:
+            logger.error(
+                f"Step execution failed in {self.describe()}",
+                exc_info=True,
+                extra={"operation": self.describe()},
+            )
+            return OperationResult.failure(e, f"Step execution failed: {e}")
+
+    def _build_result(
+        self,
+        _step_results: dict[str, Any],
+        _context: OperationContext,
+    ) -> OperationResult[T]:
+        """
+        Build final operation result from step results.
+
+        Default implementation returns success with None data.
+        Override this to customize result building.
+
+        Args:
+            step_results: Dictionary mapping step names to their results
+            context: Execution context
+
+        Returns:
+            Final operation result
+        """
+        return OperationResult.success(None, f"{self.describe()} completed successfully")

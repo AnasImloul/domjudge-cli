@@ -42,7 +42,9 @@ def parse_from_template(template: str, row: list[str]) -> str:
 
 
 def load_teams_from_config(
-    team_config: RawTeamsConfig, config_path: Path, secrets: SecretsProvider
+    team_config: RawTeamsConfig,
+    config_path: Path,
+    secrets: SecretsProvider,
 ):
     """
     Load teams from configuration file.
@@ -90,6 +92,15 @@ def load_teams_from_config(
                 if team_config.affiliation.strip()
                 else None
             )
+            # Country can be a template ($N) or a constant value
+            # parse_from_template handles both: returns constant as-is, replaces $N with column value
+            # If not specified, the Team model will set it to DEFAULT_COUNTRY_CODE
+            country = (
+                parse_from_template(team_config.country, row).strip()
+                if team_config.country and team_config.country.strip()
+                else None
+            )
+
             teams.append(
                 Team(
                     name=team_name,
@@ -97,6 +108,7 @@ def load_teams_from_config(
                         seed=team_name.strip(), length=10
                     ),
                     affiliation=affiliation.strip() or None,  # type: ignore[union-attr]
+                    country=country.strip() or None if country else None,
                 )
             )
 
@@ -104,11 +116,14 @@ def load_teams_from_config(
             logger.error(f"Failed to prepare team from row {idx}: {e}")
             raise e
 
-    # Validate no duplicate team names
+    # Validate no duplicate team names within this contest
     team_names = [team.name for team in teams]
     if len(team_names) != len(set(team_names)):
         duplicates = {name for name in team_names if team_names.count(name) > 1}
-        raise ValueError(f"Duplicate team names detected: {', '.join(duplicates)}")
+        raise ValueError(
+            f"Duplicate team names detected within the same contest: {', '.join(duplicates)}. "
+            f"Teams within a contest must have unique names to avoid ambiguity on the leaderboard."
+        )
 
     logger.info(f"Loaded {len(teams)} teams from {file_path}")
     return teams

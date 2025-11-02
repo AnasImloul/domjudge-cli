@@ -107,7 +107,7 @@ def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsProvider
     _deploy()
 
     logger.info(
-        "✅ Infrastructure and platform are ready!",
+        "[OK] Infrastructure and platform are ready!",
         extra={"port": infra_config.port, "judgehosts": infra_config.judges},
     )
     logger.info(f"   - DOMjudge server: http://localhost:{infra_config.port}")

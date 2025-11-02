@@ -7,7 +7,6 @@ from typing import Union
 
 import yaml
 from p2d import convert
-from tqdm import tqdm
 
 from dom.types.config.raw import RawProblem, RawProblemsConfig
 from dom.types.problem import (
@@ -206,12 +205,12 @@ def load_problem(
         )
 
     problem_package.ini.color = get_hex_color(color)
+
     return problem_package, idx
 
 
 def load_problems_from_config(
     problem_config: Union[RawProblemsConfig, list[RawProblem]],
-    with_statement: bool,
     config_path: Path,
 ):
     if isinstance(problem_config, RawProblemsConfig):
@@ -269,14 +268,26 @@ def load_problems_from_config(
     with ProcessPoolExecutor() as executor:
         futures = {
             executor.submit(
-                load_problem, archive_path, problem.platform, problem.color, with_statement, i
+                load_problem,
+                archive_path,
+                problem.platform,
+                problem.color,
+                problem.with_statement,
+                i,
             ): problem
             for i, (problem, archive_path) in enumerate(zip(problems, archive_paths, strict=False))
         }
-        problem_packages = []
-        for future in tqdm(as_completed(futures), total=len(futures), desc="Loading problems"):
-            problem_packages.append(future.result())
-        problem_packages = [package for package, _ in sorted(problem_packages, key=lambda x: x[1])]
+
+        # Load problems without additional progress display to avoid redundancy
+        # The parent operation already shows "Loading contests and problem archives..."
+        problem_packages_with_idx = []
+        for future in as_completed(futures):
+            problem_packages_with_idx.append(future.result())
+
+        # Sort by index and extract just the packages
+        problem_packages = [
+            package for package, _ in sorted(problem_packages_with_idx, key=lambda x: x[1])
+        ]
 
     # Validate short_names are unique
     short_names = [problem_package.ini.short_name for problem_package in problem_packages]

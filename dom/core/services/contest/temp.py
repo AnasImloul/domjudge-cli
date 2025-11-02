@@ -56,7 +56,7 @@ def create_temp_contest(
     )
 
     # Create service context
-    context = ServiceContext(client=client, contest_id=contest_id)
+    context = ServiceContext(client=client, contest_id=contest_id, contest_shortname=temp_name)
 
     # Use declarative services
     problem_service = ProblemService(client)

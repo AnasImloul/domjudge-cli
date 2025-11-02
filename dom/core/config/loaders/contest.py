@@ -1,14 +1,15 @@
-from itertools import chain
 from pathlib import Path
 
+from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 from dom.types.config.raw import RawContestConfig
 from dom.types.secrets import SecretsProvider
-from dom.types.team import Team
 from dom.utils.problem import assign_problem_letters
 
 from .problem import load_problems_from_config
 from .team import load_teams_from_config
+
+logger = get_logger(__name__)
 
 
 def load_contest_from_config(
@@ -26,10 +27,12 @@ def load_contest_from_config(
         Processed contest configuration
     """
     # Load problems and teams
-    problems = load_problems_from_config(
-        raw_contest.problems, with_statement=raw_contest.with_statement, config_path=config_path
+    problems = load_problems_from_config(raw_contest.problems, config_path=config_path)
+    teams = load_teams_from_config(
+        raw_contest.teams,
+        config_path=config_path,
+        secrets=secrets,
     )
-    teams = load_teams_from_config(raw_contest.teams, config_path=config_path, secrets=secrets)
 
     # Assign problem letters (A, B, C, ...) - creates new immutable objects
     problems_with_letters = assign_problem_letters(problems)
@@ -43,7 +46,6 @@ def load_contest_from_config(
         duration=raw_contest.duration,
         penalty_time=raw_contest.penalty_time,
         allow_submit=raw_contest.allow_submit,
-        with_statement=raw_contest.with_statement,
         problems=problems_with_letters,
         teams=teams,
     )
@@ -65,20 +67,27 @@ def load_contests_from_config(
     Returns:
         List of processed contest configurations
     """
-    # Process all contests
+    # Process all contests - problems are loaded within contest loading
     processed_contests = [
         load_contest_from_config(contest, config_path, secrets) for contest in raw_contests
     ]
 
-    # Combine teams from all contests for consistent numbering
-    combined_teams: list[Team] = list(
-        chain.from_iterable([contest.teams for contest in processed_contests])
-    )
+    # Assign usernames and passwords to teams
+    # Usernames must be globally unique across all contests
+    # Use composite key hash to ensure uniqueness
+    for contest in processed_contests:
+        # Sort teams by name for consistent ordering
+        contest.teams.sort(key=lambda team: team.name)
 
-    # Sort and assign sequential usernames
-    combined_teams.sort(key=lambda team: team.name)
+        for team in contest.teams:
+            # Generate globally unique username based on composite key
+            # This ensures teams with same name but different org/country get different usernames
+            username_hash = abs(hash(team.composite_key)) % 10000  # 4-digit hash
+            team.username = f"team{username_hash:04d}"
 
-    for idx, team in enumerate(combined_teams, start=1):
-        team.username = f"Team_{idx}"
+            # Generate password using composite key for uniqueness
+            team.password = secrets.generate_deterministic_password(
+                seed=team.composite_key, length=10
+            )
 
     return processed_contests

@@ -138,12 +138,12 @@ def cli_command(func: Callable[..., T]) -> Callable[..., T]:
         except KeyboardInterrupt:
             # User interrupted
             logger.info("Command interrupted by user")
-            console.print("\n[yellow]⚠️  Operation cancelled by user[/yellow]")
+            console.print("\n[yellow]** Operation cancelled by user[/yellow]")
             raise typer.Exit(code=130) from None
         except Exception as e:
             # Unexpected errors - log with full traceback
             logger.error(f"Unexpected error: {e}", exc_info=True)
-            console.print(f"[red]✗ Unexpected error: {e}[/red]")
+            console.print(f"[red]x Unexpected error: {e}[/red]")
             console.print("[dim]Check logs at .dom/domjudge-cli.log for details[/dim]")
             raise typer.Exit(code=1) from e
 
