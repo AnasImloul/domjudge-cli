@@ -123,3 +123,17 @@ class SecretsProvider(ABC):
             SecretsError: If admin_password is not set
         """
         ...
+
+    @abstractmethod
+    def get_or_create_hash_seed(self) -> str:
+        """
+        Get existing hash seed or create a new one.
+
+        The hash seed is used for deterministic team ID generation.
+        It is generated once and persisted to ensure consistent hashing
+        across runs.
+
+        Returns:
+            Hash seed (32-character hex string)
+        """
+        ...

@@ -4,13 +4,13 @@ from pathlib import Path
 
 import jmespath
 import typer
-from rich.console import Console
 
 from dom.cli.validators import validate_contest_name, validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.contest import (
     ApplyContestsOperation,
     LoadConfigOperation,
+    PlanContestChangesOperation,
     VerifyProblemsetOperation,
 )
 from dom.logging_config import get_logger
@@ -29,7 +29,7 @@ def apply_from_config(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without applying them"),
     verbose: bool = False,
-    no_color: bool = False,  # noqa: ARG001  # noqa: ARG001
+    no_color: bool = False,  # noqa: ARG001
 ) -> None:
     """
     Apply configuration to contests on the platform.
@@ -39,72 +39,68 @@ def apply_from_config(
     """
     # Create execution context
     secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
 
-    # Build and execute an operation pipeline
-    if dry_run:
-        # For dry-run, load config (with dry_run=False since it's read-only) and show preview
-        load_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
-        result = OperationRunner(operation=LoadConfigOperation(file), show_progress=True).run(
-            load_context
-        )
+    # Load configuration (always runs, even in dry-run mode, since it's read-only)
+    load_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
+    load_runner = OperationRunner(LoadConfigOperation(file))
+    load_result = load_runner.run(load_context)
 
-        if result.is_success():
-            _preview_contest_changes(result.unwrap())
-    else:
-        # For actual apply, execute operations
-        # Execute the load operation first
-        context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
-        load_runner = OperationRunner(LoadConfigOperation(file))
-        load_result = load_runner.run(context)
+    if not load_result.is_success():
+        raise typer.Exit(code=1)
 
-        if not load_result.is_success():
-            return
+    config = load_result.unwrap()
 
-        config = load_result.unwrap()
-        apply_runner = OperationRunner(ApplyContestsOperation(config))
-        apply_runner.run(context)
+    # Apply contests with context (operations handle dry-run)
+    apply_context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
+    apply_runner = OperationRunner(ApplyContestsOperation(config))
+    apply_result = apply_runner.run(apply_context)
+
+    # Don't treat dry-run (skipped) as failure
+    if apply_result.is_failure():
+        raise typer.Exit(code=1)
 
 
-def _preview_contest_changes(config) -> None:
+@contest_command.command("plan")
+@add_global_options
+@cli_command
+def plan_changes(
+    file: Path = typer.Option(
+        None, "-f", "--file", help="Path to configuration YAML file", callback=validate_file_path
+    ),
+    verbose: bool = False,
+    no_color: bool = False,  # noqa: ARG001
+) -> None:
     """
-    Preview what changes would be made without applying them.
+    Show what changes would be made to contests without applying them.
 
-    Args:
-        config: Complete DOMjudge configuration
+    This command analyzes your configuration and displays:
+    - Which contests would be created
+    - Which contests would be updated and what fields would change
+    - Which problems/teams would be added
+
+    This is more detailed than --dry-run and shows actual differences
+    between current state and desired configuration.
     """
-    console = Console()
-    console.print("\n[bold cyan]> DRY RUN - Preview Mode[/bold cyan]\n")
-    console.print("[dim]No changes will be applied to the platform[/dim]\n")
+    # Create execution context
+    secrets = get_secrets_manager()
 
-    # Calculate unique problems and teams across all contests
-    unique_problem_ids = set()
-    unique_team_ids = set()
+    # Load configuration
+    load_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
+    load_runner = OperationRunner(LoadConfigOperation(file))
+    load_result = load_runner.run(load_context)
 
-    for contest in config.contests:
-        for problem in contest.problems:
-            # Use problem short_name as identifier
-            unique_problem_ids.add(problem.ini.short_name)
-        for team in contest.teams:
-            # Use team name as identifier (teams with same name are considered the same)
-            unique_team_ids.add(team.name)
+    if not load_result.is_success():
+        raise typer.Exit(code=1)
 
-    # Display summary with accurate unique counts
-    console.print("Planned changes:")
-    console.print(f"  - Contests: {len(config.contests)}")
-    console.print(f"  - Unique Problems: {len(unique_problem_ids)}")
-    console.print(f"  - Unique Teams: {len(unique_team_ids)}")
+    config = load_result.unwrap()
 
-    # Show per-contest breakdown
-    console.print("\n[yellow]Per-contest breakdown:[/yellow]")
-    for contest in config.contests:
-        problem_count = len(contest.problems)
-        team_count = len(contest.teams)
-        console.print(f"  [cyan]{contest.shortname}[/cyan]: {problem_count}p / {team_count}t")
+    # Plan changes
+    plan_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
+    plan_runner = OperationRunner(PlanContestChangesOperation(config), show_progress=False)
+    plan_result = plan_runner.run(plan_context)
 
-    console.print()
-    console.print("[green]+[/green] To apply these changes, run without --dry-run")
-    console.print("[dim]  Example: dom contest apply --file config.yaml[/dim]")
+    if plan_result.is_failure():
+        raise typer.Exit(code=1)
 
 
 @contest_command.command("verify-problemset")

@@ -3,11 +3,12 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dom.core.services.base import ServiceContext
+from dom.core.services.contest.state import ChangeType, ContestStateComparator
 from dom.core.services.problem.apply import ProblemService
 from dom.core.services.team.apply import TeamService
 from dom.exceptions import ContestError
 from dom.infrastructure.api.factory import APIClientFactory
-from dom.logging_config import get_logger
+from dom.logging_config import console, get_logger
 from dom.types.api.models import Contest
 from dom.types.config import DomConfig
 from dom.types.config.processed import ContestConfig
@@ -36,10 +37,20 @@ class ContestApplicationService:
         self.secrets = secrets
         self.problem_service = ProblemService(client)
         self.team_service = TeamService(client)
+        self.state_comparator = ContestStateComparator(client)
 
     def apply_contest(self, contest: ContestConfig) -> str:
         """
         Apply a single contest configuration.
+
+        This method is idempotent and safe for INITIAL SETUP only:
+        - If contest doesn't exist, creates it
+        - If contest exists, SKIPS contest fields (cannot be updated via API)
+        - Resources (problems/teams) are always applied idempotently
+
+        IMPORTANT: DOMjudge API does NOT support updating contests.
+        This tool is designed for INITIAL SETUP only. Once contests are created,
+        any changes to contest fields must be made manually via the DOMjudge web UI.
 
         Args:
             contest: Contest configuration
@@ -52,11 +63,47 @@ class ContestApplicationService:
         """
         logger.info(
             "Applying contest configuration",
-            extra={"contest_name": contest.name, "contest_shortname": contest.shortname},
+            extra={
+                "contest_name": contest.name,
+                "contest_shortname": contest.shortname,
+            },
         )
 
-        # Create contest
-        contest_id = self._create_contest(contest)
+        # Detect changes first
+        change_set = self.state_comparator.compare_contest(contest)
+
+        # Create or skip contest
+        if change_set.change_type == ChangeType.CREATE:
+            contest_id = self._create_contest(contest)
+            logger.info(f"✓ Created new contest '{contest.shortname}' (ID: {contest_id})")
+        else:
+            # Get existing contest
+            assert contest.shortname is not None, "Contest shortname is required"
+            current = self.state_comparator._fetch_current_contest(contest.shortname)
+            assert current is not None, f"Contest '{contest.shortname}' should exist at this point"
+            contest_id = current["id"]
+
+            # Show warning if there are field changes
+            if change_set.field_changes:
+                changed_fields = ", ".join([fc.field for fc in change_set.field_changes])
+                console.print(f"\n[yellow]⚠ Contest '{contest.shortname}' already exists[/yellow]")
+                console.print(f"[yellow]  Changed fields detected: {changed_fields}[/yellow]")
+                console.print(
+                    "[yellow]  → DOMjudge API does not support updating contests[/yellow]"
+                )
+                console.print(
+                    "[yellow]  → Please update manually in DOMjudge web UI (Jury > Contests)[/yellow]\n"
+                )
+
+                logger.warning(
+                    f"Contest '{contest.shortname}' exists with field changes that cannot be applied via API",
+                    extra={
+                        "contest_id": contest_id,
+                        "changed_fields": changed_fields,
+                    },
+                )
+            else:
+                logger.info(f"✓ Contest '{contest.shortname}' exists with no field changes")
 
         # Create contest-specific team group for scoreboard filtering
         shortname = contest.shortname or "contest"

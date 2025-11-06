@@ -9,24 +9,15 @@ A production-ready command-line tool for managing DOMjudge infrastructure and pr
 ## Table of Contents
 
 - [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [System Requirements](#system-requirements)
-  - [Quick Install](#quick-install)
 - [Quick Start](#quick-start)
+- [Important: Tool Scope](#important-tool-scope)
 - [Command Reference](#command-reference)
   - [dom init](#dom-init)
   - [dom infra](#dom-infra)
   - [dom contest](#dom-contest)
 - [Configuration](#configuration)
-  - [Configuration File Structure](#configuration-file-structure)
-  - [Infrastructure Configuration](#infrastructure-configuration)
-  - [Contest Configuration](#contest-configuration)
-  - [Problem Configuration](#problem-configuration)
-  - [Team Configuration](#team-configuration)
 - [Usage Examples](#usage-examples)
-- [Advanced Topics](#advanced-topics)
 - [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
 
 ---
 
@@ -35,55 +26,46 @@ A production-ready command-line tool for managing DOMjudge infrastructure and pr
 ### Prerequisites
 
 - **Python**: 3.10 or higher
-- **Docker**: Required for infrastructure management
-- **Operating System**: Ubuntu 22.04 (recommended), macOS (limited support)
+- **Docker**: Required for running DOMjudge infrastructure
+- **Operating System**: Linux (Ubuntu 22.04 recommended), macOS
 
-### System Requirements
+### System Requirements (Linux)
 
-Before installing the CLI, you must enable **cgroups** on Linux systems to ensure proper judgehost functionality.
+Enable **cgroups** for judgehost functionality:
 
-**Ubuntu 22.04 Setup:**
+**Ubuntu 22.04:**
 
-1. Create or edit the GRUB configuration:
+1. Create GRUB configuration:
    ```bash
    sudo vi /etc/default/grub.d/99-domjudge-cgroups.cfg
    ```
 
-2. Add the following line:
+2. Add this line:
    ```
    GRUB_CMDLINE_LINUX_DEFAULT="cgroup_enable=memory swapaccount=1 systemd.unified_cgroup_hierarchy=0"
    ```
 
-3. Update GRUB and reboot:
+3. Update and reboot:
    ```bash
    sudo update-grub
    sudo reboot
    ```
 
-**Verify cgroups are enabled:**
-```bash
-cat /proc/cmdline
-# Should show: cgroup_enable=memory swapaccount=1 systemd.unified_cgroup_hierarchy=0
-```
+4. Verify:
+   ```bash
+   cat /proc/cmdline  # Should show cgroup settings
+   ```
 
-### Quick Install
-
-Install via pip:
+### Install
 
 ```bash
 pip install domjudge-cli
-```
-
-Verify installation:
-```bash
 dom --version
 ```
 
 ---
 
 ## Quick Start
-
-Get up and running in 3 commands:
 
 ```bash
 # 1. Initialize configuration
@@ -92,14 +74,45 @@ dom init
 # 2. Deploy infrastructure
 dom infra apply
 
-# 3. Apply contest configuration
+# 3. Create contests with problems and teams
 dom contest apply
 ```
 
-This will:
-1. Create a `dom-judge.yaml` configuration file with an interactive wizard
-2. Deploy DOMjudge server, database, and judgehosts in Docker containers
-3. Configure contests, problems, and teams on the platform
+Access DOMjudge at `http://localhost:8080` (or configured port).
+
+---
+
+## ⚠ IMPORTANT: Tool Scope
+
+This tool is designed for **INITIAL SETUP** of DOMjudge infrastructure and contests.
+
+### What This Tool Does ✓
+
+- Deploy DOMjudge infrastructure (Docker containers)
+- Create new contests with problems and teams
+- Plan changes before applying them
+- Scale judgehost count
+
+### What This Tool Does NOT Do ❌
+
+- ❌ **Update existing contests** (DOMjudge API limitation)
+- ❌ **Update team/problem data after creation**
+- ❌ **Ongoing contest management** (use DOMjudge web UI instead)
+
+**Example:**
+
+```bash
+# ✓ Initial setup - Works perfectly
+dom init
+dom infra apply
+dom contest apply
+
+# ❌ Updating existing contest - NOT supported
+vim dom-judge.yaml  # Change contest duration
+dom contest apply   # ⚠ Warning: Update manually in web UI
+```
+
+For ongoing management, use the DOMjudge web interface.
 
 ---
 
@@ -107,14 +120,14 @@ This will:
 
 ### Global Options
 
-All commands support these global options:
+All commands support:
 
 | Option | Description |
 |--------|-------------|
-| `--verbose` | Enable detailed logging output |
-| `--no-color` | Disable colored terminal output |
-| `--version`, `-v` | Show CLI version and exit |
-| `--help` | Show help message and exit |
+| `--verbose` | Enable detailed logging |
+| `--no-color` | Disable colored output |
+| `--version`, `-v` | Show version |
+| `--help` | Show help |
 
 **Example:**
 ```bash
@@ -125,7 +138,7 @@ dom --verbose infra status
 
 ### dom init
 
-Initialize a new DOMjudge configuration file.
+Initialize DOMjudge configuration file.
 
 ```bash
 dom init [OPTIONS]
@@ -133,32 +146,28 @@ dom init [OPTIONS]
 
 #### Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--overwrite` | flag | `false` | Overwrite existing `dom-judge.yaml` if present |
-| `--dry-run` | flag | `false` | Preview files that would be created without creating them |
+| Option | Description |
+|--------|-------------|
+| `--overwrite` | Overwrite existing configuration |
+| `--dry-run` | Preview without creating files |
 
-#### Behavior
+#### Usage
 
-- Launches an interactive wizard to configure infrastructure and contests
-- Creates `dom-judge.yaml` in the current directory
-- Fails if `dom-judge.yaml` already exists (unless `--overwrite` is used)
-- Automatically discovers and uses `dom-judge.yaml` or `dom-judge.yml` for subsequent commands
+Launches an interactive wizard to create `dom-judge.yaml` with:
+- Infrastructure settings (port, judges)
+- Contest details
+- Problems and teams
 
-#### Examples
+**Examples:**
 
-**Basic initialization:**
 ```bash
+# Basic initialization
 dom init
-```
 
-**Preview what would be created:**
-```bash
+# Preview what would be created
 dom init --dry-run
-```
 
-**Overwrite existing configuration:**
-```bash
+# Overwrite existing config
 dom init --overwrite
 ```
 
@@ -166,1258 +175,663 @@ dom init --overwrite
 
 ### dom infra
 
-Manage DOMjudge infrastructure and platform resources.
+Manage DOMjudge infrastructure.
 
 #### Commands
 
-- [`dom infra apply`](#dom-infra-apply) - Deploy or update infrastructure
-- [`dom infra destroy`](#dom-infra-destroy) - Tear down infrastructure
+- [`dom infra apply`](#dom-infra-apply) - Deploy infrastructure
+- [`dom infra plan`](#dom-infra-plan) - Preview infrastructure changes
 - [`dom infra status`](#dom-infra-status) - Check infrastructure health
+- [`dom infra destroy`](#dom-infra-destroy) - Remove infrastructure
 
 ---
 
 #### dom infra apply
 
-Deploy or update infrastructure based on configuration file.
+Deploy or update infrastructure from configuration.
 
 ```bash
 dom infra apply [OPTIONS]
 ```
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--file`, `-f` | path | `dom-judge.yaml` | Path to configuration YAML file |
-| `--dry-run` | flag | `false` | Preview changes without applying |
-| `--verbose` | flag | `false` | Enable detailed output |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
+| `--dry-run` | Preview without applying |
 
-##### What It Does
+**Usage:**
 
-1. **Reads** the infrastructure configuration from YAML
-2. **Deploys** Docker containers:
-   - DOMserver (web interface and API)
-   - MariaDB (database)
-   - Judgehosts (code execution workers)
-   - MySQL client (database management)
-3. **Configures** authentication and networking
-4. **Validates** deployment was successful
+Deploys Docker containers for:
+- DOMserver (web interface + API)
+- MariaDB database
+- Judgehosts (configurable count)
+- MySQL client
 
-##### Examples
+**Examples:**
 
-**Deploy with default config:**
 ```bash
+# Deploy with default config
 dom infra apply
-```
 
-**Deploy with custom config:**
-```bash
-dom infra apply --file my-contest.yaml
-```
+# Use custom config file
+dom infra apply -f my-config.yaml
 
-**Preview deployment without applying:**
-```bash
+# Preview deployment
 dom infra apply --dry-run
-```
 
-**Deploy with verbose logging:**
-```bash
+# Deploy with verbose logging
 dom infra apply --verbose
 ```
 
-##### Exit Codes
-
-- `0` - Success
-- `1` - Failure (check logs for details)
+**Access:** After deployment, DOMjudge is available at configured port (default: `http://localhost:8080`)
 
 ---
 
-#### dom infra destroy
+#### dom infra plan
 
-Destroy all infrastructure and platform resources.
+Show infrastructure changes before applying.
 
 ```bash
-dom infra destroy [OPTIONS]
+dom infra plan [OPTIONS]
 ```
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--confirm` | flag | `false` | **Required**. Confirm destruction |
-| `--force-delete-volumes` | flag | `false` | Permanently delete Docker volumes (DATA LOSS) |
-| `--dry-run` | flag | `false` | Preview what would be destroyed |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
 
-##### What It Does
+**Usage:**
 
-1. **Stops** all DOMjudge containers
-2. **Removes** containers from Docker
-3. **Preserves** volumes (unless `--force-delete-volumes` is used)
-4. **Cleans up** networks and resources
+Analyzes configuration and displays:
+- Whether infrastructure needs creation or updates
+- Safe changes (e.g., scaling judges) vs. changes requiring restart
+- Current vs. desired state comparison
 
-##### Data Preservation
+**Examples:**
 
-**By default, Docker volumes are PRESERVED** to prevent accidental data loss. This includes:
-- Contest data
-- Database contents
-- Submission history
-- Team information
-
-To completely remove all data, use `--force-delete-volumes`.
-
-##### Examples
-
-**Destroy infrastructure (preserves data):**
 ```bash
-dom infra destroy --confirm
+# Preview infrastructure changes
+dom infra plan
+
+# Use custom config
+dom infra plan -f my-config.yaml
 ```
 
-**Completely remove everything (DATA LOSS):**
-```bash
-dom infra destroy --confirm --force-delete-volumes
-```
-
-**Preview what would be destroyed:**
-```bash
-dom infra destroy --dry-run
-```
-
-##### Exit Codes
-
-- `0` - Success
-- `1` - Failure or missing `--confirm`
-
-##### Safety Features
-
-- Requires explicit `--confirm` flag to prevent accidental destruction
-- Shows warning before deleting volumes
-- Dry-run mode for safe preview
+**Output shows:**
+- Port changes (requires restart)
+- Judge count changes (safe live update)
+- Password changes (requires restart)
 
 ---
 
 #### dom infra status
 
-Check the health status of DOMjudge infrastructure.
+Check infrastructure health.
 
 ```bash
 dom infra status [OPTIONS]
 ```
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--file`, `-f` | path | optional | Configuration file (for expected judgehost count) |
-| `--json` | flag | `false` | Output in JSON format |
-| `--verbose` | flag | `false` | Enable detailed output |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file for expected state |
+| `--json` | Output as JSON |
 
-##### What It Checks
+**Usage:**
 
-- ✓ Docker daemon availability
-- ✓ DOMserver container status
-- ✓ MariaDB container status
-- ✓ Judgehost containers (expected vs actual count)
-- ✓ MySQL client container status
-- ✓ Network connectivity
+Checks status of:
+- Docker daemon
+- DOMserver container
+- MariaDB database
+- Judgehost containers
+- MySQL client
+- Network connectivity
 
-##### Examples
+**Examples:**
 
-**Check status:**
 ```bash
+# Check status
 dom infra status
-```
 
-**Check status with expected configuration:**
-```bash
-dom infra status --file dom-judge.yaml
-```
+# Check against expected config
+dom infra status -f dom-judge.yaml
 
-**Output status as JSON:**
-```bash
+# JSON output for scripts
 dom infra status --json
 ```
 
-##### Exit Codes
+**Exit codes:**
+- `0` - All healthy
+- `1` - Issues detected
 
-- `0` - All systems healthy
-- `1` - One or more systems unhealthy
+---
 
-##### Use Cases
+#### dom infra destroy
 
-- Health checks in CI/CD pipelines
-- Monitoring scripts
-- Pre-contest validation
-- Debugging infrastructure issues
+Remove all infrastructure.
+
+```bash
+dom infra destroy [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--confirm` | **Required** - Confirm destruction |
+| `--force-delete-volumes` | Delete data volumes (PERMANENT) |
+| `--dry-run` | Preview without destroying |
+
+**Usage:**
+
+Stops and removes containers. **By default, preserves volumes** (contest data, submissions, database).
+
+**Examples:**
+
+```bash
+# Remove infrastructure (keep data)
+dom infra destroy --confirm
+
+# Complete removal (DATA LOSS)
+dom infra destroy --confirm --force-delete-volumes
+
+# Preview what would be removed
+dom infra destroy --dry-run
+```
+
+**Safety:** Requires `--confirm` flag to prevent accidents.
 
 ---
 
 ### dom contest
 
-Manage contests, problems, and teams on the DOMjudge platform.
+Manage contests, problems, and teams.
 
 #### Commands
 
-- [`dom contest apply`](#dom-contest-apply) - Apply contest configuration
-- [`dom contest verify-problemset`](#dom-contest-verify-problemset) - Verify problem correctness
-- [`dom contest inspect`](#dom-contest-inspect) - Inspect loaded configuration
+- [`dom contest apply`](#dom-contest-apply) - Create contests
+- [`dom contest plan`](#dom-contest-plan) - Preview contest changes
+- [`dom contest verify-problemset`](#dom-contest-verify-problemset) - Verify problems
+- [`dom contest inspect`](#dom-contest-inspect) - Inspect configuration
 
 ---
 
 #### dom contest apply
 
-Apply contest configuration to the platform.
+Create contests with problems and teams.
 
 ```bash
 dom contest apply [OPTIONS]
 ```
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--file`, `-f` | path | `dom-judge.yaml` | Path to configuration YAML file |
-| `--dry-run` | flag | `false` | Preview changes without applying |
-| `--verbose` | flag | `false` | Enable detailed output |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
+| `--dry-run` | Preview without applying |
 
-##### What It Does
+**Usage:**
 
-1. **Loads** configuration from YAML
-2. **Creates/updates** contests on the platform
-3. **Uploads** problem packages (with validation)
-4. **Registers** teams and affiliations
-5. **Configures** contest settings (duration, penalties, etc.)
+Creates or updates:
+- Contests
+- Problem packages
+- Teams and affiliations
+- Contest settings
 
-##### Safe Live Updates
+**Important:** Cannot update existing contest fields (API limitation). For changes after creation, use DOMjudge web UI.
 
-This command is designed for **live operations** and can safely update contests while the platform is running:
-- Non-destructive updates to existing contests
-- Preserves existing data
-- Atomic operations with rollback on failure
+**Examples:**
 
-##### Examples
-
-**Apply contest configuration:**
 ```bash
+# Create contests from config
 dom contest apply
-```
 
-**Apply with custom config:**
-```bash
-dom contest apply --file my-contest.yaml
-```
+# Use custom config
+dom contest apply -f my-contest.yaml
 
-**Preview changes without applying:**
-```bash
+# Preview changes
 dom contest apply --dry-run
-```
 
-**Apply with detailed logging:**
-```bash
+# Verbose output
 dom contest apply --verbose
 ```
 
-##### Exit Codes
+---
 
-- `0` - Success
-- `1` - Failure (check logs for details)
+#### dom contest plan
+
+Show contest changes before applying.
+
+```bash
+dom contest plan [OPTIONS]
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
+
+**Usage:**
+
+Analyzes configuration and displays:
+- Contests to be created
+- Field changes detected (with warnings if not updatable)
+- Problems/teams to be added
+- Current vs. desired state
+
+**Examples:**
+
+```bash
+# Preview contest changes
+dom contest plan
+
+# Use custom config
+dom contest plan -f my-config.yaml
+```
+
+**Output shows:**
+- New contests to create
+- Existing contests and detected changes
+- Problems/teams to add
+- Warnings for unsupported updates
 
 ---
 
 #### dom contest verify-problemset
 
-Verify the problemset of a contest by running sample submissions.
+Verify problems by running test submissions.
 
 ```bash
 dom contest verify-problemset CONTEST_NAME [OPTIONS]
 ```
 
-##### Arguments
+**Arguments:**
 
-| Argument | Type | Required | Description |
-|----------|------|----------|-------------|
-| `CONTEST_NAME` | string | Yes | Name or shortname of the contest |
+| Argument | Description |
+|----------|-------------|
+| `CONTEST_NAME` | Contest name or shortname |
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--file`, `-f` | path | `dom-judge.yaml` | Path to configuration YAML file |
-| `--dry-run` | flag | `false` | Preview what would be verified |
-| `--verbose` | flag | `false` | Enable detailed output |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
+| `--dry-run` | Preview without running |
 
-##### What It Does
+**Usage:**
 
-1. **Identifies** all problems in the contest
-2. **Runs** sample submissions for each problem
-3. **Validates** results against expected outcomes
-4. **Checks** performance limits (time, memory)
-5. **Reports** per-problem summaries including:
-   - Correct/incorrect submissions
-   - Performance metrics
-   - Mismatches and warnings
+Validates problems by:
+- Running sample submissions
+- Checking expected results
+- Verifying performance limits
+- Reporting successes/failures
 
-##### Examples
+**Examples:**
 
-**Verify problemset for a contest:**
 ```bash
+# Verify contest problemset
 dom contest verify-problemset "ICPC Regional 2025"
-```
 
-**Verify with custom config:**
-```bash
-dom contest verify-problemset SAMPLE2025 --file config.yaml
-```
+# Use shortname
+dom contest verify-problemset SAMPLE2025
 
-**Preview verification without running:**
-```bash
+# With custom config
+dom contest verify-problemset SAMPLE2025 -f config.yaml
+
+# Preview what would be verified
 dom contest verify-problemset SAMPLE2025 --dry-run
 ```
 
-##### Exit Codes
-
-- `0` - All problems verified successfully
-- `1` - Verification failed or problems detected
-
-##### Use Cases
-
-- Pre-contest validation
-- Problem package testing
-- Automated quality assurance
-- Contest dry runs
+**Exit codes:**
+- `0` - All problems verified
+- `1` - Verification failed
 
 ---
 
 #### dom contest inspect
 
-Inspect loaded configuration with optional filtering.
+Inspect loaded configuration.
 
 ```bash
 dom contest inspect [OPTIONS]
 ```
 
-##### Options
+**Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--file`, `-f` | path | `dom-judge.yaml` | Path to configuration YAML file |
-| `--format` | string | none | JMESPath expression to filter output |
-| `--show-secrets` | flag | `false` | Include secret values (otherwise masked) |
-| `--verbose` | flag | `false` | Enable detailed output |
+| Option | Description |
+|--------|-------------|
+| `-f`, `--file PATH` | Config file (default: `dom-judge.yaml`) |
+| `--format EXPR` | JMESPath expression for filtering |
+| `--show-secrets` | Show secret values (default: masked) |
 
-##### What It Does
+**Usage:**
 
-1. **Loads** configuration from YAML
-2. **Parses** all contests, problems, and teams
-3. **Outputs** structured JSON
-4. **Masks** sensitive data (unless `--show-secrets`)
-5. **Filters** output (if `--format` provided)
+Displays parsed configuration with validation.
 
-##### Examples
+**Examples:**
 
-**Inspect full configuration:**
 ```bash
+# Inspect configuration
 dom contest inspect
-```
 
-**Show configuration with secrets:**
-```bash
+# Show with secrets
 dom contest inspect --show-secrets
+
+# Filter specific data
+dom contest inspect --format "contests[0].name"
+
+# Use custom config
+dom contest inspect -f my-config.yaml
 ```
-
-**Filter to show only contest names:**
-```bash
-dom contest inspect --format "[].name"
-```
-
-**Show problems for first contest:**
-```bash
-dom contest inspect --format "[0].problems[].short_name"
-```
-
-**Count total teams across all contests:**
-```bash
-dom contest inspect --format "length([].teams[])"
-```
-
-##### JMESPath Examples
-
-JMESPath is a query language for JSON. Common patterns:
-
-```bash
-# Get all contest names
---format "[].name"
-
-# Get first contest details
---format "[0]"
-
-# Get all problems from all contests
---format "[].problems[]"
-
-# Filter contests by name
---format "[?name=='ICPC Regional 2025']"
-
-# Get team count per contest
---format "[].[name, length(teams)]"
-```
-
-##### Exit Codes
-
-- `0` - Success
-- `1` - Failure (invalid config or filter)
 
 ---
 
 ## Configuration
 
-DOMjudge CLI uses YAML configuration files to define infrastructure and contests.
+Configuration is defined in `dom-judge.yaml` (created by `dom init`).
 
-### Configuration File Structure
-
-The configuration file has two main sections:
-
-```yaml
-infra:
-  # Infrastructure configuration
-  port: 8080
-  judges: 2
-  password: "secure_password"
-
-contests:
-  # List of contests
-  - name: "Contest Name"
-    shortname: "CONTEST2025"
-    # ... contest configuration
-```
-
-### Configuration File Discovery
-
-By default, the CLI looks for configuration files in this order:
-1. `dom-judge.yaml`
-2. `dom-judge.yml`
-
-You can override this with `--file` option:
-```bash
-dom infra apply --file custom-config.yaml
-```
-
----
-
-### Infrastructure Configuration
-
-Define infrastructure settings under the `infra:` key.
-
-#### Schema
-
-```yaml
-infra:
-  port: <integer>          # DOMserver port (required)
-  judges: <integer>        # Number of judgehost workers (required)
-  password: <string>       # Admin password (required)
-```
-
-#### Example
+### File Structure
 
 ```yaml
 infra:
   port: 8080
   judges: 4
-  password: "YourSecurePassword123"
-```
+  password: "your-secure-password"
 
-#### Field Reference
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `port` | integer | Yes | Port for DOMserver web interface (1024-65535) |
-| `judges` | integer | Yes | Number of judgehost containers (1-32 recommended) |
-| `password` | string | Yes | Admin password for DOMjudge (min 8 characters) |
-
-#### Best Practices
-
-- **Port**: Use ports 8080-8090 to avoid conflicts
-- **Judges**: Allocate 1 judge per 2 CPU cores available
-- **Password**: Use strong passwords (16+ characters, mixed case, numbers, symbols)
-
----
-
-### Contest Configuration
-
-Define contests under the `contests:` key as a list.
-
-#### Schema
-
-```yaml
 contests:
-  - name: <string>                  # Contest display name (required)
-    shortname: <string>             # Contest identifier (required)
-    start_time: <datetime>          # ISO 8601 format (required)
-    duration: <duration>            # HH:MM:SS.mmm format (required)
-    penalty_time: <integer>         # Minutes penalty per wrong submission
-    allow_submit: <boolean>         # Allow submissions (default: true)
-    
-    problems:                        # Problem configuration (see below)
-      # ... problems
-    
-    teams:                           # Team configuration (see below)
-      # ... teams
-```
-
-#### Example
-
-```yaml
-contests:
-  - name: "ICPC Regional Championship 2025"
+  - name: "ICPC Regional 2025"
     shortname: "ICPC2025"
-    start_time: "2025-06-15T09:00:00+00:00"
-    duration: "05:00:00.000"
-    penalty_time: 20
-    allow_submit: true
-    
+    duration: "5:00:00"
     problems:
-      from: "problems.yaml"
-    
-    teams:
-      from: "teams.csv"
-      delimiter: ","
-      rows: "2-100"
-      name: "$2"
-      affiliation: "$3"
-```
-
-#### Field Reference
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Human-readable contest name |
-| `shortname` | string | Yes | Unique identifier (alphanumeric, no spaces) |
-| `start_time` | datetime | Yes | Contest start time (ISO 8601 format with timezone) |
-| `duration` | duration | Yes | Contest duration (HH:MM:SS.mmm) |
-| `penalty_time` | integer | Yes | Penalty minutes for wrong submissions |
-| `allow_submit` | boolean | No | Enable/disable submissions (default: true) |
-| `problems` | object | Yes | Problem configuration (see below) |
-| `teams` | object | Yes | Team configuration (see below) |
-
-#### Date/Time Format
-
-Use ISO 8601 format with timezone:
-```yaml
-start_time: "2025-06-15T09:00:00+00:00"  # UTC
-start_time: "2025-06-15T14:00:00+05:00"  # UTC+5
-start_time: "2025-06-15T04:00:00-05:00"  # UTC-5
-```
-
-#### Duration Format
-
-Format: `HH:MM:SS.mmm`
-```yaml
-duration: "05:00:00.000"  # 5 hours
-duration: "03:30:00.000"  # 3.5 hours
-duration: "02:00:00.000"  # 2 hours
-```
-
----
-
-### Problem Configuration
-
-Define problems for a contest. Two approaches are supported:
-
-#### Approach 1: Inline Problems
-
-Define problems directly in the contest configuration:
-
-```yaml
-contests:
-  - name: "My Contest"
-    shortname: "CONTEST2025"
-    # ... other fields
-    
-    problems:
-      - archive: problems/two-sum.zip
-        platform: "Polygon"
-        color: blue
-      
-      - archive: problems/graph-traversal.zip
-        platform: "Polygon"
-        color: green
-      
-      - archive: problems/dynamic-programming.zip
-        platform: "Polygon"
-        color: red
-```
-
-#### Approach 2: External Problem File
-
-Reference an external YAML file:
-
-```yaml
-contests:
-  - name: "My Contest"
-    shortname: "CONTEST2025"
-    # ... other fields
-    
-    problems:
-      from: "problems.yaml"
-```
-
-**problems.yaml:**
-```yaml
-- archive: problems/two-sum.zip
-  platform: "Polygon"
-  color: blue
-
-- archive: problems/graph-traversal.zip
-  platform: "Polygon"
-  color: green
-
-- archive: problems/dynamic-programming.zip
-  platform: "Polygon"
-  color: red
-```
-
-#### Problem Schema
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `archive` | path | Yes | Path to problem package (ZIP format) |
-| `platform` | string | Yes | Problem source platform (`"Polygon"`, `"Kattis"`, `"DOMjudge"`) |
-| `color` | string | No | Problem color in scoreboard (see below) |
-
-#### Supported Colors
-
-Valid color values:
-- `blue`, `green`, `red`, `yellow`, `orange`, `purple`, `pink`, `cyan`, `brown`, `gray`, `black`, `white`
-
-Or use hex codes:
-```yaml
-color: "#FF5733"
-```
-
-#### Problem Package Requirements
-
-**Polygon Format:**
-- Export package with **Linux** type (not Windows or Standard)
-- ZIP file must contain `problem.xml` and test data
-
-**File Structure:**
-```
-problem-name.zip
-├── problem.xml
-├── statements/
-├── tests/
-└── solutions/
-```
-
-#### Multiple Contests Sharing Problems
-
-You can reuse the same problem file across multiple contests:
-
-```yaml
-contests:
-  - name: "Practice Contest"
-    shortname: "PRACTICE"
-    problems:
-      from: "problems.yaml"
-  
-  - name: "Official Contest"
-    shortname: "OFFICIAL"
-    problems:
-      from: "problems.yaml"  # Same problems
-```
-
----
-
-### Team Configuration
-
-Define teams for a contest. Two approaches are supported:
-
-#### Approach 1: CSV/TSV File
-
-Reference an external CSV or TSV file:
-
-```yaml
-contests:
-  - name: "My Contest"
-    shortname: "CONTEST2025"
-    # ... other fields
-    
-    teams:
-      from: "teams.csv"
-      delimiter: ","
-      rows: "2-100"
-      name: "$2"
-      affiliation: "$3"
-      country: "USA"  # Optional: fixed country for all teams
-```
-
-**teams.csv:**
-```csv
-id,name,affiliation,email
-1,Team Alpha,MIT,alpha@mit.edu
-2,Team Beta,Stanford,beta@stanford.edu
-3,Team Gamma,Berkeley,gamma@berkeley.edu
-```
-
-#### Team Configuration Schema
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `from` | path | Yes | Path to CSV/TSV file |
-| `delimiter` | string | Yes | Field delimiter (`,` for CSV, `\t` for TSV) |
-| `rows` | string | Yes | Row range to import (e.g., `"2-100"`, `"2-"`, `"1-50"`) |
-| `name` | string | Yes | Column reference for team name (e.g., `"$2"`) |
-| `affiliation` | string | Yes | Column reference for affiliation (e.g., `"$3"`) |
-| `country` | string | No | Fixed country code for all teams |
-| `email` | string | No | Column reference for email (e.g., `"$4"`) |
-
-#### Column References
-
-Use `$N` notation to reference columns (1-indexed):
-- `$1` = First column
-- `$2` = Second column
-- `$3` = Third column
-- etc.
-
-#### Row Range Format
-
-Specify which rows to import:
-- `"2-100"` = Rows 2 through 100 (skips header)
-- `"2-"` = Rows 2 to end of file
-- `"1-50"` = First 50 rows
-
-#### Examples
-
-**CSV with header:**
-```yaml
-teams:
-  from: "teams.csv"
-  delimiter: ","
-  rows: "2-"        # Skip header row
-  name: "$2"        # Second column
-  affiliation: "$3" # Third column
-```
-
-**TSV without header:**
-```yaml
-teams:
-  from: "teams.tsv"
-  delimiter: "\t"
-  rows: "1-"        # Include all rows
-  name: "$1"        # First column
-  affiliation: "$2" # Second column
-```
-
-**With country code:**
-```yaml
-teams:
-  from: "teams.csv"
-  delimiter: ","
-  rows: "2-"
-  name: "$2"
-  affiliation: "$3"
-  country: "USA"    # All teams from USA
-```
-
-#### Approach 2: Inline Teams (Advanced)
-
-Define teams directly in YAML (for small contests):
-
-```yaml
-contests:
-  - name: "My Contest"
+      - archive: "problems/hello/"
+        platform: "domjudge"
+        color: "blue"
+      - archive: "problems/fizzbuzz.zip"
+        platform: "domjudge"
+        color: "red"
+      - archive: "problems/polygon-problem-linux.zip"
+        platform: "polygon"
+        color: "green"
+        with_statement: true
     teams:
       - name: "Team Alpha"
-        affiliation: "MIT"
+        affiliation: "University A"
         country: "USA"
-      
       - name: "Team Beta"
-        affiliation: "Stanford"
-        country: "USA"
+        affiliation: "University B"
+        country: "CAN"
 ```
+
+### Infrastructure Section
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `port` | integer | DOMjudge web port (1024-65535) |
+| `judges` | integer | Number of judgehost containers |
+| `password` | string | Admin password (8-128 chars) |
+
+### Contest Section
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Contest display name |
+| `shortname` | string | Yes | Short identifier (3-32 chars) |
+| `duration` | string | Yes | Format: `H:MM:SS` |
+| `formal_name` | string | No | Official name |
+| `start_time` | datetime | No | ISO 8601 format |
+| `penalty_time` | integer | No | Minutes per wrong submission |
+| `problems` | list | Yes | Problem packages |
+| `teams` | list | Yes | Team registrations |
+
+### Problem Package
+
+The tool supports **two problem formats**:
+
+1. **DOMjudge/Kattis Problem Package Format** (recommended)
+2. **Polygon Format** (automatically converted to DOMjudge format)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `archive` | string | Yes | Path to problem archive (.zip) or directory |
+| `platform` | string | Yes | `"domjudge"` or `"polygon"` |
+| `color` | string | Yes | Problem color (hex code or name) |
+| `with_statement` | boolean | No | Include problem statement (Polygon only, default: `true`) |
+
+**DOMjudge/Kattis Format - Required files:**
+- `problem.yaml` - Problem metadata
+- `domjudge-problem.ini` - DOMjudge settings
+- `data/sample/*.in` - Sample inputs
+- `data/sample/*.ans` - Sample outputs
+- `data/secret/*.in` - Test cases
+- `data/secret/*.ans` - Expected outputs
+
+**Polygon Format:**
+- `.zip` archive from Codeforces Polygon
+- **Important:** Export as **Linux package** (not Standard or Windows)
+- Automatically converted to DOMjudge format during import
+
+**Example configuration:**
+```yaml
+problems:
+  # DOMjudge format (directory)
+  - archive: "problems/hello/"
+    platform: "domjudge"
+    color: "#FF5733"
+  
+  # DOMjudge format (zip)
+  - archive: "problems/fizzbuzz.zip"
+    platform: "domjudge"
+    color: "blue"
+  
+  # Polygon format (must be Linux package!)
+  - archive: "problems/polygon-problem-linux.zip"
+    platform: "polygon"
+    color: "green"
+    with_statement: true
+```
+
+### Team Registration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Team display name |
+| `affiliation` | string | Yes | Organization name |
+| `country` | string | Yes | 3-letter code (USA, CAN, etc.) |
 
 ---
 
 ## Usage Examples
 
-### Complete Workflow
-
-From initialization to contest deployment:
+### Complete Setup Workflow
 
 ```bash
-# 1. Initialize configuration
+# 1. Create configuration
 dom init
 
-# 2. Edit configuration file
-vim dom-judge.yaml
+# 2. Review infrastructure plan
+dom infra plan
 
-# 3. Preview infrastructure deployment
-dom infra apply --dry-run
-
-# 4. Deploy infrastructure
+# 3. Deploy infrastructure
 dom infra apply
 
-# 5. Verify infrastructure is healthy
+# 4. Verify deployment
 dom infra status
 
-# 6. Preview contest configuration
-dom contest apply --dry-run
+# 5. Review contest plan
+dom contest plan
 
-# 7. Apply contest configuration
+# 6. Create contests
 dom contest apply
 
-# 8. Verify problemset
-dom contest verify-problemset "ICPC2025"
-
-# 9. Inspect configuration
-dom contest inspect --format "[].name"
+# 7. Verify problems
+dom contest verify-problemset "My Contest"
 ```
 
----
+### Scaling Judgehosts
 
-### Example: Multi-Contest Setup
-
-**dom-judge.yaml:**
-```yaml
-infra:
-  port: 8080
-  judges: 8
-  password: "SecurePassword123"
-
-contests:
-  # Practice contest
-  - name: "ICPC 2025 Practice"
-    shortname: "ICPC2025-PRACTICE"
-    start_time: "2025-06-14T14:00:00+00:00"
-    duration: "02:00:00.000"
-    penalty_time: 20
-    allow_submit: true
-    
-    problems:
-      from: "practice-problems.yaml"
-    
-    teams:
-      from: "teams.csv"
-      delimiter: ","
-      rows: "2-"
-      name: "$2"
-      affiliation: "$3"
-  
-  # Official contest
-  - name: "ICPC 2025 Official"
-    shortname: "ICPC2025-OFFICIAL"
-    start_time: "2025-06-15T09:00:00+00:00"
-    duration: "05:00:00.000"
-    penalty_time: 20
-    allow_submit: true
-    
-    problems:
-      from: "official-problems.yaml"
-    
-    teams:
-      from: "teams.csv"
-      delimiter: ","
-      rows: "2-"
-      name: "$2"
-      affiliation: "$3"
-```
-
-**Deploy:**
 ```bash
-# Deploy infrastructure
+# Edit config to change judge count
+vim dom-judge.yaml  # Change judges: 4 -> 8
+
+# Preview changes
+dom infra plan  # Shows: Safe judge scaling
+
+# Apply changes (no downtime)
 dom infra apply
-
-# Apply both contests
-dom contest apply
-
-# Verify both problemsets
-dom contest verify-problemset "ICPC2025-PRACTICE"
-dom contest verify-problemset "ICPC2025-OFFICIAL"
 ```
 
----
-
-### Example: Update Existing Contest
-
-Update contest configuration without downtime:
+### Complete Teardown
 
 ```bash
-# 1. Edit configuration file
-vim dom-judge.yaml
+# Remove infrastructure (keep data)
+dom infra destroy --confirm
 
-# 2. Preview changes
-dom contest apply --dry-run
-
-# 3. Apply changes (safe for live contests)
-dom contest apply
+# Complete removal including data
+dom infra destroy --confirm --force-delete-volumes
 ```
 
----
-
-### Example: Scale Judgehosts
-
-Increase judgehost capacity:
-
-```bash
-# 1. Edit configuration
-vim dom-judge.yaml
-# Change: judges: 8
-
-# 2. Preview changes
-dom infra apply --dry-run
-
-# 3. Apply changes
-dom infra apply
-
-# 4. Verify new judgehosts are running
-dom infra status
-```
-
----
-
-### Example: CI/CD Integration
-
-Automated deployment pipeline:
+### Health Check Script
 
 ```bash
 #!/bin/bash
-set -e
+# Check if DOMjudge is healthy
 
-# Validate configuration
-dom init --dry-run
-
-# Deploy infrastructure
-dom infra apply --verbose
-
-# Wait for infrastructure to be ready
-until dom infra status --json | jq -e '.healthy == true'; do
-  echo "Waiting for infrastructure..."
-  sleep 5
-done
-
-# Apply contest configuration
-dom contest apply --verbose
-
-# Verify problemsets
-for contest in $(dom contest inspect --format '[].shortname' | jq -r '.[]'); do
-  dom contest verify-problemset "$contest"
-done
-
-echo "Deployment successful!"
-```
-
----
-
-### Example: Monitoring Script
-
-Health check script for production:
-
-```bash
-#!/bin/bash
-
-# Check infrastructure health
-if ! dom infra status --json > /tmp/status.json; then
-  echo "ERROR: Infrastructure unhealthy"
-  cat /tmp/status.json
-  exit 1
-fi
-
-# Parse JSON output
-healthy=$(jq -r '.healthy' /tmp/status.json)
-judges_running=$(jq -r '.judges.running' /tmp/status.json)
-judges_expected=$(jq -r '.judges.expected' /tmp/status.json)
-
-if [ "$healthy" = "true" ]; then
-  echo "✓ Infrastructure healthy"
-  echo "✓ Judges: $judges_running/$judges_expected running"
+if dom infra status --json > /dev/null 2>&1; then
+  echo "✓ DOMjudge is healthy"
   exit 0
 else
-  echo "✗ Infrastructure unhealthy"
+  echo "✗ DOMjudge has issues"
   exit 1
 fi
 ```
 
----
-
-## Advanced Topics
-
-### Environment Variables
-
-Control CLI behavior with environment variables:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DOM_CONFIG_FILE` | Default configuration file | `dom-judge.yaml` |
-| `DOM_LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | `INFO` |
-| `DOM_NO_COLOR` | Disable colored output | `false` |
-| `DOCKER_HOST` | Docker daemon address | `unix:///var/run/docker.sock` |
-
-**Example:**
-```bash
-export DOM_LOG_LEVEL=DEBUG
-export DOM_NO_COLOR=true
-dom infra apply
-```
-
----
-
-### Secrets Management
-
-The CLI stores sensitive data securely in `~/.dom/secrets.enc`.
-
-**View secrets:**
-```bash
-cat ~/.dom/secrets.enc
-```
-
-**Secrets stored:**
-- Admin passwords
-- Database credentials
-- API keys
-- Judgedaemon authentication tokens
-
-**Security best practices:**
-- Never commit `~/.dom/secrets.enc` to version control
-- Rotate passwords regularly
-- Use strong passwords (16+ characters)
-
----
-
-### Docker Configuration
-
-The CLI creates Docker resources with specific naming conventions:
-
-**Containers:**
-- `domserver` - Web interface and API
-- `mariadb` - Database server
-- `judgehost-{n}` - Judgehost workers (n = 0, 1, 2, ...)
-- `mysql-client` - Database management
-
-**Networks:**
-- `domjudge-network` - Internal network for containers
-
-**Volumes:**
-- `domserver-data` - DOMserver persistent data
-- `mariadb-data` - Database data
-
-**Inspect Docker resources:**
-```bash
-docker ps                      # List containers
-docker network ls              # List networks
-docker volume ls               # List volumes
-```
-
----
-
-### Debugging
-
-Enable verbose logging for troubleshooting:
+### Multiple Environments
 
 ```bash
-# Verbose output
-dom --verbose infra status
+# Production
+dom infra apply -f production.yaml
+dom contest apply -f production.yaml
 
-# Check logs
-tail -f ~/.dom/domjudge-cli.log
-
-# Docker logs
-docker logs domserver
-docker logs mariadb
-docker logs judgehost-0
-```
-
----
-
-### Performance Tuning
-
-**Judgehost Allocation:**
-- **Light load** (< 100 teams): 2-4 judgehosts
-- **Medium load** (100-300 teams): 4-8 judgehosts
-- **Heavy load** (300+ teams): 8-16 judgehosts
-
-**Resource Requirements:**
-- **CPU**: 2 cores per judgehost
-- **RAM**: 2GB per judgehost
-- **Disk**: 10GB minimum for system, 50GB+ for contests
-
-**Example for 500 teams:**
-```yaml
-infra:
-  port: 8080
-  judges: 12      # 12 judgehosts for high throughput
-  password: "..."
+# Staging
+dom infra apply -f staging.yaml
+dom contest apply -f staging.yaml
 ```
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
+### Infrastructure Issues
 
-#### Issue: "Docker daemon not available"
+**Problem:** Containers won't start
 
-**Symptoms:**
-```
-ERROR: Cannot connect to Docker daemon
-```
-
-**Solution:**
 ```bash
-# Start Docker
-sudo systemctl start docker
-
-# Verify Docker is running
+# Check Docker daemon
 docker ps
+
+# Check logs
+docker logs domjudge-cli-domserver
+
+# Verify cgroups (Linux)
+cat /proc/cmdline
 ```
 
----
+**Problem:** Port already in use
 
-#### Issue: "Port already in use"
-
-**Symptoms:**
-```
-ERROR: Port 8080 is already allocated
-```
-
-**Solution:**
 ```bash
-# Find process using port
-sudo lsof -i :8080
+# Change port in config
+vim dom-judge.yaml  # Change port: 8080 -> 9090
 
-# Kill process or change port in configuration
-vim dom-judge.yaml
-# Change: port: 8081
-```
-
----
-
-#### Issue: "Judgehosts not starting"
-
-**Symptoms:**
-```
-WARNING: Expected 4 judgehosts, found 0 running
-```
-
-**Solution:**
-```bash
-# Verify cgroups are enabled
-cat /proc/cmdline | grep cgroup_enable
-
-# If not enabled, follow installation steps
-sudo vi /etc/default/grub.d/99-domjudge-cgroups.cfg
-sudo update-grub
-sudo reboot
-```
-
----
-
-#### Issue: "Configuration file not found"
-
-**Symptoms:**
-```
-ERROR: Configuration file not found: dom-judge.yaml
-```
-
-**Solution:**
-```bash
-# Initialize configuration
-dom init
-
-# Or specify file explicitly
-dom infra apply --file /path/to/config.yaml
-```
-
----
-
-#### Issue: "Problem upload failed"
-
-**Symptoms:**
-```
-ERROR: Failed to upload problem package
-```
-
-**Solution:**
-```bash
-# Verify problem package format
-unzip -l problems/problem-name.zip
-
-# Ensure Polygon export type is "Linux"
-# Re-export from Polygon with Linux format
-
-# Verify file path is correct
-ls -la problems/
-```
-
----
-
-#### Issue: "Authentication failed"
-
-**Symptoms:**
-```
-ERROR: Failed to authenticate with DOMjudge API
-```
-
-**Solution:**
-```bash
-# Check admin password in configuration
-vim dom-judge.yaml
-
-# Reset secrets
-rm -rf ~/.dom/secrets.enc
+# Destroy and redeploy
 dom infra destroy --confirm
 dom infra apply
 ```
 
+**Problem:** Judgehosts not running
+
+```bash
+# Check status
+dom infra status
+
+# View logs
+docker logs domjudge-cli-judgehost-1
+
+# Verify cgroups configuration
+```
+
+### Contest Issues
+
+**Problem:** Problems fail to upload
+
+```bash
+# Verify problem package format
+# Must have problem.yaml and data/ directory
+
+# Check logs
+dom contest apply --verbose
+```
+
+**Problem:** Team creation fails
+
+```bash
+# Check team data format
+# Name, affiliation, country required
+
+# Use verbose mode
+dom contest apply --verbose
+```
+
+**Problem:** "Contest already exists" warning
+
+This is expected when trying to update contest fields. The tool can only CREATE contests, not update them. Use DOMjudge web UI for updates.
+
+### General Issues
+
+**Problem:** Configuration validation fails
+
+```bash
+# Inspect parsed config
+dom contest inspect
+
+# Check YAML syntax
+# Ensure proper indentation and structure
+```
+
+**Problem:** Docker permission denied
+
+```bash
+# Add user to docker group (Linux)
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
 ---
 
-### Getting Help
+## Best Practices
 
-If you encounter issues:
-
-1. **Check logs:**
-   ```bash
-   tail -f ~/.dom/domjudge-cli.log
-   ```
-
-2. **Enable verbose mode:**
-   ```bash
-   dom --verbose infra status
-   ```
-
-3. **Check Docker logs:**
-   ```bash
-   docker logs domserver
-   ```
-
-4. **Verify system requirements:**
-   ```bash
-   cat /proc/cmdline | grep cgroup_enable
-   docker --version
-   python --version
-   ```
-
-5. **Report issues:**
-   - GitHub: https://github.com/AnasImloul/domjudge-cli/issues
-   - Include: CLI version, OS, logs, and configuration (redact secrets)
+1. **Use version control** for configuration files
+2. **Test with `--dry-run`** before applying changes
+3. **Use `plan` commands** to preview changes
+4. **Keep credentials secure** - use environment variables or secrets manager
+5. **Back up volumes** before using `--force-delete-volumes`
+6. **Monitor with `infra status`** in production
+7. **Use DOMjudge web UI** for contest management after initial setup
 
 ---
 
-## Contributing
+## Resources
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## License
-
-MIT License. See [LICENSE](LICENSE) for details.
-
----
-
-## Links
-
-- **Homepage:** https://github.com/AnasImloul/domjudge-cli
-- **PyPI:** https://pypi.org/project/domjudge-cli/
+- **Documentation:** https://github.com/AnasImloul/domjudge-cli
 - **Issues:** https://github.com/AnasImloul/domjudge-cli/issues
 - **DOMjudge:** https://www.domjudge.org/
+- **Kattis Problem Format:** https://www.kattis.com/problem-package-format/
 
 ---
 

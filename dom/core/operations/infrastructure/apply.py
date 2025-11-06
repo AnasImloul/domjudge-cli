@@ -232,5 +232,5 @@ class ApplyInfrastructureOperation(SteppedOperation[None]):
         """Build final result."""
         return OperationResult.success(
             None,
-            f"Infrastructure ready at http://localhost:{self.config.port} • {self.config.judges} judgehost(s) running",
+            f"Infrastructure ready at http://0.0.0.0:{self.config.port} • {self.config.judges} judgehost(s) running",
         )
