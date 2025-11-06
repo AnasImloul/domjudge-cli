@@ -150,6 +150,66 @@ def cli_command(func: Callable[..., T]) -> Callable[..., T]:
     return wrapper
 
 
+def find_file_with_extensions(
+    base_path: Path | str,
+    base_name: str,
+    extensions: tuple[str, str] = (".yaml", ".yml"),
+    error_context: str | None = None,
+) -> Path:
+    """
+    Find a file with .yaml or .yml extension, with fallback support.
+
+    This function abstracts the common pattern of looking for configuration files
+    that can have either .yaml or .yml extensions. It handles:
+    - Explicit file paths (returned as-is if they exist)
+    - Directory paths (searches for base_name.yaml or base_name.yml within)
+    - Base name only (searches in current directory)
+
+    Args:
+        base_path: Base path (file, directory, or relative name)
+        base_name: Base name of the file (e.g., "dom-judge", "problems")
+        extensions: Tuple of extensions to try (default: .yaml, .yml)
+        error_context: Optional context for error messages
+
+    Returns:
+        Path to the found file
+
+    Raises:
+        FileNotFoundError: If no file found with any extension
+        FileExistsError: If both .yaml and .yml exist
+    """
+    base_path = Path(base_path)
+
+    # If base_path is an explicit file that exists, return it
+    if base_path.is_file():
+        return base_path
+
+    # If base_path is a directory, search within it; otherwise use current directory
+    search_dir = base_path if base_path.is_dir() else Path.cwd()
+
+    # Try both extensions
+    ext1, ext2 = extensions
+    path1 = search_dir / f"{base_name}{ext1}"
+    path2 = search_dir / f"{base_name}{ext2}"
+
+    if path1.is_file() and path2.is_file():
+        raise FileExistsError(
+            f"Both '{path1.name}' and '{path2.name}' exist in '{search_dir}'. "
+            f"Please specify which one to use explicitly."
+        )
+
+    if path1.is_file():
+        return path1
+    if path2.is_file():
+        return path2
+
+    # Nothing found
+    raise FileNotFoundError(
+        f"No '{base_name}{ext1}' or '{base_name}{ext2}' found in '{search_dir}'. "
+        f"{error_context or ''}"
+    )
+
+
 def find_config_or_default(file: Path | None) -> Path:
     """
     Find configuration file or use default.
@@ -169,21 +229,11 @@ def find_config_or_default(file: Path | None) -> Path:
             raise FileNotFoundError(f"Specified config file '{file}' not found.")
         return file
 
-    yaml_path = Path("dom-judge.yaml")
-    yml_path = Path("dom-judge.yml")
-
-    if yaml_path.is_file() and yml_path.is_file():
-        raise FileExistsError(
-            "Both 'dom-judge.yaml' and 'dom-judge.yml' exist. "
-            "Please specify which one to use with --file."
-        )
-    if not yaml_path.is_file() and not yml_path.is_file():
-        raise FileNotFoundError(
-            "No 'dom-judge.yaml' or 'dom-judge.yml' found. "
-            "Please specify a config file with --file or run 'dom init' first."
-        )
-
-    return yaml_path if yaml_path.is_file() else yml_path
+    return find_file_with_extensions(
+        base_path=Path.cwd(),
+        base_name="dom-judge",
+        error_context="Please specify a config file with --file or run 'dom init' first.",
+    )
 
 
 def check_file_exists(file: Path) -> bool:

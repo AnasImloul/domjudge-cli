@@ -123,7 +123,7 @@ class TestFindConfigOrDefault:
         monkeypatch.chdir(tmp_path)
 
         result = find_config_or_default(None)
-        assert result == Path("dom-judge.yaml")
+        assert result == yaml_file
 
     def test_finds_yml_file_by_default(self, tmp_path, monkeypatch):
         """Test that dom-judge.yml is found if .yaml doesn't exist."""
@@ -135,14 +135,20 @@ class TestFindConfigOrDefault:
         monkeypatch.chdir(tmp_path)
 
         result = find_config_or_default(None)
-        assert result == Path("dom-judge.yml")
+        assert result == yml_file
 
-    def test_raises_error_if_both_yaml_and_yml_exist(self):
+    def test_raises_error_if_both_yaml_and_yml_exist(self, tmp_path, monkeypatch):
         """Test that error is raised if both .yaml and .yml exist."""
-        with (
-            patch("pathlib.Path.is_file", return_value=True),
-            pytest.raises(FileExistsError, match="Both"),
-        ):
+        # Create both files
+        yaml_file = tmp_path / "dom-judge.yaml"
+        yml_file = tmp_path / "dom-judge.yml"
+        yaml_file.write_text("test: config")
+        yml_file.write_text("test: config")
+
+        # Change to tmp directory
+        monkeypatch.chdir(tmp_path)
+
+        with pytest.raises(FileExistsError, match="Both"):
             find_config_or_default(None)
 
     def test_raises_error_if_no_config_found(self):

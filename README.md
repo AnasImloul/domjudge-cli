@@ -637,6 +637,62 @@ problems:
     with_statement: true
 ```
 
+#### Problem Configuration Patterns
+
+The tool supports multiple ways to specify problem configurations:
+
+**1. Inline problems (as shown above)**
+```yaml
+contests:
+  - name: "Contest 1"
+    problems:
+      - archive: "problems/hello/"
+        platform: "domjudge"
+        color: "blue"
+```
+
+**2. External problems file**
+```yaml
+contests:
+  - name: "Contest 1"
+    problems:
+      from: "problems.yaml"  # or problems.yml
+```
+
+Then create `problems.yaml`:
+```yaml
+- archive: "problems/hello/"
+  platform: "domjudge"
+  color: "blue"
+- archive: "problems/fizzbuzz.zip"
+  platform: "domjudge"
+  color: "red"
+```
+
+**3. Problems from a directory**
+```yaml
+contests:
+  - name: "Contest 1"
+    problems:
+      from: "contest1-problems/"
+```
+
+The tool will look for `contest1-problems/problems.yaml` or `contest1-problems/problems.yml`.
+
+**4. Default problems lookup**
+```yaml
+contests:
+  - name: "Contest 1"
+    problems: {}  # Empty object triggers default lookup
+```
+
+The tool will automatically look for `problems.yaml` or `problems.yml` in the same directory as `dom-judge.yaml`.
+
+This pattern is useful when:
+- You want to keep your main config file clean and focused
+- Multiple contests share the same problem set
+- You're managing a large problem set separately
+
 ### Team Registration
 
 | Field | Type | Required | Description |

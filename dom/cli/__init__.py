@@ -7,7 +7,7 @@ import typer
 
 from dom import __version__
 from dom.cli.contest import contest_command
-from dom.cli.infra import infra_command
+from dom.cli.infrastructure import infra_command
 from dom.cli.init import init_command
 from dom.logging_config import console, get_logger, setup_logging
 from dom.utils.cli import ensure_dom_directory
