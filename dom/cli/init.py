@@ -25,7 +25,17 @@ def callback(
 
     Use --dry-run to preview what files would be created without actually creating them.
     """
-    OperationRunner(
+    # Create execution context
+    secrets = get_secrets_manager()
+    context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
+
+    # Run operation (operations handle dry-run)
+    runner = OperationRunner(
         operation=InitializeProjectOperation(overwrite=overwrite),
         show_progress=False,
-    ).run(context=OperationContext(secrets=get_secrets_manager(), dry_run=dry_run, verbose=verbose))
+    )
+    result = runner.run(context)
+
+    # Don't treat dry-run (skipped) as failure
+    if result.is_failure():
+        raise typer.Exit(code=1)

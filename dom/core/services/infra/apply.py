@@ -110,6 +110,6 @@ def apply_infra_and_platform(infra_config: InfraConfig, secrets: SecretsProvider
         "[OK] Infrastructure and platform are ready!",
         extra={"port": infra_config.port, "judgehosts": infra_config.judges},
     )
-    logger.info(f"   - DOMjudge server: http://localhost:{infra_config.port}")
+    logger.info(f"   - DOMjudge server: http://0.0.0.0:{infra_config.port}")
     logger.info(f"   - Judgehosts: {infra_config.judges} active")
     logger.info("   - Admin password: stored securely")

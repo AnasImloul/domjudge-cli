@@ -56,10 +56,39 @@ class TeamService:
             CreateResult with team ID and creation status
         """
         # Check if team already exists in this contest
-        for team in self.list_for_contest(contest_id):
-            if team["name"] == team_data.name:
-                logger.info(f"Team '{team_data.name}' already exists in contest {contest_id}")
-                return CreateResult(id=team["id"], created=False, data=team)
+        # Uses deterministic composite name matching for accuracy
+        try:
+            existing_teams = self.list_for_contest(contest_id)
+            logger.debug(f"Checking for duplicate team among {len(existing_teams)} existing teams")
+
+            # Build set of existing composite names from API
+            existing_composite_names = {
+                team.get("name") for team in existing_teams if team.get("name")
+            }
+
+            # Check if team already exists by composite name
+            # team_data.name is the composite name built by TeamApplicationService
+            # Format: "team####|name|affiliation|country"
+            if team_data.name in existing_composite_names:
+                matching_team = next(
+                    (t for t in existing_teams if t.get("name") == team_data.name), None
+                )
+
+                if matching_team:
+                    display_name = getattr(team_data, "display_name", "Unknown")
+                    logger.info(
+                        f"✓ Team '{display_name}' already exists in contest {contest_id} - skipping "
+                        f"(matched composite name: '{team_data.name}')"
+                    )
+                    return CreateResult(id=matching_team["id"], created=False, data=matching_team)
+
+            logger.debug(f"Team with composite name '{team_data.name}' not found, will create")
+        except Exception as e:
+            logger.warning(
+                f"Failed to check for duplicate team: {e}. "
+                f"Proceeding with creation (may fail if duplicate)",
+                exc_info=True,
+            )
 
         # Create new team in this contest
         # Note: Each contest gets its own team instance, but with consistent global identifiers

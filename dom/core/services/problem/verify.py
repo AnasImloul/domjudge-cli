@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from dom.core.services.contest.temp import create_temp_contest
+from dom.core.services.contest.verification import create_temp_contest
 from dom.core.services.submission.submit import submit_problem
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.contest import ContestConfig

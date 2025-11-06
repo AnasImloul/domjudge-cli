@@ -1,11 +1,29 @@
 from pathlib import Path
 
-from dom.infrastructure.config import load_config as load_raw_config
+import yaml
+
 from dom.types.config.processed import ContestConfig, DomConfig, InfraConfig
+from dom.types.config.raw import RawDomConfig
 from dom.types.secrets import SecretsProvider
+from dom.utils.cli import find_config_or_default
 
 from .contest import load_contest_from_config, load_contests_from_config
 from .infra import load_infra_from_config
+
+
+def _load_raw_config(file_path: Path | None = None) -> RawDomConfig:
+    """
+    Load raw configuration from YAML file.
+
+    Args:
+        file_path: Optional path to config file
+
+    Returns:
+        Raw configuration model
+    """
+    config_path = find_config_or_default(file_path)
+    with config_path.open() as f:
+        return RawDomConfig(**yaml.safe_load(f), loaded_from=config_path)
 
 
 def load_config(file_path: Path | None, secrets: SecretsProvider) -> DomConfig:
@@ -19,7 +37,7 @@ def load_config(file_path: Path | None, secrets: SecretsProvider) -> DomConfig:
     Returns:
         Complete configuration
     """
-    config = load_raw_config(file_path)
+    config = _load_raw_config(file_path)
     return DomConfig(
         infra=load_infra_from_config(config.infra, config_path=config.loaded_from),
         contests=load_contests_from_config(
@@ -33,7 +51,7 @@ def load_config(file_path: Path | None, secrets: SecretsProvider) -> DomConfig:
 
 def load_infrastructure_config(file_path: Path | None) -> InfraConfig:
     """Load infrastructure configuration only."""
-    config = load_raw_config(file_path)
+    config = _load_raw_config(file_path)
     return load_infra_from_config(config.infra, config_path=config.loaded_from)
 
 
@@ -48,7 +66,7 @@ def load_contests_config(file_path: Path | None, secrets: SecretsProvider) -> li
     Returns:
         List of contest configurations
     """
-    config = load_raw_config(file_path)
+    config = _load_raw_config(file_path)
     return load_contests_from_config(
         config.contests,
         config_path=config.loaded_from,
@@ -76,7 +94,7 @@ def load_contest_config(
         ValueError: If no contests found in config
         KeyError: If contest with given name not found
     """
-    config = load_raw_config(file_path)
+    config = _load_raw_config(file_path)
 
     if not config.contests:
         raise ValueError(

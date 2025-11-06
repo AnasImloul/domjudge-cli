@@ -15,14 +15,12 @@ from .base import (
     OperationStep,
     SteppedOperation,
 )
-from .builders import OperationBuilder
 from .runner import OperationRunner
 
 __all__ = [
     # Core abstractions
     "ExecutableStep",
     "Operation",
-    "OperationBuilder",
     "OperationContext",
     "OperationResult",
     "OperationRunner",

@@ -35,6 +35,9 @@ class SecretKeys(str, Enum):
     API_USERNAME = "api_username"
     API_PASSWORD = "api_password"  # nosec B105
 
+    # Deterministic hashing
+    HASH_SEED = "hash_seed"  # nosec B105  # Seed for deterministic team ID generation
+
     # Contest-specific secrets
     TEAM_PASSWORD_PREFIX = "team_password_"  # nosec B105  # Followed by team ID
 

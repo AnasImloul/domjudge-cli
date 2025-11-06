@@ -4,6 +4,7 @@ from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 from dom.types.config.raw import RawContestConfig
 from dom.types.secrets import SecretsProvider
+from dom.utils.hashing import generate_team_username
 from dom.utils.problem import assign_problem_letters
 
 from .problem import load_problems_from_config
@@ -82,8 +83,8 @@ def load_contests_from_config(
         for team in contest.teams:
             # Generate globally unique username based on composite key
             # This ensures teams with same name but different org/country get different usernames
-            username_hash = abs(hash(team.composite_key)) % 10000  # 4-digit hash
-            team.username = f"team{username_hash:04d}"
+            # Uses deterministic hashing with stored seed for consistency across runs
+            team.username = generate_team_username(secrets, team.composite_key)
 
             # Generate password using composite key for uniqueness
             team.password = secrets.generate_deterministic_password(
