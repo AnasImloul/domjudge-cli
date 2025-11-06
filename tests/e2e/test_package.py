@@ -105,10 +105,10 @@ class TestCoreImports:
 
     def test_cli_imports(self):
         """Test that CLI modules can be imported."""
-        from dom.cli import contest, infra, init
+        from dom.cli import contest, infrastructure, init
 
         assert contest is not None
-        assert infra is not None
+        assert infrastructure is not None
         assert init is not None
 
 

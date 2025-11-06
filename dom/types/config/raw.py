@@ -38,7 +38,7 @@ class RawInfraConfig(BaseModel):
 
 
 class RawProblemsConfig(BaseModel):
-    from_: str = Field(alias="from")
+    from_: str | None = Field(default=None, alias="from")
 
     class Config:
         frozen = True

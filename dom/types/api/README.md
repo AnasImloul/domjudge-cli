@@ -5,7 +5,7 @@ A client library for accessing DOMjudge
 First, create a client:
 
 ```python
-from do_mjudge_client import Client
+from domjudge_client import Client
 
 client = Client(base_url="https://api.example.com")
 ```
@@ -13,7 +13,7 @@ client = Client(base_url="https://api.example.com")
 If the endpoints you're going to hit require authentication, use `AuthenticatedClient` instead:
 
 ```python
-from do_mjudge_client import AuthenticatedClient
+from domjudge_client import AuthenticatedClient
 
 client = AuthenticatedClient(base_url="https://api.example.com", token="SuperSecretToken")
 ```
@@ -21,9 +21,9 @@ client = AuthenticatedClient(base_url="https://api.example.com", token="SuperSec
 Now call your endpoint and use your models:
 
 ```python
-from do_mjudge_client.models import MyDataModel
-from do_mjudge_client.api.my_tag import get_my_data_model
-from do_mjudge_client.types import Response
+from domjudge_client.models import MyDataModel
+from domjudge_client.api.my_tag import get_my_data_model
+from domjudge_client.types import Response
 
 with client as client:
     my_data: MyDataModel = get_my_data_model.sync(client=client)
@@ -34,9 +34,9 @@ with client as client:
 Or do the same thing with an async version:
 
 ```python
-from do_mjudge_client.models import MyDataModel
-from do_mjudge_client.api.my_tag import get_my_data_model
-from do_mjudge_client.types import Response
+from domjudge_client.models import MyDataModel
+from domjudge_client.api.my_tag import get_my_data_model
+from domjudge_client.types import Response
 
 async with client as client:
     my_data: MyDataModel = await get_my_data_model.asyncio(client=client)
@@ -79,7 +79,7 @@ Things to know:
 There are more settings on the generated `Client` class which let you control more runtime behavior, check out the docstring on that class for more info. You can also customize the underlying `httpx.Client` or `httpx.AsyncClient` (depending on your use-case):
 
 ```python
-from do_mjudge_client import Client
+from domjudge_client import Client
 
 def log_request(request):
     print(f"Request event hook: {request.method} {request.url} - Waiting for response")
@@ -100,7 +100,7 @@ You can even set the httpx client directly, but beware that this will override a
 
 ```python
 import httpx
-from do_mjudge_client import Client
+from domjudge_client import Client
 
 client = Client(
     base_url="https://api.example.com",

@@ -17,6 +17,7 @@ from dom.types.problem import (
     ProblemYAML,
     Submissions,
 )
+from dom.utils.cli import find_file_with_extensions
 from dom.utils.color import get_hex_color
 from dom.utils.sys import load_folder_as_dict
 
@@ -213,22 +214,57 @@ def load_problems_from_config(
     problem_config: Union[RawProblemsConfig, list[RawProblem]],
     config_path: Path,
 ):
+    config_dir = config_path.resolve().parent
+
     if isinstance(problem_config, RawProblemsConfig):
-        # Resolve file_path relative to the directory of config_path
-        config_dir = config_path.resolve().parent
-        file_path = config_dir / problem_config.from_
+        # Check if from_ is None (default lookup) or provided
+        if problem_config.from_ is None:
+            # Default: look for problems.yaml/problems.yml in the same directory as config
+            try:
+                file_path = find_file_with_extensions(
+                    base_path=config_dir,
+                    base_name="problems",
+                    error_context="No 'from' path provided and no default problems file found.",
+                )
+            except FileNotFoundError as e:
+                print(f"[ERROR] {e}", file=sys.stderr)
+                raise
+        else:
+            # Resolve file_path relative to the directory of config_path
+            from_path = config_dir / problem_config.from_
 
-        if file_path.suffix.lower() not in (".yml", ".yaml"):
-            print(
-                f"[ERROR] Problems file '{file_path}' must be a .yml or .yaml file.",
-                file=sys.stderr,
-            )
-            raise ValueError(f"Invalid file extension for problems file: {file_path}")
+            # Check if from_path has a file extension
+            if from_path.suffix.lower() in (".yml", ".yaml"):
+                # Explicit file path provided
+                file_path = from_path
+                if not file_path.exists():
+                    print(f"[ERROR] Problems file '{file_path}' does not exist.", file=sys.stderr)
+                    raise FileNotFoundError(f"Problems file not found: {file_path}")
+            else:
+                # Directory path provided or base name without extension
+                # Look for problems.yaml/problems.yml in that location
+                try:
+                    file_path = find_file_with_extensions(
+                        base_path=from_path,
+                        base_name="problems",
+                        error_context=f"No problems.yaml or problems.yml found in '{from_path}'.",
+                    )
+                except FileNotFoundError as e:
+                    print(f"[ERROR] {e}", file=sys.stderr)
+                    raise
+    elif isinstance(problem_config, list) and all(
+        isinstance(p, RawProblem) for p in problem_config
+    ):
+        # Inline problems list
+        problems = problem_config
+        # Skip file loading, go directly to validation
+        file_path = None
+    else:
+        print("[ERROR] Invalid problem configuration.", file=sys.stderr)
+        raise TypeError("Invalid problem configuration type.")
 
-        if not file_path.exists():
-            print(f"[ERROR] Problems file '{file_path}' does not exist.", file=sys.stderr)
-            raise FileNotFoundError(f"Problems file not found: {file_path}")
-
+    # Load from file if file_path is set
+    if file_path is not None:
         try:
             with file_path.open() as f:
                 loaded_data = yaml.safe_load(f)
@@ -243,15 +279,7 @@ def load_problems_from_config(
                 f"[ERROR] Failed to load problems from '{file_path}'. Error: {e!s}",
                 file=sys.stderr,
             )
-            raise e
-
-    elif isinstance(problem_config, list) and all(
-        isinstance(p, RawProblem) for p in problem_config
-    ):
-        problems = problem_config
-    else:
-        print("[ERROR] Invalid problem configuration.", file=sys.stderr)
-        raise TypeError("Invalid problem configuration type.")
+            raise
 
     # Validate archives are unique and convert to Path objects
     archive_paths = [Path(problem.archive).resolve() for problem in problems]
