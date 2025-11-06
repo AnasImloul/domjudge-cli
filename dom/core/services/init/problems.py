@@ -5,8 +5,8 @@ from jinja2 import Template
 from rich.console import Console
 from rich.table import Table
 
+from dom.shared.prompts import prompt_file_overwrite
 from dom.templates.init import problems_template
-from dom.utils.cli import ask_override_if_exists
 from dom.utils.color import get_hex_color
 from dom.utils.prompt import ask, ask_bool, ask_choice
 
@@ -131,7 +131,7 @@ def initialize_problems():
     console.print("Add the problems for your contest")
 
     output_file = check_existing_files()
-    if not ask_override_if_exists(Path(output_file)):
+    if not prompt_file_overwrite(Path(output_file), "problem initialization"):
         return None
 
     archive = ask("Problems directory path", default="./problems", console=console)

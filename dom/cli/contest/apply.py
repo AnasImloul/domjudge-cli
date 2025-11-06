@@ -5,10 +5,10 @@ from pathlib import Path
 import typer
 
 from dom.cli.contest.helpers import load_config_with_secrets
+from dom.cli.helpers import add_global_options, cli_command
 from dom.cli.validators import validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.contest import ApplyContestsOperation
-from dom.utils.cli import add_global_options, cli_command
 
 
 @add_global_options

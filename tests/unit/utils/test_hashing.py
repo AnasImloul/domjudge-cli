@@ -1,7 +1,7 @@
 """Tests for deterministic hashing utilities."""
 
+from dom.domain.team_id_generator import deterministic_hash, generate_team_username
 from dom.infrastructure.secrets.manager import SecretsManager
-from dom.utils.hashing import deterministic_hash, generate_team_username
 
 
 class TestDeterministicHashing:

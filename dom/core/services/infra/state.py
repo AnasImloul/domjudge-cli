@@ -9,8 +9,8 @@ from pydantic import SecretStr
 
 from dom.constants import ContainerNames
 from dom.logging_config import get_logger
+from dom.shared.filesystem import get_container_prefix, get_secrets_manager
 from dom.types.infra import InfraConfig
-from dom.utils.cli import get_container_prefix, get_secrets_manager
 
 logger = get_logger(__name__)
 

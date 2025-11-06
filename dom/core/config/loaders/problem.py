@@ -8,6 +8,7 @@ from typing import Union
 import yaml
 from p2d import convert
 
+from dom.shared.filesystem import find_file_with_extensions
 from dom.types.config.raw import RawProblem, RawProblemsConfig
 from dom.types.problem import (
     OutputValidators,
@@ -17,7 +18,6 @@ from dom.types.problem import (
     ProblemYAML,
     Submissions,
 )
-from dom.utils.cli import find_file_with_extensions
 from dom.utils.color import get_hex_color
 from dom.utils.sys import load_folder_as_dict
 

@@ -4,10 +4,10 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.helpers import add_global_options, cli_command, get_secrets_manager
 from dom.cli.validators import validate_contest_name, validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.contest import VerifyProblemsetOperation
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
 @add_global_options

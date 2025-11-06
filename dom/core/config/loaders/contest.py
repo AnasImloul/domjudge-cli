@@ -1,11 +1,11 @@
 from pathlib import Path
 
+from dom.domain.problem_labeling import assign_problem_letters
+from dom.domain.team_id_generator import generate_team_username
 from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 from dom.types.config.raw import RawContestConfig
 from dom.types.secrets import SecretsProvider
-from dom.utils.hashing import generate_team_username
-from dom.utils.problem import assign_problem_letters
 
 from .problem import load_problems_from_config
 from .team import load_teams_from_config

@@ -4,8 +4,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from dom.domain.problem_labeling import assign_problem_letter, assign_problem_letters
 from dom.types.problem import ProblemPackage
-from dom.utils.problem import assign_problem_letter, assign_problem_letters
 
 
 class TestAssignProblemLetter:

@@ -2,8 +2,8 @@
 
 from dom.infrastructure.docker.containers import DockerClient
 from dom.logging_config import get_logger
+from dom.shared.filesystem import ensure_dom_directory
 from dom.types.secrets import SecretsProvider
-from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 

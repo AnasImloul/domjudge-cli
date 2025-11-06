@@ -15,8 +15,8 @@ from rich.table import Table
 from dom.exceptions import DockerError
 from dom.infrastructure.docker import DockerClient
 from dom.logging_config import get_logger
+from dom.shared.filesystem import ensure_dom_directory
 from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
-from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
 

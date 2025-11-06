@@ -13,8 +13,8 @@ from pathlib import Path
 from dom.constants import HEALTH_CHECK_INTERVAL, HEALTH_CHECK_TIMEOUT, ContainerNames
 from dom.exceptions import DockerError
 from dom.logging_config import get_logger
-from dom.utils.cli import get_container_prefix
-from dom.utils.hash import generate_bcrypt_password
+from dom.security.password_hasher import hash_password as generate_bcrypt_password
+from dom.shared.filesystem import get_container_prefix
 
 logger = get_logger(__name__)
 

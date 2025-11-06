@@ -15,8 +15,8 @@ from dom.core.config.loaders.contest import load_contests_from_config
 from dom.core.config.loaders.infra import load_infra_from_config
 from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
+from dom.shared.filesystem import find_config_or_default, get_secrets_manager
 from dom.types.config.raw import RawContestConfig, RawInfraConfig
-from dom.utils.cli import find_config_or_default, get_secrets_manager
 
 logger = get_logger(__name__)
 

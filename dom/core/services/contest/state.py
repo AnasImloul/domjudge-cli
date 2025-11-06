@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from dom.domain.team_id_generator import generate_team_username
 from dom.logging_config import get_logger
+from dom.shared.filesystem import get_secrets_manager
 from dom.types.config.processed import ContestConfig
-from dom.utils.cli import get_secrets_manager
-from dom.utils.hashing import generate_team_username
 
 logger = get_logger(__name__)
 

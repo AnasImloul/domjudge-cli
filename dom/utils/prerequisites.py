@@ -10,7 +10,7 @@ from pathlib import Path
 
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
 from dom.logging_config import console, get_logger
-from dom.utils.cli import get_container_prefix
+from dom.shared.filesystem import get_container_prefix
 
 logger = get_logger(__name__)
 

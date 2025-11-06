@@ -6,10 +6,12 @@ from unittest.mock import patch
 import pytest
 import typer
 
-from dom.exceptions import DomJudgeCliError
-from dom.utils.cli import (
+from dom.cli.helpers import (
     check_file_exists,
     cli_command,
+)
+from dom.exceptions import DomJudgeCliError
+from dom.shared.filesystem import (
     ensure_dom_directory,
     find_config_or_default,
     get_secrets_manager,

@@ -1,4 +1,9 @@
-"""Problem-related utility functions."""
+"""Problem labeling utilities for DOMjudge contests.
+
+This module provides functionality for assigning letter identifiers (A, B, C, ...)
+to problems in a contest. Supports up to 702 problems using single and double
+letter combinations (A-Z, AA-ZZ).
+"""
 
 from dom.logging_config import get_logger
 from dom.types.problem import ProblemPackage

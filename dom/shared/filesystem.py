@@ -1,20 +1,12 @@
-from collections.abc import Callable
-from functools import wraps
+"""File system utilities for DOMjudge CLI.
+
+Generic file system operations that don't depend on CLI or domain logic.
+"""
+
 from hashlib import sha256
 from pathlib import Path
-from typing import TypeVar
 
-import typer
-from rich.prompt import Confirm
-
-from dom.exceptions import DomJudgeCliError
 from dom.infrastructure.secrets.manager import SecretsManager
-from dom.logging_config import console, get_logger, setup_logging
-
-logger = get_logger(__name__)
-
-# Type variable for generic decorator
-T = TypeVar("T")
 
 
 def ensure_dom_directory() -> Path:
@@ -63,91 +55,6 @@ def get_secrets_manager() -> SecretsManager:
         Configured SecretsManager instance
     """
     return SecretsManager(ensure_dom_directory())
-
-
-def add_global_options(func: Callable[..., T]) -> Callable[..., T]:
-    """
-    Decorator that adds global CLI options to any command function.
-
-    This decorator automatically adds the following global options:
-    - --verbose: Enable verbose logging output
-    - --no-color: Disable colored output
-
-    The options are added as parameters to the function, so they can be used
-    directly in the command implementation.
-
-    Usage:
-        @app.command()
-        @add_global_options
-        def my_command(arg: str, verbose: bool = False, no_color: bool = False):
-            # Command logic here
-            pass
-    """
-
-    @wraps(func)
-    def wrapper(
-        *args,
-        verbose: bool = typer.Option(False, "--verbose", help="Enable verbose logging output"),
-        no_color: bool = typer.Option(False, "--no-color", help="Disable colored output"),
-        **kwargs,
-    ) -> T:
-        # Configure logging for this command
-        log_dir = ensure_dom_directory()
-        log_file = log_dir / "domjudge-cli.log"
-        log_level = "DEBUG" if verbose else "INFO"
-        setup_logging(
-            level=log_level, log_file=log_file, enable_rich=not no_color, console_output=verbose
-        )
-
-        return func(*args, verbose=verbose, no_color=no_color, **kwargs)
-
-    return wrapper
-
-
-def cli_command(func: Callable[..., T]) -> Callable[..., T]:
-    """
-    Decorator for CLI commands with consistent error handling and logging.
-
-    This decorator:
-    - Catches DomJudgeCliError and exits with code 1
-    - Catches unexpected exceptions, logs them, and exits with code 1
-    - Provides consistent error messaging across all commands
-
-    Usage:
-        @app.command()
-        @cli_command
-        def my_command(arg: str):
-            # Command logic here
-            pass
-
-    Args:
-        func: The CLI command function to wrap
-
-    Returns:
-        Wrapped function with error handling
-    """
-
-    @wraps(func)
-    def wrapper(*args, **kwargs) -> T:
-        try:
-            return func(*args, **kwargs)
-        except DomJudgeCliError as e:
-            # Expected application errors
-            logger.error(f"Command failed: {e}")
-            raise typer.Exit(code=1) from e
-        except KeyboardInterrupt:
-            # User interrupted
-            logger.info("Command interrupted by user")
-            console.print("\n[yellow]** Operation cancelled by user[/yellow]")
-            raise typer.Exit(code=130) from None
-        except Exception as e:
-            # Unexpected errors - log with full traceback
-            logger.error(f"Unexpected error: {e}", exc_info=True)
-            console.print(f"[red]x Unexpected error: {e}[/red]")
-            console.print("[dim]Check logs at .dom/domjudge-cli.log for details[/dim]")
-            raise typer.Exit(code=1) from e
-
-    return wrapper
 
 
 def find_file_with_extensions(
@@ -255,25 +162,3 @@ def check_file_exists(file: Path) -> bool:
             "Rename or remove the existing file, or use --overwrite to replace it."
         )
     return False
-
-
-def ask_override_if_exists(output_file: Path) -> bool:
-    """
-    Ask user whether to override if the output file exists.
-
-    Args:
-        output_file: Path to check
-
-    Returns:
-        True if should proceed, False if should skip
-    """
-    if output_file.exists():
-        override = Confirm.ask(
-            f"File '{output_file}' exists. Do you want to override it?",
-            default=False,
-            console=console,
-        )
-        if not override:
-            console.print("[yellow]Skipping problem initialization.[/yellow]")
-            return False
-    return True

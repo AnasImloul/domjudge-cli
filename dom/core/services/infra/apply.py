@@ -13,9 +13,9 @@ from dom.core.services.infra.rollback import (
 from dom.infrastructure.docker.containers import DockerClient
 from dom.infrastructure.docker.template import generate_docker_compose
 from dom.logging_config import get_logger
+from dom.shared.filesystem import ensure_dom_directory, get_container_prefix
 from dom.types.infra import InfraConfig
 from dom.types.secrets import SecretsProvider
-from dom.utils.cli import ensure_dom_directory, get_container_prefix
 
 logger = get_logger(__name__)
 

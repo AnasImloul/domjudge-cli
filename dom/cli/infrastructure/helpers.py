@@ -4,9 +4,9 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.helpers import get_secrets_manager
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.infrastructure import LoadInfraConfigOperation
-from dom.utils.cli import get_secrets_manager
 
 
 def load_infra_config_with_secrets(file: Path | None, verbose: bool = False):

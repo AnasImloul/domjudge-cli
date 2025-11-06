@@ -4,13 +4,13 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.helpers import add_global_options, cli_command, get_secrets_manager
 from dom.cli.validators import validate_file_path
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.infrastructure import (
     LoadInfraConfigOperation,
     PrintInfrastructureStatusOperation,
 )
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
 @add_global_options

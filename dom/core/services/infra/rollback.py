@@ -12,7 +12,7 @@ from pathlib import Path
 from dom.exceptions import InfrastructureError
 from dom.infrastructure.docker.containers import DockerClient
 from dom.logging_config import console, get_logger
-from dom.utils.cli import ensure_dom_directory
+from dom.shared.filesystem import ensure_dom_directory
 
 logger = get_logger(__name__)
 

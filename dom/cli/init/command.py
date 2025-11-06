@@ -2,9 +2,9 @@
 
 import typer
 
+from dom.cli.helpers import add_global_options, cli_command, get_secrets_manager
 from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.init import InitializeProjectOperation
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
 @add_global_options

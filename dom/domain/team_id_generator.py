@@ -1,8 +1,11 @@
-"""Deterministic hashing utilities for team ID generation.
+"""Deterministic team ID generation for DOMjudge contests.
 
 This module provides deterministic hashing functions for generating team IDs.
-The hash seed is managed by the SecretsManager to ensure proper integration
-with the application's secrets management system.
+The hash seed is managed by the SecretsManager to ensure consistent IDs across
+different runs and Python processes.
+
+Team IDs are generated based on composite keys (name|affiliation|country) to ensure
+uniqueness and determinism in contest environments.
 """
 
 import hashlib
