@@ -15,16 +15,18 @@ from dom.types.team import Team
 logger = get_logger(__name__)
 
 
-class SubmissionService:
+class SubmissionAPIService:
     """
-    Service for managing submissions in DOMjudge.
+    Infrastructure API service for managing submissions in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls.
 
     Handles all submission-related API operations.
     """
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the submission service.
+        Initialize the submission API service.
 
         Args:
             client: Base API client for HTTP operations

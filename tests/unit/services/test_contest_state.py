@@ -37,7 +37,7 @@ class TestContestStateComparator:
         # Mock: contest doesn't exist
         mock_client.contests.list_all.return_value = []
 
-        result = comparator.compare_contest(desired)
+        result = comparator.compare(desired)
 
         assert result.change_type == ChangeType.CREATE
         assert result.contest_shortname == "test2025"
@@ -74,7 +74,7 @@ class TestContestStateComparator:
         mock_client.problems.list_for_contest.return_value = []
         mock_client.teams.list_for_contest.return_value = []
 
-        result = comparator.compare_contest(desired)
+        result = comparator.compare(desired)
 
         assert result.change_type == ChangeType.NO_CHANGE
         assert len(result.field_changes) == 0
@@ -108,7 +108,7 @@ class TestContestStateComparator:
         mock_client.problems.list_for_contest.return_value = []
         mock_client.teams.list_for_contest.return_value = []
 
-        result = comparator.compare_contest(desired)
+        result = comparator.compare(desired)
 
         assert result.change_type == ChangeType.UPDATE
         assert len(result.field_changes) == 1
@@ -116,34 +116,34 @@ class TestContestStateComparator:
         assert result.field_changes[0].old_value == "5:00:00"
         assert result.field_changes[0].new_value == "6:00:00"
 
-    def test_fetch_current_contest_finds_existing(self, comparator, mock_client):
+    def test_fetch_current_state_finds_existing(self, comparator, mock_client):
         """Test that existing contest is found by shortname."""
         mock_client.contests.list_all.return_value = [
             {"id": "1", "shortname": "test2025", "name": "Test"},
             {"id": "2", "shortname": "other", "name": "Other"},
         ]
 
-        result = comparator._fetch_current_contest("test2025")
+        result = comparator._fetch_current_state("test2025")
 
         assert result is not None
         assert result["shortname"] == "test2025"
         assert result["id"] == "1"
 
-    def test_fetch_current_contest_returns_none_when_not_found(self, comparator, mock_client):
+    def test_fetch_current_state_returns_none_when_not_found(self, comparator, mock_client):
         """Test that None is returned when contest doesn't exist."""
         mock_client.contests.list_all.return_value = [
             {"id": "1", "shortname": "other", "name": "Other"}
         ]
 
-        result = comparator._fetch_current_contest("test2025")
+        result = comparator._fetch_current_state("test2025")
 
         assert result is None
 
-    def test_fetch_current_contest_handles_api_errors(self, comparator, mock_client):
+    def test_fetch_current_state_handles_api_errors(self, comparator, mock_client):
         """Test that API errors are handled gracefully."""
         mock_client.contests.list_all.side_effect = Exception("API Error")
 
-        result = comparator._fetch_current_contest("test2025")
+        result = comparator._fetch_current_state("test2025")
 
         assert result is None
 

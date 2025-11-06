@@ -10,9 +10,11 @@ from dom.logging_config import get_logger
 logger = get_logger(__name__)
 
 
-class GroupService:
+class GroupAPIService:
     """
-    Service for managing team groups/categories in DOMjudge.
+    Infrastructure API service for managing team groups/categories in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls.
 
     Team groups allow organizing teams and controlling which teams
     appear on each contest's scoreboard.
@@ -20,7 +22,7 @@ class GroupService:
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the group service.
+        Initialize the group API service.
 
         Args:
             client: Base API client for HTTP operations

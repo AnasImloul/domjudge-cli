@@ -13,16 +13,19 @@ from dom.types.problem import ProblemPackage
 logger = get_logger(__name__)
 
 
-class ProblemService:
+class ProblemAPIService:
     """
-    Service for managing problems in DOMjudge.
+    Infrastructure API service for managing problems in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls. For business logic,
+    see dom.core.services.problem.apply.ProblemService.
 
     Handles all problem-related API operations.
     """
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the problem service.
+        Initialize the problem API service.
 
         Args:
             client: Base API client for HTTP operations

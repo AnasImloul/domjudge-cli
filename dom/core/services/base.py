@@ -2,6 +2,45 @@
 
 This module provides declarative base classes for building services
 that follow clean architecture principles.
+
+Service Layer Architecture
+==========================
+
+The service layer is organized into three distinct patterns:
+
+1. **Entity Services** (inherit from Service[TEntity])
+   - Manage a specific type of entity (Problem, Team, etc.)
+   - Provide CRUD operations with business logic
+   - Use ServiceContext for dependencies
+   - Return ServiceResult for error handling
+   - Examples: ProblemService, TeamService
+
+2. **Orchestrator Services** (standalone classes)
+   - Coordinate multiple entity services
+   - Implement complex workflows
+   - Handle cross-cutting concerns
+   - Examples: ContestApplicationService
+
+3. **State Comparison Services** (standalone classes)
+   - Compare desired state with current state
+   - Detect changes and compute diffs
+   - Enable idempotent operations
+   - Examples: ContestStateComparator, InfraStateComparator
+
+Infrastructure vs Core Services
+================================
+
+- **Infrastructure API Services** (dom.infrastructure.api.services.*)
+  - Thin wrappers around HTTP API calls
+  - Named with *APIService suffix
+  - Handle serialization, caching, rate limiting
+  - Examples: ProblemAPIService, TeamAPIService
+
+- **Core Domain Services** (dom.core.services.*)
+  - Business logic and orchestration
+  - Use infrastructure services internally
+  - Enforce domain rules and invariants
+  - Examples: ProblemService, ContestApplicationService
 """
 
 from abc import ABC, abstractmethod
@@ -329,6 +368,107 @@ class AsyncOperationMixin:
         # This would use async client if available
         # For now, just call sync version
         return self.create(entity, context)  # type: ignore[attr-defined,no-any-return]
+
+
+# State Comparison Services
+
+
+TConfig = TypeVar("TConfig")
+TChangeSet = TypeVar("TChangeSet")
+
+
+class StateComparatorService(ABC, Generic[TConfig, TChangeSet]):
+    """
+    Base class for state comparison services.
+
+    State comparators detect differences between desired configuration
+    and current deployed state. They don't modify state - they only
+    analyze and report changes.
+
+    This pattern enables:
+    - Safe live changes (know exactly what will change before applying)
+    - Idempotent operations (detect if changes are needed)
+    - Smart updates (apply only what changed)
+
+    Subclasses may fetch current state from various sources:
+    - API (ContestStateComparator queries DOMjudge API)
+    - Docker (InfraStateComparator queries Docker containers)
+    - Files, databases, etc.
+
+    Example:
+        >>> class ContestStateComparator(StateComparatorService[ContestConfig, ContestChangeSet]):
+        ...     def __init__(self, client: DomJudgeAPI):
+        ...         self.client = client
+        ...     def compare(self, desired: ContestConfig) -> ContestChangeSet:
+        ...         current = self._fetch_current_state(desired.shortname)
+        ...         return self._compute_changes(desired, current)
+    """
+
+    @abstractmethod
+    def compare(self, desired: TConfig) -> TChangeSet:
+        """
+        Compare desired configuration with current state.
+
+        Args:
+            desired: Desired configuration
+
+        Returns:
+            Change set describing all detected changes
+        """
+
+    @abstractmethod
+    def _fetch_current_state(self, identifier: str):
+        """
+        Fetch current state from source of truth.
+
+        Args:
+            identifier: Unique identifier to look up current state
+
+        Returns:
+            Current state (type depends on subclass implementation) or None if not found
+        """
+
+
+# Orchestrator Services
+
+
+class OrchestratorService:
+    """
+    Base class for orchestrator services.
+
+    Orchestrator services coordinate multiple entity services to implement
+    complex workflows. They don't manage a single entity type - instead,
+    they orchestrate the creation, configuration, and coordination of
+    multiple resources.
+
+    This is a concrete base class (not abstract) that provides a standard
+    initialization pattern. Subclasses can define their own orchestration
+    methods based on their specific needs.
+
+    Responsibilities:
+    - Coordinate multiple entity services
+    - Implement complex multi-step workflows
+    - Handle cross-cutting concerns (concurrency, transactions, error handling)
+    - Provide high-level business operations
+
+    Example:
+        >>> class ContestApplicationService(OrchestratorService):
+        ...     def __init__(self, client: DomJudgeAPI, secrets: SecretsProvider):
+        ...         super().__init__(client)
+        ...         self.problem_service = ProblemService(client)
+        ...         self.team_service = TeamService(client)
+        ...     def apply_contest(self, contest: ContestConfig) -> str:
+        ...         # Orchestrate multiple services...
+    """
+
+    def __init__(self, client: DomJudgeAPI):
+        """
+        Initialize orchestrator service.
+
+        Args:
+            client: DOMjudge API client
+        """
+        self.client = client
 
 
 # Declarative service specifications

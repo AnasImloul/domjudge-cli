@@ -35,7 +35,7 @@ class AnalyzeInfraChangesStep(ExecutableStep):
             Dictionary with change analysis results
         """
         comparator = InfraStateComparator()
-        change_set = comparator.compare_infrastructure(self.config)
+        change_set = comparator.compare(self.config)
 
         return {"change_set": change_set}
 

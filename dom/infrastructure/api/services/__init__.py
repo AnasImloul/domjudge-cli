@@ -1,31 +1,36 @@
-"""API service modules for DOMjudge resources.
+"""Infrastructure API service modules for DOMjudge resources.
 
-This module provides focused service classes for different DOMjudge resources:
-- ContestService: Contest operations
-- ProblemService: Problem operations
-- TeamService: Team operations
-- GroupService: Team group/category operations
-- UserService: User operations
-- OrganizationService: Organization operations
-- SubmissionService: Submission operations
+This module provides thin HTTP wrappers for different DOMjudge resources.
+These are infrastructure-layer services that handle direct API communication.
+
+For business logic and orchestration, see dom.core.services.
+
+Services:
+- ContestAPIService: Contest HTTP operations
+- ProblemAPIService: Problem HTTP operations
+- TeamAPIService: Team HTTP operations
+- GroupAPIService: Team group/category HTTP operations
+- UserAPIService: User HTTP operations
+- OrganizationAPIService: Organization HTTP operations
+- SubmissionAPIService: Submission HTTP operations
 
 Each service is focused on a single resource type and follows Single Responsibility Principle.
 """
 
-from .contests import ContestService
-from .groups import GroupService
-from .organizations import OrganizationService
-from .problems import ProblemService
-from .submissions import SubmissionService
-from .teams import TeamService
-from .users import UserService
+from .contests import ContestAPIService
+from .groups import GroupAPIService
+from .organizations import OrganizationAPIService
+from .problems import ProblemAPIService
+from .submissions import SubmissionAPIService
+from .teams import TeamAPIService
+from .users import UserAPIService
 
 __all__ = [
-    "ContestService",
-    "GroupService",
-    "OrganizationService",
-    "ProblemService",
-    "SubmissionService",
-    "TeamService",
-    "UserService",
+    "ContestAPIService",
+    "GroupAPIService",
+    "OrganizationAPIService",
+    "ProblemAPIService",
+    "SubmissionAPIService",
+    "TeamAPIService",
+    "UserAPIService",
 ]

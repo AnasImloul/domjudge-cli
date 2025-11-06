@@ -12,16 +12,18 @@ from dom.types.api import models
 logger = get_logger(__name__)
 
 
-class OrganizationService:
+class OrganizationAPIService:
     """
-    Service for managing organizations in DOMjudge.
+    Infrastructure API service for managing organizations in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls.
 
     Handles all organization-related API operations.
     """
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the organization service.
+        Initialize the organization API service.
 
         Args:
             client: Base API client for HTTP operations

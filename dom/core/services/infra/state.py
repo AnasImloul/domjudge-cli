@@ -8,6 +8,7 @@ from enum import Enum
 from pydantic import SecretStr
 
 from dom.constants import ContainerNames
+from dom.core.services.base import StateComparatorService
 from dom.logging_config import get_logger
 from dom.shared.filesystem import get_container_prefix, get_secrets_manager
 from dom.types.infra import InfraConfig
@@ -74,9 +75,18 @@ class InfraChangeSet:
         return "[red]MULTIPLE CHANGES[/red] [bold](requires full restart)[/bold]"
 
 
-class InfraStateComparator:
+class InfraStateComparator(StateComparatorService[InfraConfig, InfraChangeSet]):
     """
-    Service for comparing infrastructure state to detect safe vs unsafe changes.
+    State comparison service for infrastructure configurations.
+
+    Inherits from StateComparatorService to provide a consistent interface
+    for state comparison operations across the service layer.
+
+    Architecture Pattern: State Comparison Service
+    - Compares desired configuration with running Docker containers
+    - Detects safe vs unsafe changes
+    - Returns structured change sets (InfraChangeSet)
+    - Enables intelligent infrastructure updates
 
     Uses Docker as the single source of truth - no state files needed!
     Queries running containers directly to determine current infrastructure state.
@@ -90,7 +100,7 @@ class InfraStateComparator:
         """Initialize infrastructure state comparator."""
         self.container_prefix = get_container_prefix()
 
-    def compare_infrastructure(self, new_config: InfraConfig) -> InfraChangeSet:
+    def compare(self, new_config: InfraConfig) -> InfraChangeSet:
         """
         Compare new configuration with current deployed state.
 
@@ -100,7 +110,7 @@ class InfraStateComparator:
         Returns:
             InfraChangeSet describing changes
         """
-        old_config = self._load_current_state()
+        old_config = self._fetch_current_state("infrastructure")
 
         if old_config is None:
             return InfraChangeSet(
@@ -162,11 +172,14 @@ class InfraStateComparator:
             new_config=new_config,
         )
 
-    def _load_current_state(self) -> InfraConfig | None:
+    def _fetch_current_state(self, identifier: str) -> InfraConfig | None:  # noqa: ARG002
         """
         Query Docker to get current deployed infrastructure state.
 
         Uses Docker as the single source of truth - no state files needed!
+
+        Args:
+            identifier: Unused for infrastructure (Docker is queried directly)
 
         Returns:
             Current infrastructure config or None if not deployed

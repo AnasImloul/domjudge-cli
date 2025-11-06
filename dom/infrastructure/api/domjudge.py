@@ -26,13 +26,13 @@ Single Way to Use:
 from dom.constants import DEFAULT_CACHE_TTL, DEFAULT_RATE_BURST, DEFAULT_RATE_LIMIT
 from dom.infrastructure.api.client import DomJudgeClient
 from dom.infrastructure.api.services import (
-    ContestService,
-    GroupService,
-    OrganizationService,
-    ProblemService,
-    SubmissionService,
-    TeamService,
-    UserService,
+    ContestAPIService,
+    GroupAPIService,
+    OrganizationAPIService,
+    ProblemAPIService,
+    SubmissionAPIService,
+    TeamAPIService,
+    UserAPIService,
 )
 from dom.logging_config import get_logger
 
@@ -99,13 +99,13 @@ class DomJudgeAPI:
             rate_burst=rate_burst,
         )
 
-        # Compose focused services
-        self.contests = ContestService(self.client)
-        self.problems = ProblemService(self.client)
-        self.teams = TeamService(self.client)
-        self.groups = GroupService(self.client)
-        self.users = UserService(self.client)
-        self.organizations = OrganizationService(self.client)
-        self.submissions = SubmissionService(self.client)
+        # Compose focused infrastructure API services
+        self.contests = ContestAPIService(self.client)
+        self.problems = ProblemAPIService(self.client)
+        self.teams = TeamAPIService(self.client)
+        self.groups = GroupAPIService(self.client)
+        self.users = UserAPIService(self.client)
+        self.organizations = OrganizationAPIService(self.client)
+        self.submissions = SubmissionAPIService(self.client)
 
         logger.info(f"Initialized DOMjudge API client for {base_url}")

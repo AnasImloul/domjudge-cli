@@ -2,7 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from dom.core.services.base import ServiceContext
+from dom.core.services.base import OrchestratorService, ServiceContext
 from dom.core.services.contest.state import ChangeType, ContestStateComparator
 from dom.core.services.problem.apply import ProblemService
 from dom.core.services.team.apply import TeamService
@@ -17,9 +17,18 @@ from dom.types.secrets import SecretsProvider
 logger = get_logger(__name__)
 
 
-class ContestApplicationService:
+class ContestApplicationService(OrchestratorService):
     """
-    Declarative service for applying contest configurations.
+    Orchestrator service for applying contest configurations.
+
+    Inherits from OrchestratorService to provide a consistent pattern for
+    services that coordinate multiple entity services.
+
+    Architecture Pattern: Orchestrator Service
+    - Coordinates ProblemService, TeamService, and ContestStateComparator
+    - Implements complex multi-step workflows
+    - Handles cross-cutting concerns (error handling, concurrency)
+    - Provides high-level business operations
 
     This service orchestrates the creation of contests and their associated
     resources (problems, teams) in a clean, declarative manner.
@@ -33,7 +42,7 @@ class ContestApplicationService:
             client: DOMjudge API client
             secrets: Secrets manager
         """
-        self.client = client
+        super().__init__(client)
         self.secrets = secrets
         self.problem_service = ProblemService(client)
         self.team_service = TeamService(client)
@@ -70,7 +79,7 @@ class ContestApplicationService:
         )
 
         # Detect changes first
-        change_set = self.state_comparator.compare_contest(contest)
+        change_set = self.state_comparator.compare(contest)
 
         # Create or skip contest
         if change_set.change_type == ChangeType.CREATE:
@@ -79,7 +88,7 @@ class ContestApplicationService:
         else:
             # Get existing contest
             assert contest.shortname is not None, "Contest shortname is required"
-            current = self.state_comparator._fetch_current_contest(contest.shortname)
+            current = self.state_comparator._fetch_current_state(contest.shortname)
             assert current is not None, f"Contest '{contest.shortname}' should exist at this point"
             contest_id = current["id"]
 

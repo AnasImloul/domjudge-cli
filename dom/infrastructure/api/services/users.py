@@ -10,16 +10,18 @@ from dom.types.api import models
 logger = get_logger(__name__)
 
 
-class UserService:
+class UserAPIService:
     """
-    Service for managing users in DOMjudge.
+    Infrastructure API service for managing users in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls.
 
     Handles all user-related API operations.
     """
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the user service.
+        Initialize the user API service.
 
         Args:
             client: Base API client for HTTP operations

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from dom.core.services.base import StateComparatorService
 from dom.domain.team_id_generator import generate_team_username
 from dom.logging_config import get_logger
 from dom.shared.filesystem import get_secrets_manager
@@ -95,9 +96,18 @@ class ContestChangeSet:
         return f"[yellow]UPDATE[/yellow] contest '{self.contest_shortname}': {', '.join(parts)}"
 
 
-class ContestStateComparator:
+class ContestStateComparator(StateComparatorService[ContestConfig, ContestChangeSet]):
     """
-    Service for comparing desired contest state with current state.
+    State comparison service for contest configurations.
+
+    Inherits from StateComparatorService to provide a consistent interface
+    for state comparison operations across the service layer.
+
+    Architecture Pattern: State Comparison Service
+    - Compares desired configuration with current API state
+    - Detects field changes, resource additions/removals
+    - Returns structured change sets (ContestChangeSet)
+    - Enables idempotent operations and safe updates
 
     This service enables safe live changes by detecting exactly what changed
     between the current state and desired configuration.
@@ -105,14 +115,14 @@ class ContestStateComparator:
 
     def __init__(self, client):
         """
-        Initialize state comparator.
+        Initialize contest state comparator.
 
         Args:
             client: DOMjudge API client
         """
         self.client = client
 
-    def compare_contest(
+    def compare(
         self, desired: ContestConfig, current: dict[str, Any] | None = None
     ) -> ContestChangeSet:
         """
@@ -130,7 +140,7 @@ class ContestStateComparator:
 
         # Fetch current state if not provided
         if current is None:
-            current = self._fetch_current_contest(desired.shortname)
+            current = self._fetch_current_state(desired.shortname)
 
         # Determine change type
         if current is None:
@@ -158,7 +168,7 @@ class ContestStateComparator:
             resource_changes=[problem_changes, team_changes],
         )
 
-    def _fetch_current_contest(self, shortname: str) -> dict[str, Any] | None:
+    def _fetch_current_state(self, shortname: str) -> dict[str, Any] | None:
         """
         Fetch current contest from API by shortname.
 

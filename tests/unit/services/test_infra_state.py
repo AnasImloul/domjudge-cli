@@ -25,7 +25,7 @@ class TestInfraStateComparator:
             # Docker inspect returns non-zero (container doesn't exist)
             mock_run.return_value = MagicMock(returncode=1)
 
-            result = comparator.compare_infrastructure(new_config)
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.CREATE
             assert result.old_config is None
@@ -36,8 +36,8 @@ class TestInfraStateComparator:
         comparator = InfraStateComparator()
         config = InfraConfig(port=8080, judges=4, password=SecretStr("test123"))
 
-        with patch.object(comparator, "_load_current_state", return_value=config):
-            result = comparator.compare_infrastructure(config)
+        with patch.object(comparator, "_fetch_current_state", return_value=config):
+            result = comparator.compare(config)
 
             assert result.change_type == InfraChangeType.NO_CHANGE
             assert result.old_config == config
@@ -49,8 +49,8 @@ class TestInfraStateComparator:
         old_config = InfraConfig(port=8080, judges=4, password=SecretStr("test123"))
         new_config = InfraConfig(port=8080, judges=8, password=SecretStr("test123"))
 
-        with patch.object(comparator, "_load_current_state", return_value=old_config):
-            result = comparator.compare_infrastructure(new_config)
+        with patch.object(comparator, "_fetch_current_state", return_value=old_config):
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.SCALE_JUDGES
             assert result.judge_diff == 4
@@ -63,8 +63,8 @@ class TestInfraStateComparator:
         old_config = InfraConfig(port=8080, judges=8, password=SecretStr("test123"))
         new_config = InfraConfig(port=8080, judges=4, password=SecretStr("test123"))
 
-        with patch.object(comparator, "_load_current_state", return_value=old_config):
-            result = comparator.compare_infrastructure(new_config)
+        with patch.object(comparator, "_fetch_current_state", return_value=old_config):
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.SCALE_JUDGES
             assert result.judge_diff == -4
@@ -76,8 +76,8 @@ class TestInfraStateComparator:
         old_config = InfraConfig(port=8080, judges=4, password=SecretStr("test123"))
         new_config = InfraConfig(port=9090, judges=4, password=SecretStr("test123"))
 
-        with patch.object(comparator, "_load_current_state", return_value=old_config):
-            result = comparator.compare_infrastructure(new_config)
+        with patch.object(comparator, "_fetch_current_state", return_value=old_config):
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.PORT_CHANGE
             assert result.is_safe_live_change is False
@@ -89,8 +89,8 @@ class TestInfraStateComparator:
         old_config = InfraConfig(port=8080, judges=4, password=SecretStr("old"))
         new_config = InfraConfig(port=8080, judges=4, password=SecretStr("new"))
 
-        with patch.object(comparator, "_load_current_state", return_value=old_config):
-            result = comparator.compare_infrastructure(new_config)
+        with patch.object(comparator, "_fetch_current_state", return_value=old_config):
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.PASSWORD_CHANGE
             assert result.requires_restart is True
@@ -101,8 +101,8 @@ class TestInfraStateComparator:
         old_config = InfraConfig(port=8080, judges=4, password=SecretStr("old"))
         new_config = InfraConfig(port=9090, judges=8, password=SecretStr("new"))
 
-        with patch.object(comparator, "_load_current_state", return_value=old_config):
-            result = comparator.compare_infrastructure(new_config)
+        with patch.object(comparator, "_fetch_current_state", return_value=old_config):
+            result = comparator.compare(new_config)
 
             assert result.change_type == InfraChangeType.FULL_RESTART
             assert result.requires_restart is True
@@ -154,14 +154,14 @@ class TestInfraStateComparator:
 
             assert count == 0
 
-    def test_load_current_state_returns_none_when_no_domserver(self):
+    def test_fetch_current_state_returns_none_when_no_domserver(self):
         """Test that None is returned when domserver doesn't exist."""
         comparator = InfraStateComparator()
 
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1)
 
-            state = comparator._load_current_state()
+            state = comparator._fetch_current_state("infrastructure")
 
             assert state is None
 

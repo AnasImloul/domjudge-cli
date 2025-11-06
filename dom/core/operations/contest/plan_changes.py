@@ -42,7 +42,7 @@ class AnalyzeChangesStep(ExecutableStep):
         results = []
 
         for contest in self.config.contests:
-            change_set = comparator.compare_contest(contest)
+            change_set = comparator.compare(contest)
             results.append(
                 {
                     "shortname": contest.shortname,

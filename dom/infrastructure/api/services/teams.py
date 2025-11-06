@@ -12,16 +12,19 @@ from dom.types.api import models
 logger = get_logger(__name__)
 
 
-class TeamService:
+class TeamAPIService:
     """
-    Service for managing teams in DOMjudge.
+    Infrastructure API service for managing teams in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls. For business logic,
+    see dom.core.services.team.apply.TeamService.
 
     Handles all team-related API operations.
     """
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the team service.
+        Initialize the team API service.
 
         Args:
             client: Base API client for HTTP operations

@@ -13,9 +13,12 @@ from dom.types.api import models
 logger = get_logger(__name__)
 
 
-class ContestService:
+class ContestAPIService:
     """
-    Service for managing contests in DOMjudge.
+    Infrastructure API service for managing contests in DOMjudge.
+
+    This is a thin wrapper around HTTP API calls. For business logic,
+    see dom.core.services.contest.apply.ContestApplicationService.
 
     Handles all contest-related API operations including:
     - Listing contests
@@ -25,7 +28,7 @@ class ContestService:
 
     def __init__(self, client: DomJudgeClient):
         """
-        Initialize the contest service.
+        Initialize the contest API service.
 
         Args:
             client: Base API client for HTTP operations
