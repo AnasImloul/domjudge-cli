@@ -2,17 +2,14 @@
 
 from typing import Any
 
-from dom.constants import ContainerNames
 from dom.core.operations.base import (
     ExecutableStep,
     OperationContext,
     OperationResult,
     SteppedOperation,
 )
-from dom.infrastructure.docker.containers import DockerClient
-from dom.infrastructure.docker.template import generate_docker_compose
+from dom.core.services.infra.deployment import InfrastructureDeploymentService
 from dom.logging_config import get_logger
-from dom.shared.filesystem import ensure_dom_directory, get_container_prefix
 from dom.types.infra import InfraConfig
 from dom.utils.validation import (
     validate_infrastructure_prerequisites,
@@ -43,14 +40,20 @@ class ValidatePrerequisitesStep(ExecutableStep):
 class GenerateComposeStep(ExecutableStep):
     """Step to generate docker-compose.yml file."""
 
-    def __init__(self, config: InfraConfig, judge_password: str = "TEMP"):  # nosec B107
+    def __init__(
+        self,
+        config: InfraConfig,
+        deployment_service: InfrastructureDeploymentService,
+        judge_password: str = "TEMP",  # nosec B107
+    ):
         super().__init__("generate_compose", "Generate docker-compose.yml")
         self.config = config
+        self.deployment_service = deployment_service
         self.judge_password = judge_password
 
     def execute(self, context: OperationContext) -> None:
         """Generate docker-compose file."""
-        generate_docker_compose(
+        self.deployment_service.generate_compose_file(
             self.config, secrets=context.secrets, judge_password=self.judge_password
         )
 
@@ -58,65 +61,61 @@ class GenerateComposeStep(ExecutableStep):
 class StartDatabaseStep(ExecutableStep):
     """Step to start MariaDB container."""
 
-    def __init__(self):
+    def __init__(self, deployment_service: InfrastructureDeploymentService):
         super().__init__("start_database", "Start MariaDB container")
+        self.deployment_service = deployment_service
 
     def execute(self, _context: OperationContext) -> None:
         """Start the MariaDB database container."""
-        docker = DockerClient()
-        compose_file = ensure_dom_directory() / "docker-compose.yml"
-        docker.start_services(["mariadb"], compose_file)
+        self.deployment_service.start_database()
 
 
 class StartMySQLClientStep(ExecutableStep):
     """Step to start MySQL client container."""
 
-    def __init__(self):
+    def __init__(self, deployment_service: InfrastructureDeploymentService):
         super().__init__("start_mysql_client", "Start MySQL client container")
+        self.deployment_service = deployment_service
 
     def execute(self, _context: OperationContext) -> None:
         """Start the MySQL client container."""
-        docker = DockerClient()
-        compose_file = ensure_dom_directory() / "docker-compose.yml"
-        docker.start_services(["mysql-client"], compose_file)
+        self.deployment_service.start_mysql_client()
 
 
 class StartDOMServerStep(ExecutableStep):
     """Step to start DOMserver container."""
 
-    def __init__(self):
+    def __init__(self, deployment_service: InfrastructureDeploymentService):
         super().__init__("start_domserver", "Start DOMserver container")
+        self.deployment_service = deployment_service
 
     def execute(self, _context: OperationContext) -> None:
         """Start the DOMserver container."""
-        docker = DockerClient()
-        compose_file = ensure_dom_directory() / "docker-compose.yml"
-        docker.start_services(["domserver"], compose_file)
+        self.deployment_service.start_domserver()
 
 
 class WaitForHealthyStep(ExecutableStep):
     """Step to wait for DOMserver to become healthy."""
 
-    def __init__(self):
+    def __init__(self, deployment_service: InfrastructureDeploymentService):
         super().__init__("wait_healthy", "Wait for DOMserver to be healthy")
+        self.deployment_service = deployment_service
 
     def execute(self, _context: OperationContext) -> None:
         """Wait for DOMserver container to be healthy."""
-        docker = DockerClient()
-        container_prefix = get_container_prefix()
-        docker.wait_for_container_healthy(ContainerNames.DOMSERVER.with_prefix(container_prefix))
+        self.deployment_service.wait_for_domserver_healthy()
 
 
 class FetchJudgePasswordStep(ExecutableStep):
     """Step to fetch judgedaemon password from DOMserver."""
 
-    def __init__(self):
+    def __init__(self, deployment_service: InfrastructureDeploymentService):
         super().__init__("fetch_password", "Fetch judgedaemon password")
+        self.deployment_service = deployment_service
 
     def execute(self, context: OperationContext) -> str:
         """Fetch the judgedaemon password from the running DOMserver and store it in secrets."""
-        docker = DockerClient()
-        judge_password = docker.fetch_judgedaemon_password()
+        judge_password = self.deployment_service.fetch_judgedaemon_password()
 
         # Store in context secrets so RegenerateComposeStep can access it
         context.secrets.set("judge_password", judge_password)
@@ -127,9 +126,10 @@ class FetchJudgePasswordStep(ExecutableStep):
 class RegenerateComposeStep(ExecutableStep):
     """Step to regenerate docker-compose with real judgedaemon password."""
 
-    def __init__(self, config: InfraConfig):
+    def __init__(self, config: InfraConfig, deployment_service: InfrastructureDeploymentService):
         super().__init__("regenerate_compose", "Regenerate docker-compose with real password")
         self.config = config
+        self.deployment_service = deployment_service
 
     def execute(self, context: OperationContext) -> None:
         """Regenerate docker-compose file with real password from secrets."""
@@ -137,43 +137,43 @@ class RegenerateComposeStep(ExecutableStep):
         judge_password = context.secrets.get_required("judge_password")
 
         # Regenerate compose with real password
-        generate_docker_compose(self.config, secrets=context.secrets, judge_password=judge_password)
+        self.deployment_service.generate_compose_file(
+            self.config, secrets=context.secrets, judge_password=judge_password
+        )
 
 
 class StartJudgehostsStep(ExecutableStep):
     """Step to start judgehost containers."""
 
-    def __init__(self, judge_count: int):
+    def __init__(self, judge_count: int, deployment_service: InfrastructureDeploymentService):
         super().__init__("start_judgehosts", f"Start {judge_count} judgehost(s)")
         self.judge_count = judge_count
+        self.deployment_service = deployment_service
 
     def execute(self, _context: OperationContext) -> None:
         """Start the judgehost containers."""
-        docker = DockerClient()
-        compose_file = ensure_dom_directory() / "docker-compose.yml"
-        judgehost_services = [f"judgehost-{i + 1}" for i in range(self.judge_count)]
-        docker.start_services(judgehost_services, compose_file)
+        self.deployment_service.start_judgehosts(self.judge_count)
 
 
 class ConfigureAdminPasswordStep(ExecutableStep):
     """Step to configure admin password."""
 
-    def __init__(self, config: InfraConfig):
+    def __init__(self, config: InfraConfig, deployment_service: InfrastructureDeploymentService):
         super().__init__("configure_admin", "Configure admin password")
         self.config = config
+        self.deployment_service = deployment_service
 
     def execute(self, context: OperationContext) -> None:
         """Configure the admin password in the database."""
-        docker = DockerClient()
         admin_password = (
             self.config.password.get_secret_value()
             if self.config.password
-            else context.secrets.get("admin_password") or docker.fetch_admin_init_password()
+            else context.secrets.get("admin_password")
+            or self.deployment_service.fetch_admin_init_password()
         )
 
-        docker.update_admin_password(
-            new_password=admin_password,
-            db_user="domjudge",
+        self.deployment_service.configure_admin_password(
+            admin_password=admin_password,
             db_password=context.secrets.get_required("db_password"),
         )
         context.secrets.set("admin_password", admin_password)
@@ -187,14 +187,20 @@ class ConfigureAdminPasswordStep(ExecutableStep):
 class ApplyInfrastructureOperation(SteppedOperation[None]):
     """Apply infrastructure configuration (setup Docker containers, etc.)."""
 
-    def __init__(self, config: InfraConfig):
+    def __init__(
+        self,
+        config: InfraConfig,
+        deployment_service: InfrastructureDeploymentService | None = None,
+    ):
         """
         Initialize infrastructure application operation.
 
         Args:
             config: Infrastructure configuration
+            deployment_service: Service for infrastructure deployment. If None, creates a new instance.
         """
         self.config = config
+        self._deployment_service = deployment_service or InfrastructureDeploymentService()
 
     def describe(self) -> str:
         """Describe what this operation does."""
@@ -213,15 +219,15 @@ class ApplyInfrastructureOperation(SteppedOperation[None]):
         """Define the steps for deploying infrastructure."""
         return [
             ValidatePrerequisitesStep(self.config.port),
-            GenerateComposeStep(self.config, judge_password="TEMP"),  # nosec B106
-            StartDatabaseStep(),
-            StartMySQLClientStep(),
-            StartDOMServerStep(),
-            WaitForHealthyStep(),
-            FetchJudgePasswordStep(),
-            RegenerateComposeStep(self.config),
-            StartJudgehostsStep(self.config.judges),
-            ConfigureAdminPasswordStep(self.config),
+            GenerateComposeStep(self.config, self._deployment_service, judge_password="TEMP"),  # nosec B106
+            StartDatabaseStep(self._deployment_service),
+            StartMySQLClientStep(self._deployment_service),
+            StartDOMServerStep(self._deployment_service),
+            WaitForHealthyStep(self._deployment_service),
+            FetchJudgePasswordStep(self._deployment_service),
+            RegenerateComposeStep(self.config, self._deployment_service),
+            StartJudgehostsStep(self.config.judges, self._deployment_service),
+            ConfigureAdminPasswordStep(self.config, self._deployment_service),
         ]
 
     def _build_result(

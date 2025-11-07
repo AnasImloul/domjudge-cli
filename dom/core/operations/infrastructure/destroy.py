@@ -8,7 +8,7 @@ from dom.core.operations.base import (
     OperationResult,
     SteppedOperation,
 )
-from dom.core.services.infra.destroy import destroy_infra_and_platform
+from dom.core.services.infra.destroy import InfrastructureDestructionService
 from dom.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -22,21 +22,23 @@ logger = get_logger(__name__)
 class StopContainersStep(ExecutableStep):
     """Step to stop all infrastructure containers."""
 
-    def __init__(self):
+    def __init__(self, destruction_service: InfrastructureDestructionService):
         super().__init__("stop_containers", "Stop all containers")
+        self.destruction_service = destruction_service
 
     def execute(self, context: OperationContext) -> dict[str, bool]:
         """Execute container stopping."""
-        destroy_infra_and_platform(context.secrets, remove_volumes=False)
+        self.destruction_service.destroy(context.secrets, remove_volumes=False)
         return {"stopped": True}
 
 
 class ConditionalRemoveVolumesStep(ExecutableStep):
     """Conditional step to remove volumes - skips if not needed."""
 
-    def __init__(self, should_remove: bool):
+    def __init__(self, should_remove: bool, destruction_service: InfrastructureDestructionService):
         super().__init__("remove_volumes", "Remove all volumes (PERMANENT)")
         self._should_remove = should_remove
+        self.destruction_service = destruction_service
 
     def should_execute(self, _context: OperationContext) -> bool:
         """Only execute if volumes should be removed."""
@@ -44,7 +46,7 @@ class ConditionalRemoveVolumesStep(ExecutableStep):
 
     def execute(self, context: OperationContext) -> dict[str, bool]:
         """Execute volume removal."""
-        destroy_infra_and_platform(context.secrets, remove_volumes=True)
+        self.destruction_service.destroy(context.secrets, remove_volumes=True)
         return {"volumes_removed": True}
 
 
@@ -56,14 +58,20 @@ class ConditionalRemoveVolumesStep(ExecutableStep):
 class DestroyInfrastructureOperation(SteppedOperation[None]):
     """Destroy all infrastructure components."""
 
-    def __init__(self, remove_volumes: bool = False):
+    def __init__(
+        self,
+        remove_volumes: bool = False,
+        destruction_service: InfrastructureDestructionService | None = None,
+    ):
         """
         Initialize infrastructure destruction operation.
 
         Args:
             remove_volumes: If True, delete volumes (PERMANENT DATA LOSS)
+            destruction_service: Service for infrastructure destruction. If None, creates a new instance.
         """
         self.remove_volumes = remove_volumes
+        self._destruction_service = destruction_service or InfrastructureDestructionService()
 
     def describe(self) -> str:
         """Describe what this operation does."""
@@ -77,8 +85,8 @@ class DestroyInfrastructureOperation(SteppedOperation[None]):
     def define_steps(self) -> list[ExecutableStep]:
         """Define the steps for destroying infrastructure."""
         return [
-            StopContainersStep(),
-            ConditionalRemoveVolumesStep(self.remove_volumes),
+            StopContainersStep(self._destruction_service),
+            ConditionalRemoveVolumesStep(self.remove_volumes, self._destruction_service),
         ]
 
     def _build_result(
