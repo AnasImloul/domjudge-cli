@@ -9,7 +9,6 @@ from dom.core.operations.base import (
     SteppedOperation,
 )
 from dom.core.services.contest.state import ChangeType, ContestStateComparator
-from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import console, get_logger
 from dom.types.config.processed import DomConfig
 
@@ -35,9 +34,7 @@ class AnalyzeChangesStep(ExecutableStep):
         Returns:
             Dictionary with change analysis results
         """
-        factory = APIClientFactory()
-        client = factory.create_admin_client(self.config.infra, context.secrets)
-        comparator = ContestStateComparator(client)
+        comparator = ContestStateComparator(self.config.infra, context.secrets)
 
         results = []
 

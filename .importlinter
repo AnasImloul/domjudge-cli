@@ -2,8 +2,7 @@
 root_package = dom
 include_external_packages = False
 
-# Main contract: Enforce Clean Architecture layering
-# This ensures each layer only depends on layers below it
+# Keep the directional layering (allows downward imports, blocks upward ones).
 [importlinter:contract:layered-architecture]
 name = Enforce layered architecture (CLI -> Operations -> Services -> Infrastructure)
 type = layers
@@ -13,13 +12,22 @@ layers =
     dom.core.services
     dom.infrastructure
 
-# Prevent reverse dependencies (lower layers importing upper layers)
-[importlinter:contract:no-reverse-dependencies]
-name = No reverse dependencies (services/infra cannot import from CLI or operations)
+# Forbid DIRECT layer skipping (but allow transitive deps through the middle layer).
+[importlinter:contract:no-skip-from-cli]
+name = No direct skipping from CLI to Services/Infrastructure
 type = forbidden
 source_modules =
+    dom.cli
+forbidden_modules =
     dom.core.services
     dom.infrastructure
-forbidden_modules =
-    dom.cli
+allow_indirect_imports = True
+
+[importlinter:contract:no-skip-from-operations]
+name = No direct skipping from Operations to Infrastructure
+type = forbidden
+source_modules =
     dom.core.operations
+forbidden_modules =
+    dom.infrastructure
+allow_indirect_imports = True

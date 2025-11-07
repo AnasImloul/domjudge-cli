@@ -34,19 +34,21 @@ class ContestApplicationService(OrchestratorService):
     resources (problems, teams) in a clean, declarative manner.
     """
 
-    def __init__(self, client, secrets: SecretsProvider):
+    def __init__(self, client, infra_config, secrets: SecretsProvider):
         """
         Initialize contest application service.
 
         Args:
             client: DOMjudge API client
+            infra_config: Infrastructure configuration
             secrets: Secrets manager
         """
         super().__init__(client)
+        self.infra_config = infra_config
         self.secrets = secrets
         self.problem_service = ProblemService(client)
         self.team_service = TeamService(client)
-        self.state_comparator = ContestStateComparator(client)
+        self.state_comparator = ContestStateComparator(infra_config, secrets, client)
 
     def apply_contest(self, contest: ContestConfig) -> str:
         """
@@ -266,7 +268,7 @@ def apply_contests(config: DomConfig, secrets: SecretsProvider) -> None:
     factory = APIClientFactory()
     client = factory.create_admin_client(config.infra, secrets)
 
-    service = ContestApplicationService(client, secrets)
+    service = ContestApplicationService(client, config.infra, secrets)
 
     for contest in config.contests:
         service.apply_contest(contest)

@@ -6,9 +6,13 @@ from typing import Any
 
 from dom.core.services.base import StateComparatorService
 from dom.domain.team_id_generator import generate_team_username
+from dom.infrastructure.api.domjudge import DomJudgeAPI
+from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import get_logger
 from dom.shared.filesystem import get_secrets_manager
 from dom.types.config.processed import ContestConfig
+from dom.types.infra import InfraConfig
+from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)
 
@@ -113,13 +117,23 @@ class ContestStateComparator(StateComparatorService[ContestConfig, ContestChange
     between the current state and desired configuration.
     """
 
-    def __init__(self, client):
+    def __init__(
+        self,
+        infra_config: InfraConfig,
+        secrets: SecretsProvider,
+        client: DomJudgeAPI | None = None,
+    ):
         """
         Initialize contest state comparator.
 
         Args:
-            client: DOMjudge API client
+            infra_config: Infrastructure configuration for API connection
+            secrets: Secrets provider for authentication
+            client: DOMjudge API client (if None, creates a new one)
         """
+        if client is None:
+            factory = APIClientFactory()
+            client = factory.create_admin_client(infra_config, secrets)
         self.client = client
 
     def compare(
@@ -183,7 +197,7 @@ class ContestStateComparator(StateComparatorService[ContestConfig, ContestChange
             for contest in contests:
                 if contest.get("shortname") == shortname:
                     logger.debug(f"Found existing contest '{shortname}'")
-                    return contest  # type: ignore[no-any-return]
+                    return contest
             logger.debug(f"Contest '{shortname}' not found (will be created)")
             return None
         except Exception as e:

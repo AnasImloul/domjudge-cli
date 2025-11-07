@@ -24,9 +24,20 @@ class TestContestStateComparator:
         return client
 
     @pytest.fixture
-    def comparator(self, mock_client):
-        """Create a ContestStateComparator with mocked client."""
-        return ContestStateComparator(mock_client)
+    def mock_infra_config(self):
+        """Create a mock infrastructure configuration."""
+        return MagicMock()
+
+    @pytest.fixture
+    def mock_secrets(self):
+        """Create a mock secrets provider."""
+        return MagicMock()
+
+    @pytest.fixture
+    def comparator(self, mock_infra_config, mock_secrets, mock_client):
+        """Create a ContestStateComparator with mocked dependencies."""
+        # Pass the mock client directly to avoid actual client creation
+        return ContestStateComparator(mock_infra_config, mock_secrets, client=mock_client)
 
     def test_compare_contest_detects_new_contest(self, comparator, mock_client):
         """Test that CREATE is detected for new contests."""
