@@ -10,7 +10,8 @@ from dom.core.operations.base import (
 )
 from dom.core.services.infra.status import check_infrastructure_status
 from dom.logging_config import get_logger
-from dom.types.infra import InfraConfig, InfrastructureStatus
+from dom.types.config.processed import InfraConfig
+from dom.types.infra import InfrastructureStatus
 
 logger = get_logger(__name__)
 

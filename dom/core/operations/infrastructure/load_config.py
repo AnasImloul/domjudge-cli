@@ -11,7 +11,7 @@ from dom.core.operations.base import (
     SteppedOperation,
 )
 from dom.logging_config import get_logger
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 
 logger = get_logger(__name__)
 

@@ -6,8 +6,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from dom.core.services.contest.verification import create_temp_contest
 from dom.core.services.submission.submit import submit_problem
 from dom.infrastructure.api.domjudge import DomJudgeAPI
-from dom.types.contest import ContestConfig
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import ContestConfig, InfraConfig
 from dom.types.secrets import SecretsProvider
 
 VERDICT = {

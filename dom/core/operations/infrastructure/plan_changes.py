@@ -10,7 +10,7 @@ from dom.core.operations.base import (
 )
 from dom.core.services.infra.state import InfraStateComparator
 from dom.logging_config import console, get_logger
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 
 logger = get_logger(__name__)
 

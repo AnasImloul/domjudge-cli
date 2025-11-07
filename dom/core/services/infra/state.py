@@ -11,7 +11,7 @@ from dom.constants import ContainerNames
 from dom.core.services.base import StateComparatorService
 from dom.logging_config import get_logger
 from dom.shared.filesystem import get_container_prefix, get_secrets_manager
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 
 logger = get_logger(__name__)
 

@@ -1,17 +1,10 @@
+"""Infrastructure runtime state models.
+
+This module contains models for infrastructure status and state,
+not configuration models.
+"""
+
 from enum import Enum
-
-from pydantic import BaseModel, SecretStr
-
-from dom.utils.pydantic import InspectMixin
-
-
-class InfraConfig(InspectMixin, BaseModel):
-    port: int = 12345
-    judges: int = 1
-    password: SecretStr | None = None
-
-    class Config:
-        frozen = True
 
 
 class ServiceStatus(str, Enum):
@@ -56,4 +49,4 @@ class InfrastructureStatus:
         }
 
 
-__all__ = ["InfraConfig", "InfrastructureStatus", "ServiceStatus"]
+__all__ = ["InfrastructureStatus", "ServiceStatus"]

@@ -10,8 +10,7 @@ from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import get_logger
 from dom.shared.filesystem import get_secrets_manager
-from dom.types.config.processed import ContestConfig
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import ContestConfig, InfraConfig
 from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)

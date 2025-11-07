@@ -12,8 +12,7 @@ from dom.core.operations.base import (
 )
 from dom.core.services.problem.verify import verify_problemset
 from dom.logging_config import get_logger
-from dom.types.config.processed import ContestConfig
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import ContestConfig, InfraConfig
 
 logger = get_logger(__name__)
 

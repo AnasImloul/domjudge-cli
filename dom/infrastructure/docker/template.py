@@ -1,7 +1,7 @@
 from dom.logging_config import get_logger
 from dom.shared.filesystem import ensure_dom_directory, get_container_prefix
 from dom.templates.infra import docker_compose_template
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 from dom.types.secrets import SecretsProvider
 
 logger = get_logger(__name__)

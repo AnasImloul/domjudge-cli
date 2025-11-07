@@ -10,7 +10,7 @@ from dom.core.operations.base import (
 )
 from dom.core.services.infra.deployment import InfrastructureDeploymentService
 from dom.logging_config import get_logger
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 from dom.utils.validation import (
     validate_infrastructure_prerequisites,
     warn_if_privileged_port,

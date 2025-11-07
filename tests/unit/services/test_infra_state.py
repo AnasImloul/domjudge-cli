@@ -10,7 +10,7 @@ from dom.core.services.infra.state import (
     InfraChangeType,
     InfraStateComparator,
 )
-from dom.types.infra import InfraConfig
+from dom.types.config.processed import InfraConfig
 
 
 class TestInfraStateComparator:

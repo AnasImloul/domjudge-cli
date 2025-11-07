@@ -9,7 +9,7 @@ from dom.core.services.problem.apply import ProblemService
 from dom.core.services.team.apply import TeamService
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.api.models import Contest
-from dom.types.contest import ContestConfig
+from dom.types.config.processed import ContestConfig
 from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
 

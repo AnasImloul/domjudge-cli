@@ -14,7 +14,8 @@ from dom.core.services.infra.status import (
     print_status_json,
 )
 from dom.logging_config import get_logger
-from dom.types.infra import InfraConfig, InfrastructureStatus
+from dom.types.config.processed import InfraConfig
+from dom.types.infra import InfrastructureStatus
 
 logger = get_logger(__name__)
 

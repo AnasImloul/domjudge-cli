@@ -96,7 +96,8 @@ class TestCoreImports:
     def test_types_imports(self):
         """Test that type definitions can be imported."""
         from dom.types import SecretsProvider
-        from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
+        from dom.types.config.processed import InfraConfig
+        from dom.types.infra import InfrastructureStatus, ServiceStatus
 
         assert SecretsProvider is not None
         assert InfraConfig is not None
