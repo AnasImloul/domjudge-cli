@@ -119,7 +119,7 @@ class RequestBuilder(Generic[T]):
         >>> # Request describes what we want, not how to get it
     """
 
-    def __init__(self, request: APIRequest):
+    def __init__(self, request: APIRequest) -> None:
         """
         Initialize builder with request.
 

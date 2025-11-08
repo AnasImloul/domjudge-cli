@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from dom.exceptions import InfrastructureError
 from dom.infrastructure.docker.containers import DockerClient
@@ -177,7 +178,7 @@ class DeploymentTransaction:
                 logger.debug(f"Stop services during rollback (non-critical): {e}")
 
 
-def with_rollback(transaction: DeploymentTransaction) -> Callable:
+def with_rollback(transaction: DeploymentTransaction) -> Callable[..., Any]:
     """
     Decorator to add automatic rollback to a function.
 
@@ -198,8 +199,8 @@ def with_rollback(transaction: DeploymentTransaction) -> Callable:
         ...     transaction.record_step(DeploymentStep.START_DATABASE)
     """
 
-    def decorator(func: Callable) -> Callable:
-        def wrapper(*args, **kwargs):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:

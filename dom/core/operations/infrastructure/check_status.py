@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class CheckDockerStep(ExecutableStep):
     """Step to check Docker daemon availability."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("check_docker", "Check Docker daemon")
 
     def execute(self, _context: OperationContext) -> None:
@@ -35,7 +35,7 @@ class CheckDockerStep(ExecutableStep):
 class CheckContainersStep(ExecutableStep):
     """Step to check container status."""
 
-    def __init__(self, config: InfraConfig | None):
+    def __init__(self, config: InfraConfig | None) -> None:
         super().__init__("check_containers", "Check container status")
         self.config = config
 
@@ -47,7 +47,7 @@ class CheckContainersStep(ExecutableStep):
 class CheckHealthStep(ExecutableStep):
     """Step to check service health."""
 
-    def __init__(self, config: InfraConfig | None):
+    def __init__(self, config: InfraConfig | None) -> None:
         super().__init__("check_health", "Check service health")
         self.config = config
 
@@ -64,7 +64,7 @@ class CheckHealthStep(ExecutableStep):
 class CheckInfrastructureStatusOperation(SteppedOperation[InfrastructureStatus]):
     """Check the health status of infrastructure components."""
 
-    def __init__(self, config: InfraConfig | None = None):
+    def __init__(self, config: InfraConfig | None = None) -> None:
         """
         Initialize status check operation.
 

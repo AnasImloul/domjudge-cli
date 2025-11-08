@@ -1,6 +1,7 @@
 """Helper functions for contest CLI commands."""
 
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -9,7 +10,7 @@ from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.contest import LoadConfigOperation
 
 
-def load_config_with_secrets(file: Path | None, verbose: bool = False):
+def load_config_with_secrets(file: Path | None, verbose: bool = False) -> Any:
     """
     Load contest configuration file with secrets manager.
 

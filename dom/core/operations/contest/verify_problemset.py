@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 class LoadContestForVerifyStep(ExecutableStep):
     """Step to load contest for verification."""
 
-    def __init__(self, config_path: Path | None, contest_name: str):
+    def __init__(self, config_path: Path | None, contest_name: str) -> None:
         super().__init__("load_contest", "Load contest configuration")
         self.config_path = config_path
         self.contest_name = contest_name
@@ -38,7 +38,7 @@ class LoadContestForVerifyStep(ExecutableStep):
 class LoadInfraForVerifyStep(ExecutableStep):
     """Step to load infrastructure configuration for verification."""
 
-    def __init__(self, infra_config_path: Path | None):
+    def __init__(self, infra_config_path: Path | None) -> None:
         super().__init__("load_infra", "Load infrastructure configuration")
         self.infra_config_path = infra_config_path
 
@@ -50,7 +50,7 @@ class LoadInfraForVerifyStep(ExecutableStep):
 class RunVerificationStep(ExecutableStep):
     """Step to run problemset verification."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("verify", "Verify problemset")
 
     def execute(self, _context: OperationContext) -> None:
@@ -68,7 +68,7 @@ class VerifyProblemsetOperation(SteppedOperation[None]):
 
     def __init__(
         self, config_path: Path | None, contest_name: str, infra_config_path: Path | None = None
-    ):
+    ) -> None:
         """
         Initialize problemset verification operation.
 

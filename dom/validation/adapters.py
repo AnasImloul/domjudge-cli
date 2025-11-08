@@ -14,7 +14,7 @@ import typer
 from dom.utils.validators import Invalid, ValidatorBuilder
 
 
-def for_pydantic(validator: ValidatorBuilder) -> Callable:
+def for_pydantic(validator: ValidatorBuilder[Any]) -> Callable[[type[Any], Any], Any]:
     """
     Adapt a ValidatorBuilder for use as a Pydantic field_validator.
 
@@ -34,7 +34,7 @@ def for_pydantic(validator: ValidatorBuilder) -> Callable:
     """
     validator_fn = validator.build()
 
-    def pydantic_validator(_cls, v: Any) -> Any:
+    def pydantic_validator(_cls: type[Any], v: Any) -> Any:
         """Pydantic validator that uses our validation rules."""
         if v is None:
             return v
@@ -47,7 +47,7 @@ def for_pydantic(validator: ValidatorBuilder) -> Callable:
     return classmethod(pydantic_validator)  # type: ignore[return-value]
 
 
-def for_typer(validator: ValidatorBuilder) -> Callable:
+def for_typer(validator: ValidatorBuilder[Any]) -> Callable[[str], Any]:
     """
     Adapt a ValidatorBuilder for use as a Typer callback.
 
@@ -80,7 +80,7 @@ def for_typer(validator: ValidatorBuilder) -> Callable:
     return typer_callback
 
 
-def for_prompt(validator: ValidatorBuilder) -> Callable[[str], Any]:
+def for_prompt(validator: ValidatorBuilder[Any]) -> Callable[[str], Any]:
     """
     Adapt a ValidatorBuilder for use as a prompt parser.
 
@@ -106,7 +106,9 @@ def for_prompt(validator: ValidatorBuilder) -> Callable[[str], Any]:
 # Convenience functions for common patterns
 
 
-def optional_for_pydantic(validator: ValidatorBuilder) -> Callable:
+def optional_for_pydantic(
+    validator: ValidatorBuilder[Any],
+) -> Callable[[type[Any], Any | None], Any | None]:
     """
     Adapt a ValidatorBuilder for optional Pydantic fields.
 
@@ -114,7 +116,7 @@ def optional_for_pydantic(validator: ValidatorBuilder) -> Callable:
     """
     validator_fn = validator.build()
 
-    def pydantic_validator(_cls, v: Any | None) -> Any | None:
+    def pydantic_validator(_cls: type[Any], v: Any | None) -> Any | None:
         if v is None:
             return None
         try:
@@ -125,7 +127,7 @@ def optional_for_pydantic(validator: ValidatorBuilder) -> Callable:
     return classmethod(pydantic_validator)  # type: ignore[return-value]
 
 
-def with_default_for_typer(validator: ValidatorBuilder, default: Any) -> Callable:
+def with_default_for_typer(validator: ValidatorBuilder[Any], default: Any) -> Callable[[str], Any]:
     """
     Adapt a ValidatorBuilder for Typer with a default value.
 

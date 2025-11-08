@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class AnalyzeChangesStep(ExecutableStep):
     """Step to analyze and display what would change."""
 
-    def __init__(self, config: DomConfig):
+    def __init__(self, config: DomConfig) -> None:
         super().__init__("analyze", "Analyze configuration changes")
         self.config = config
 
@@ -53,7 +53,7 @@ class AnalyzeChangesStep(ExecutableStep):
 class DisplayChangesStep(ExecutableStep):
     """Step to display changes in a user-friendly format."""
 
-    def __init__(self, analyze_step: AnalyzeChangesStep):
+    def __init__(self, analyze_step: AnalyzeChangesStep) -> None:
         super().__init__("display", "Display planned changes")
         self.analyze_step = analyze_step
         self._changes_data: dict[str, Any] | None = None
@@ -137,7 +137,7 @@ class DisplayChangesStep(ExecutableStep):
 class PlanContestChangesOperation(SteppedOperation[dict[str, Any]]):
     """Plan contest changes without applying them."""
 
-    def __init__(self, config: DomConfig):
+    def __init__(self, config: DomConfig) -> None:
         """
         Initialize plan operation.
 

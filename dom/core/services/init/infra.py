@@ -9,7 +9,7 @@ from dom.validation import ValidationRules, for_prompt
 console = Console()
 
 
-def initialize_infrastructure():
+def initialize_infrastructure() -> str:
     # Infrastructure section
     console.print("\n[bold cyan]Infrastructure Configuration[/bold cyan]")
     console.print("Configure the platform settings for your contest environment")

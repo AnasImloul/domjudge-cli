@@ -42,7 +42,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def port(warn_privileged: bool = True) -> ValidatorBuilder:
+    def port(warn_privileged: bool = True) -> ValidatorBuilder[int]:
         """
         Validate port number.
 
@@ -61,7 +61,7 @@ class ValidationRules:
         return builder
 
     @staticmethod
-    def judges_count() -> ValidatorBuilder:
+    def judges_count() -> ValidatorBuilder[int]:
         """
         Validate number of judgehosts.
 
@@ -83,7 +83,7 @@ class ValidationRules:
         return builder.satisfy(check_reasonable)
 
     @staticmethod
-    def password() -> ValidatorBuilder:
+    def password() -> ValidatorBuilder[str]:
         """
         Validate password.
 
@@ -101,7 +101,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def contest_name() -> ValidatorBuilder:
+    def contest_name() -> ValidatorBuilder[str]:
         """
         Validate contest name.
 
@@ -118,7 +118,7 @@ class ValidationRules:
         )
 
     @staticmethod
-    def contest_shortname() -> ValidatorBuilder:
+    def contest_shortname() -> ValidatorBuilder[str]:
         """
         Validate contest shortname.
 
@@ -141,7 +141,7 @@ class ValidationRules:
         )
 
     @staticmethod
-    def penalty_time() -> ValidatorBuilder:
+    def penalty_time() -> ValidatorBuilder[int]:
         """
         Validate penalty time in minutes.
 
@@ -158,14 +158,14 @@ class ValidationRules:
         return builder.satisfy(check_reasonable)
 
     @staticmethod
-    def duration() -> ValidatorBuilder:
+    def duration() -> ValidatorBuilder[tuple[int, int, int]]:
         """
         Validate contest duration format.
 
         Rules:
         - Format: "HH:MM:SS" or "HH:MM:SS.mmm"
         """
-        return ValidatorBuilder.string().matches(
+        return ValidatorBuilder.string().matches(  # type: ignore[return-value]
             r"^\d+:\d{2}:\d{2}(\.\d{3})?$",
             message="Duration must be in format 'HH:MM:SS' or 'HH:MM:SS.mmm'",
         )
@@ -175,7 +175,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def config_file_path() -> ValidatorBuilder:
+    def config_file_path() -> ValidatorBuilder[str]:
         """
         Validate YAML configuration file path.
 
@@ -194,7 +194,7 @@ class ValidationRules:
         )
 
     @staticmethod
-    def problem_archive_path() -> ValidatorBuilder:
+    def problem_archive_path() -> ValidatorBuilder[str]:
         """
         Validate problem archive file path.
 
@@ -212,7 +212,7 @@ class ValidationRules:
         )
 
     @staticmethod
-    def teams_file_path() -> ValidatorBuilder:
+    def teams_file_path() -> ValidatorBuilder[str]:
         """
         Validate teams CSV/TSV file path.
 
@@ -234,7 +234,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def team_name() -> ValidatorBuilder:
+    def team_name() -> ValidatorBuilder[str]:
         """
         Validate team name.
 
@@ -247,7 +247,7 @@ class ValidationRules:
         )
 
     @staticmethod
-    def organization_name() -> ValidatorBuilder:
+    def organization_name() -> ValidatorBuilder[str]:
         """
         Validate organization/affiliation name.
 
@@ -261,7 +261,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def email() -> ValidatorBuilder:
+    def email() -> ValidatorBuilder[str]:
         """
         Validate email address.
 
@@ -285,7 +285,7 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def url() -> ValidatorBuilder:
+    def url() -> ValidatorBuilder[str]:
         """
         Validate URL.
 

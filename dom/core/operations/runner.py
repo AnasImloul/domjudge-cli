@@ -52,7 +52,7 @@ class OperationRunner(Generic[T]):
         operation: Operation[T],
         show_progress: bool = True,
         silent: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the operation runner.
 

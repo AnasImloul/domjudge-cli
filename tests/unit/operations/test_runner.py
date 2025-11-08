@@ -55,7 +55,7 @@ class ValidatingOperation(Operation[str]):
 class MockStep(ExecutableStep):
     """A simple mock step for testing."""
 
-    def __init__(self, step_name: str, should_fail: bool = False):
+    def __init__(self, step_name: str, should_fail: bool = False) -> None:
         super().__init__(step_name, f"Execute {step_name}")
         self.should_fail = should_fail
 
@@ -68,7 +68,7 @@ class MockStep(ExecutableStep):
 class SimpleSteppedOperation(SteppedOperation[str]):
     """A simple stepped operation for testing."""
 
-    def __init__(self, steps: list[ExecutableStep]):
+    def __init__(self, steps: list[ExecutableStep]) -> None:
         self.steps_to_execute = steps
 
     def describe(self) -> str:

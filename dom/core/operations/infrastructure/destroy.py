@@ -22,7 +22,7 @@ logger = get_logger(__name__)
 class StopContainersStep(ExecutableStep):
     """Step to stop all infrastructure containers."""
 
-    def __init__(self, destruction_service: InfrastructureDestructionService):
+    def __init__(self, destruction_service: InfrastructureDestructionService) -> None:
         super().__init__("stop_containers", "Stop all containers")
         self.destruction_service = destruction_service
 
@@ -35,7 +35,9 @@ class StopContainersStep(ExecutableStep):
 class ConditionalRemoveVolumesStep(ExecutableStep):
     """Conditional step to remove volumes - skips if not needed."""
 
-    def __init__(self, should_remove: bool, destruction_service: InfrastructureDestructionService):
+    def __init__(
+        self, should_remove: bool, destruction_service: InfrastructureDestructionService
+    ) -> None:
         super().__init__("remove_volumes", "Remove all volumes (PERMANENT)")
         self._should_remove = should_remove
         self.destruction_service = destruction_service
@@ -62,7 +64,7 @@ class DestroyInfrastructureOperation(SteppedOperation[None]):
         self,
         remove_volumes: bool = False,
         destruction_service: InfrastructureDestructionService | None = None,
-    ):
+    ) -> None:
         """
         Initialize infrastructure destruction operation.
 

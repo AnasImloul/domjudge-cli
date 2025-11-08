@@ -4,6 +4,8 @@ This module provides centralized creation of API clients and their dependencies.
 Use this for consistent configuration and easy testing with mocks.
 """
 
+from typing import Any
+
 from dom.constants import DEFAULT_CACHE_TTL, DEFAULT_RATE_BURST, DEFAULT_RATE_LIMIT
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.logging_config import get_logger
@@ -51,7 +53,7 @@ class APIClientFactory:
         default_rate_limit: float = DEFAULT_RATE_LIMIT,
         default_rate_burst: int = DEFAULT_RATE_BURST,
         enable_cache: bool = True,
-    ):
+    ) -> None:
         """
         Initialize the API client factory with immutable configuration.
 
@@ -110,7 +112,7 @@ class APIClientFactory:
         return api
 
     def create_admin_client(
-        self, infra: InfraConfig, secrets: SecretsProvider, **kwargs
+        self, infra: InfraConfig, secrets: SecretsProvider, **kwargs: Any
     ) -> DomJudgeAPI:
         """
         Create an admin API client from infrastructure config.

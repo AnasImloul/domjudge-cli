@@ -30,7 +30,7 @@ def read_teams_file(file_path: Path, delimiter: str | None = None) -> list[list[
 
 
 def parse_from_template(template: str, row: list[str]) -> str:
-    def replacer(match):
+    def replacer(match: re.Match[str]) -> str:
         index = int(match.group(1)) - 1
         if index < 0 or index >= len(row):
             raise IndexError(f"Placeholder '${index + 1}' is out of range for row: {row}")
@@ -45,7 +45,7 @@ def load_teams_from_config(
     team_config: RawTeamsConfig,
     config_path: Path,
     secrets: SecretsProvider,
-):
+) -> list[Team]:
     """
     Load teams from configuration file.
 

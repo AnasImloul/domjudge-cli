@@ -1,6 +1,7 @@
 """Helper functions for infrastructure CLI commands."""
 
 from pathlib import Path
+from typing import Any
 
 import typer
 
@@ -9,7 +10,7 @@ from dom.core.operations import OperationContext, OperationRunner
 from dom.core.operations.infrastructure import LoadInfraConfigOperation
 
 
-def load_infra_config_with_secrets(file: Path | None, verbose: bool = False):
+def load_infra_config_with_secrets(file: Path | None, verbose: bool = False) -> Any:
     """
     Load infrastructure configuration file with secrets manager.
 

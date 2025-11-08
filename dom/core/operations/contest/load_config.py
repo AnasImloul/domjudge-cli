@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class ParseConfigFileStep(ExecutableStep):
     """Step to parse the configuration file."""
 
-    def __init__(self, config_path: Path | None):
+    def __init__(self, config_path: Path | None) -> None:
         super().__init__("parse", "Parse configuration file")
         self.config_path = config_path
 
@@ -36,7 +36,7 @@ class ParseConfigFileStep(ExecutableStep):
 class LoadContestsStep(ExecutableStep):
     """Step to load contest data from config."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("load_contests", "Load contest data")
 
     def execute(self, _context: OperationContext) -> None:
@@ -47,7 +47,7 @@ class LoadContestsStep(ExecutableStep):
 class ValidateConfigStep(ExecutableStep):
     """Step to validate contest configuration."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("validate", "Validate configuration")
 
     def execute(self, _context: OperationContext) -> None:
@@ -63,7 +63,7 @@ class ValidateConfigStep(ExecutableStep):
 class LoadConfigOperation(SteppedOperation[DomConfig]):
     """Load contest configuration from yaml file."""
 
-    def __init__(self, config_path: Path | None = None):
+    def __init__(self, config_path: Path | None = None) -> None:
         """
         Initialize config loading operation.
 

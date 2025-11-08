@@ -11,7 +11,7 @@ from dom.utils.validators import ValidatorBuilder
 console = Console()
 
 
-def initialize_contest():
+def initialize_contest() -> str:
     console.print("\n[bold cyan]Contest Configuration[/bold cyan]")
     console.print("Set up the parameters for your coding contest")
 

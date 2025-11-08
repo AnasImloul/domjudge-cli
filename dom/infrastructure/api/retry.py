@@ -8,7 +8,7 @@ import random
 import time
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from dom.exceptions import APIRateLimitError, PermanentAPIError, RetryableAPIError
 from dom.logging_config import get_logger
@@ -28,7 +28,7 @@ class RetryConfig:
         max_delay: float = 60.0,
         exponential_base: float = 2.0,
         jitter: bool = True,
-    ):
+    ) -> None:
         """
         Initialize retry configuration.
 
@@ -195,7 +195,7 @@ class RetryableOperation:
         ...             retry.record_failure(e)
     """
 
-    def __init__(self, config: RetryConfig | None = None):
+    def __init__(self, config: RetryConfig | None = None) -> None:
         """
         Initialize retryable operation.
 
@@ -210,7 +210,9 @@ class RetryableOperation:
         """Enter retry context."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> Literal[False]:
         """Exit retry context."""
         return False
 

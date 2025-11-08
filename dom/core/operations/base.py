@@ -64,7 +64,7 @@ class ExecutableStep(ABC):
         ...         return load_config(self.config_path)
     """
 
-    def __init__(self, name: str, description: str, weight: float = 1.0):
+    def __init__(self, name: str, description: str, weight: float = 1.0) -> None:
         """
         Initialize an executable step.
 

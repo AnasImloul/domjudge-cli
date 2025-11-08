@@ -34,7 +34,7 @@ class APIError(DomJudgeCliError):
 
     def __init__(
         self, message: str, status_code: int | None = None, response_body: str | None = None
-    ):
+    ) -> None:
         """
         Initialize API error.
 

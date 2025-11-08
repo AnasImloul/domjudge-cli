@@ -22,7 +22,7 @@ class TeamAPIService:
     Handles all team-related API operations.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the team API service.
 

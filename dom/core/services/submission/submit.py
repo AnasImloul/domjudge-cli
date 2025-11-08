@@ -2,7 +2,7 @@ import asyncio
 import re
 from pathlib import Path
 
-from dom.infrastructure.api import DomJudgeAPI
+from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.api.models import JudgingWrapper
 from dom.types.problem import ProblemPackage
 from dom.types.team import Team
@@ -62,7 +62,9 @@ async def submit_problem(
         "wrong_answer": problem.submissions.wrong_answer,
     }
 
-    async def _handle_one(verdict: str, file_name: str, source_bytes: bytes):
+    async def _handle_one(
+        verdict: str, file_name: str, source_bytes: bytes
+    ) -> tuple[JudgingWrapper, tuple[ProblemPackage, str, str]]:
         ext = Path(file_name).suffix
         language = EXTENSION_TO_LANGUAGE.get(ext.lower())
         if language is None:
@@ -107,7 +109,7 @@ async def submit_problem(
             await asyncio.sleep(poll_interval)
 
     # kick off one task per file
-    tasks: list[asyncio.Task] = []
+    tasks: list[asyncio.Task[tuple[JudgingWrapper, tuple[ProblemPackage, str, str]]]] = []
     for verdict, submissions in verdicts.items():
         for fname, fbytes in submissions.items():
             tasks.append(asyncio.create_task(_handle_one(verdict, fname, fbytes)))

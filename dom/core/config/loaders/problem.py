@@ -213,7 +213,7 @@ def load_problem(
 def load_problems_from_config(
     problem_config: Union[RawProblemsConfig, list[RawProblem]],
     config_path: Path,
-):
+) -> list[ProblemPackage]:
     config_dir = config_path.resolve().parent
 
     if isinstance(problem_config, RawProblemsConfig):

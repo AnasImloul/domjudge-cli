@@ -8,8 +8,9 @@ from dom.core.services.base import StateComparatorService
 from dom.domain.team_id_generator import generate_team_username
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.infrastructure.api.factory import APIClientFactory
+from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
-from dom.shared.filesystem import get_secrets_manager
+from dom.shared.filesystem import ensure_dom_directory
 from dom.types.config.processed import ContestConfig, InfraConfig
 from dom.types.secrets import SecretsProvider
 
@@ -121,7 +122,7 @@ class ContestStateComparator(StateComparatorService[ContestConfig, ContestChange
         infra_config: InfraConfig,
         secrets: SecretsProvider,
         client: DomJudgeAPI | None = None,
-    ):
+    ) -> None:
         """
         Initialize contest state comparator.
 
@@ -352,7 +353,7 @@ class ContestStateComparator(StateComparatorService[ContestConfig, ContestChange
         """
         try:
             # Get secrets manager for deterministic hashing
-            secrets = get_secrets_manager()
+            secrets = SecretsManager(ensure_dom_directory())
 
             # Get current teams in contest from API (source of truth)
             current_teams = self.client.teams.list_for_contest(contest_id)

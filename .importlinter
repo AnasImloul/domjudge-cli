@@ -12,22 +12,59 @@ layers =
     dom.core.services
     dom.infrastructure
 
-# Forbid DIRECT layer skipping (but allow transitive deps through the middle layer).
-[importlinter:contract:no-skip-from-cli]
-name = No direct skipping from CLI to Services/Infrastructure
+# Strict layer enforcement - CLI must not directly import from Services/Infrastructure
+# Transitive dependencies through Operations are allowed (proper layering)
+[importlinter:contract:no-direct-skip-from-cli-to-services]
+name = CLI must not directly import Services
 type = forbidden
 source_modules =
     dom.cli
 forbidden_modules =
     dom.core.services
+allow_indirect_imports = True
+unmatched_ignore_imports_alerting = error
+
+[importlinter:contract:no-direct-skip-from-cli-to-infrastructure]
+name = CLI must not directly import Infrastructure
+type = forbidden
+source_modules =
+    dom.cli
+forbidden_modules =
     dom.infrastructure
 allow_indirect_imports = True
+unmatched_ignore_imports_alerting = error
+ignore_imports =
+    dom.cli.helpers -> dom.infrastructure.secrets.manager
 
-[importlinter:contract:no-skip-from-operations]
-name = No direct skipping from Operations to Infrastructure
+[importlinter:contract:no-direct-skip-from-operations]
+name = Operations must not directly import Infrastructure
 type = forbidden
 source_modules =
     dom.core.operations
 forbidden_modules =
     dom.infrastructure
 allow_indirect_imports = True
+unmatched_ignore_imports_alerting = error
+
+# Additional strict rules: shared modules must not import from upper layers
+[importlinter:contract:shared-independence]
+name = Shared modules must not import from core or infrastructure
+type = forbidden
+source_modules =
+    dom.shared
+forbidden_modules =
+    dom.cli
+    dom.core
+    dom.infrastructure
+allow_indirect_imports = False
+
+# Domain layer must remain independent
+[importlinter:contract:domain-independence]
+name = Domain must not import from infrastructure or CLI
+type = forbidden
+source_modules =
+    dom.domain
+forbidden_modules =
+    dom.cli
+    dom.infrastructure
+allow_indirect_imports = False

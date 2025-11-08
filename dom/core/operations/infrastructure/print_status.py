@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 class CheckInfraStatusStep(ExecutableStep):
     """Step to check infrastructure status."""
 
-    def __init__(self, config: InfraConfig | None):
+    def __init__(self, config: InfraConfig | None) -> None:
         super().__init__("check", "Check infrastructure status")
         self.config = config
 
@@ -40,7 +40,7 @@ class CheckInfraStatusStep(ExecutableStep):
 class DisplayStatusStep(ExecutableStep):
     """Step to display infrastructure status."""
 
-    def __init__(self, json_output: bool):
+    def __init__(self, json_output: bool) -> None:
         super().__init__("display", "Display status information")
         self.json_output = json_output
 
@@ -57,7 +57,7 @@ class DisplayStatusStep(ExecutableStep):
 class PrintInfrastructureStatusOperation(SteppedOperation[None]):
     """Check and print infrastructure status."""
 
-    def __init__(self, config: InfraConfig | None = None, json_output: bool = False):
+    def __init__(self, config: InfraConfig | None = None, json_output: bool = False) -> None:
         """
         Initialize status print operation.
 

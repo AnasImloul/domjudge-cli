@@ -23,7 +23,7 @@ class ProblemAPIService:
     Handles all problem-related API operations.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the problem API service.
 

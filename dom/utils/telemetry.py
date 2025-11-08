@@ -6,11 +6,14 @@ structured logging and Prometheus-style metrics.
 """
 
 import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypeVar
 
 from dom.logging_config import get_logger
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 logger = get_logger(__name__)
 
@@ -61,7 +64,7 @@ class MetricsCollector:
         ...     pass
     """
 
-    def __init__(self, enable_export: bool = True):
+    def __init__(self, enable_export: bool = True) -> None:
         """
         Initialize metrics collector.
 
@@ -114,7 +117,9 @@ class MetricsCollector:
         self._record(metric)
 
     @contextmanager
-    def timer(self, name: str, unit: str = "seconds", tags: dict[str, str] | None = None):
+    def timer(
+        self, name: str, unit: str = "seconds", tags: dict[str, str] | None = None
+    ) -> Generator[None, None, None]:
         """
         Context manager for timing operations.
 
@@ -230,7 +235,7 @@ def get_metrics_collector() -> MetricsCollector:
 
 
 # Convenience functions for common operations
-def track_operation(operation_name: str, tags: dict[str, str] | None = None):
+def track_operation(operation_name: str, tags: dict[str, str] | None = None) -> Callable[[F], F]:
     """
     Decorator to track operation metrics.
 
@@ -245,8 +250,8 @@ def track_operation(operation_name: str, tags: dict[str, str] | None = None):
         ...     pass
     """
 
-    def decorator(func):
-        def wrapper(*args, **kwargs):
+    def decorator(func: F) -> F:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             metrics = get_metrics_collector()
 
             # Track invocation
@@ -265,6 +270,6 @@ def track_operation(operation_name: str, tags: dict[str, str] | None = None):
                     )
                     raise
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
     return decorator

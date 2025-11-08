@@ -21,7 +21,7 @@ class OrganizationAPIService:
     Handles all organization-related API operations.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the organization API service.
 

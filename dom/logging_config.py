@@ -27,7 +27,7 @@ class ColoredFormatter(logging.Formatter):
         "CRITICAL": "bold red",
     }
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         levelname = record.levelname
         if levelname in self.COLORS:
             record.levelname = f"[{self.COLORS[levelname]}]{levelname}[/{self.COLORS[levelname]}]"

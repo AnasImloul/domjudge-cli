@@ -45,7 +45,7 @@ Infrastructure vs Core Services
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.logging_config import get_logger
@@ -134,7 +134,7 @@ class Service(ABC, Generic[TEntity]):
         ...         pass
     """
 
-    def __init__(self, client: DomJudgeAPI):
+    def __init__(self, client: DomJudgeAPI) -> None:
         """
         Initialize service with API client.
 
@@ -417,7 +417,7 @@ class StateComparatorService(ABC, Generic[TConfig, TChangeSet]):
         """
 
     @abstractmethod
-    def _fetch_current_state(self, identifier: str):
+    def _fetch_current_state(self, identifier: str) -> Any:
         """
         Fetch current state from source of truth.
 
@@ -461,7 +461,7 @@ class OrchestratorService:
         ...         # Orchestrate multiple services...
     """
 
-    def __init__(self, client: DomJudgeAPI):
+    def __init__(self, client: DomJudgeAPI) -> None:
         """
         Initialize orchestrator service.
 

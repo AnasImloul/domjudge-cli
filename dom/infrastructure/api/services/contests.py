@@ -26,7 +26,7 @@ class ContestAPIService:
     - Updating contests
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the contest API service.
 

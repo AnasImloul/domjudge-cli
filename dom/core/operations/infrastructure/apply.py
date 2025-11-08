@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 class ValidatePrerequisitesStep(ExecutableStep):
     """Step to validate infrastructure prerequisites."""
 
-    def __init__(self, port: int):
+    def __init__(self, port: int) -> None:
         super().__init__("validate", "Validate prerequisites")
         self.port = port
 
@@ -45,7 +45,7 @@ class GenerateComposeStep(ExecutableStep):
         config: InfraConfig,
         deployment_service: InfrastructureDeploymentService,
         judge_password: str = "TEMP",  # nosec B107
-    ):
+    ) -> None:
         super().__init__("generate_compose", "Generate docker-compose.yml")
         self.config = config
         self.deployment_service = deployment_service
@@ -61,7 +61,7 @@ class GenerateComposeStep(ExecutableStep):
 class StartDatabaseStep(ExecutableStep):
     """Step to start MariaDB container."""
 
-    def __init__(self, deployment_service: InfrastructureDeploymentService):
+    def __init__(self, deployment_service: InfrastructureDeploymentService) -> None:
         super().__init__("start_database", "Start MariaDB container")
         self.deployment_service = deployment_service
 
@@ -73,7 +73,7 @@ class StartDatabaseStep(ExecutableStep):
 class StartMySQLClientStep(ExecutableStep):
     """Step to start MySQL client container."""
 
-    def __init__(self, deployment_service: InfrastructureDeploymentService):
+    def __init__(self, deployment_service: InfrastructureDeploymentService) -> None:
         super().__init__("start_mysql_client", "Start MySQL client container")
         self.deployment_service = deployment_service
 
@@ -85,7 +85,7 @@ class StartMySQLClientStep(ExecutableStep):
 class StartDOMServerStep(ExecutableStep):
     """Step to start DOMserver container."""
 
-    def __init__(self, deployment_service: InfrastructureDeploymentService):
+    def __init__(self, deployment_service: InfrastructureDeploymentService) -> None:
         super().__init__("start_domserver", "Start DOMserver container")
         self.deployment_service = deployment_service
 
@@ -97,7 +97,7 @@ class StartDOMServerStep(ExecutableStep):
 class WaitForHealthyStep(ExecutableStep):
     """Step to wait for DOMserver to become healthy."""
 
-    def __init__(self, deployment_service: InfrastructureDeploymentService):
+    def __init__(self, deployment_service: InfrastructureDeploymentService) -> None:
         super().__init__("wait_healthy", "Wait for DOMserver to be healthy")
         self.deployment_service = deployment_service
 
@@ -109,7 +109,7 @@ class WaitForHealthyStep(ExecutableStep):
 class FetchJudgePasswordStep(ExecutableStep):
     """Step to fetch judgedaemon password from DOMserver."""
 
-    def __init__(self, deployment_service: InfrastructureDeploymentService):
+    def __init__(self, deployment_service: InfrastructureDeploymentService) -> None:
         super().__init__("fetch_password", "Fetch judgedaemon password")
         self.deployment_service = deployment_service
 
@@ -126,7 +126,9 @@ class FetchJudgePasswordStep(ExecutableStep):
 class RegenerateComposeStep(ExecutableStep):
     """Step to regenerate docker-compose with real judgedaemon password."""
 
-    def __init__(self, config: InfraConfig, deployment_service: InfrastructureDeploymentService):
+    def __init__(
+        self, config: InfraConfig, deployment_service: InfrastructureDeploymentService
+    ) -> None:
         super().__init__("regenerate_compose", "Regenerate docker-compose with real password")
         self.config = config
         self.deployment_service = deployment_service
@@ -145,7 +147,9 @@ class RegenerateComposeStep(ExecutableStep):
 class StartJudgehostsStep(ExecutableStep):
     """Step to start judgehost containers."""
 
-    def __init__(self, judge_count: int, deployment_service: InfrastructureDeploymentService):
+    def __init__(
+        self, judge_count: int, deployment_service: InfrastructureDeploymentService
+    ) -> None:
         super().__init__("start_judgehosts", f"Start {judge_count} judgehost(s)")
         self.judge_count = judge_count
         self.deployment_service = deployment_service
@@ -158,7 +162,9 @@ class StartJudgehostsStep(ExecutableStep):
 class ConfigureAdminPasswordStep(ExecutableStep):
     """Step to configure admin password."""
 
-    def __init__(self, config: InfraConfig, deployment_service: InfrastructureDeploymentService):
+    def __init__(
+        self, config: InfraConfig, deployment_service: InfrastructureDeploymentService
+    ) -> None:
         super().__init__("configure_admin", "Configure admin password")
         self.config = config
         self.deployment_service = deployment_service
@@ -191,7 +197,7 @@ class ApplyInfrastructureOperation(SteppedOperation[None]):
         self,
         config: InfraConfig,
         deployment_service: InfrastructureDeploymentService | None = None,
-    ):
+    ) -> None:
         """
         Initialize infrastructure application operation.
 

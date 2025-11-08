@@ -11,7 +11,7 @@ from dom.shared.filesystem import check_file_exists
 console = Console()
 
 
-def callback(overwrite: bool):
+def callback(overwrite: bool) -> None:
     console.print(
         Panel.fit(
             "[bold blue]DOMjudge Configuration Wizard[/bold blue]",

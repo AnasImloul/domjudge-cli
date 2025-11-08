@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from typing import Any
 
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
@@ -7,6 +8,7 @@ from dom.core.services.contest.verification import create_temp_contest
 from dom.core.services.submission.submit import submit_problem
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.config.processed import ContestConfig, InfraConfig
+from dom.types.problem import ProblemPackage
 from dom.types.secrets import SecretsProvider
 
 VERDICT = {
@@ -18,7 +20,7 @@ VERDICT = {
 }
 
 
-def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsProvider):
+def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsProvider) -> None:
     """
     Verifies a set of contest problems by running submissions and summarizing results.
 
@@ -41,7 +43,9 @@ def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: Secre
     _print_overall(overall_correct, overall_mismatch)
 
 
-async def _run_submissions(client: DomJudgeAPI, contest_id: str, team, problems):
+async def _run_submissions(
+    client: DomJudgeAPI, contest_id: str, team: Any, problems: list[ProblemPackage]
+) -> list[Any]:
     """
     Submits all problems asynchronously and collects results,
     showing progress with Rich.
@@ -83,7 +87,7 @@ async def _run_submissions(client: DomJudgeAPI, contest_id: str, team, problems)
     return results
 
 
-def _compute_statistics(results):
+def _compute_statistics(results: list[Any]) -> tuple[dict[str, Any], int, int]:
     """
     Aggregates results into per-problem stats and overall counts.
     """
@@ -106,7 +110,7 @@ def _compute_statistics(results):
     return per_problem, overall_correct, overall_mismatch
 
 
-def _print_per_problem_summary(per_problem):
+def _print_per_problem_summary(per_problem: dict[str, Any]) -> None:
     print("\n=== Per-Problem Summary ===")
     for name, stats in per_problem.items():
         print(f"- {name}: {stats['correct_count']} correct, {stats['mismatch_count']} mismatches")
@@ -114,13 +118,13 @@ def _print_per_problem_summary(per_problem):
         _suggest_ac_to_tle(stats)
 
 
-def _print_overall(correct: int, mismatch: int):
+def _print_overall(correct: int, mismatch: int) -> None:
     print("\n=== Overall ===")
     print(f"Total correct:   {correct}")
     print(f"Total mismatches:{mismatch}")
 
 
-def _suggest_tle_to_ac(stats):
+def _suggest_tle_to_ac(stats: dict[str, Any]) -> None:
     """
     For unexpected ACs where expected TLE, suggest tighter timelimit bounds.
     """
@@ -143,7 +147,7 @@ def _suggest_tle_to_ac(stats):
         print(f"  • Suggested timelimit: {suggested:.3f}s ({lower:.3f}s < TL < {upper:.3f}s)")
 
 
-def _suggest_ac_to_tle(stats):
+def _suggest_ac_to_tle(stats: dict[str, Any]) -> None:
     """
     For unexpected TLEs where expected AC, suggest raising timelimit.
     """

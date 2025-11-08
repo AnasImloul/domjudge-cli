@@ -18,7 +18,7 @@ def callback(
     ),
     verbose: bool = False,
     no_color: bool = False,  # noqa: ARG001
-):
+) -> None:
     """
     Initialize the DOMjudge configuration files with an interactive wizard.
 

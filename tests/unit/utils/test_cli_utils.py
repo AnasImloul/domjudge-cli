@@ -9,12 +9,12 @@ import typer
 from dom.cli.helpers import (
     check_file_exists,
     cli_command,
+    get_secrets_manager,
 )
 from dom.exceptions import DomJudgeCliError
 from dom.shared.filesystem import (
     ensure_dom_directory,
     find_config_or_default,
-    get_secrets_manager,
 )
 
 

@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class AnalyzeInfraChangesStep(ExecutableStep):
     """Step to analyze and display infrastructure changes."""
 
-    def __init__(self, config: InfraConfig):
+    def __init__(self, config: InfraConfig) -> None:
         super().__init__("analyze", "Analyze infrastructure changes")
         self.config = config
 
@@ -43,7 +43,7 @@ class AnalyzeInfraChangesStep(ExecutableStep):
 class DisplayInfraChangesStep(ExecutableStep):
     """Step to display infrastructure changes in a user-friendly format."""
 
-    def __init__(self, analyze_step: AnalyzeInfraChangesStep):
+    def __init__(self, analyze_step: AnalyzeInfraChangesStep) -> None:
         super().__init__("display", "Display planned changes")
         self.analyze_step = analyze_step
         self._changes_data: dict[str, Any] | None = None
@@ -107,7 +107,7 @@ class DisplayInfraChangesStep(ExecutableStep):
 class PlanInfraChangesOperation(SteppedOperation[dict[str, Any]]):
     """Plan infrastructure changes without applying them."""
 
-    def __init__(self, config: InfraConfig):
+    def __init__(self, config: InfraConfig) -> None:
         """
         Initialize plan operation.
 

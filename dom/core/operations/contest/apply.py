@@ -23,7 +23,7 @@ logger = get_logger(__name__)
 class ApplyAllContestsStep(ExecutableStep):
     """Step to apply all contests to DomJudge platform."""
 
-    def __init__(self, config: DomConfig):
+    def __init__(self, config: DomConfig) -> None:
         super().__init__("apply", "Apply contests to platform")
         self.config = config
 
@@ -40,7 +40,7 @@ class ApplyAllContestsStep(ExecutableStep):
 class ApplyContestsOperation(SteppedOperation[None]):
     """Apply contest configuration to DomJudge platform."""
 
-    def __init__(self, config: DomConfig):
+    def __init__(self, config: DomConfig) -> None:
         """
         Initialize contest application operation.
 

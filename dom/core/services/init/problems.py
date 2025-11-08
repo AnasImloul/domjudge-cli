@@ -126,7 +126,7 @@ def render_problems_yaml(
     return "\n\n".join(parts)
 
 
-def initialize_problems():
+def initialize_problems() -> str | None:
     console.print("\n[bold cyan]Problems Configuration[/bold cyan]")
     console.print("Add the problems for your contest")
 

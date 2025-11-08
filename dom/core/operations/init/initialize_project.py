@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 class InitializeProjectOperation(Operation[None]):
     """Initialize DomJudge CLI project with configuration files."""
 
-    def __init__(self, overwrite: bool = False):
+    def __init__(self, overwrite: bool = False) -> None:
         """
         Initialize project initialization operation.
 

@@ -1,8 +1,16 @@
 """Declarative contest application service."""
 
+from __future__ import annotations
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TYPE_CHECKING, Any
 
 from dom.core.services.base import OrchestratorService, ServiceContext
+
+if TYPE_CHECKING:
+    from dom.infrastructure.api.domjudge import DomJudgeAPI
+    from dom.types.config.processed import InfraConfig
+    from dom.types.secrets import SecretsProvider
 from dom.core.services.contest.state import ChangeType, ContestStateComparator
 from dom.core.services.problem.apply import ProblemService
 from dom.core.services.team.apply import TeamService
@@ -34,7 +42,9 @@ class ContestApplicationService(OrchestratorService):
     resources (problems, teams) in a clean, declarative manner.
     """
 
-    def __init__(self, client, infra_config, secrets: SecretsProvider):
+    def __init__(
+        self, client: DomJudgeAPI, infra_config: InfraConfig, secrets: SecretsProvider
+    ) -> None:
         """
         Initialize contest application service.
 
@@ -237,7 +247,7 @@ class ContestApplicationService(OrchestratorService):
                 f"Failed to fully configure contest '{contest.shortname}': {error_details}"
             )
 
-    def _apply_problems(self, problems, context: ServiceContext) -> None:
+    def _apply_problems(self, problems: Any, context: ServiceContext) -> None:
         """Apply problems using problem service."""
         results = self.problem_service.create_many(problems, context, stop_on_error=False)
 
@@ -245,7 +255,7 @@ class ContestApplicationService(OrchestratorService):
         if summary["failed"] > 0:
             raise ContestError(f"{summary['failed']} problem(s) failed to add")
 
-    def _apply_teams(self, teams, context: ServiceContext) -> None:
+    def _apply_teams(self, teams: Any, context: ServiceContext) -> None:
         """Apply teams using team service."""
         results = self.team_service.create_many(teams, context, stop_on_error=False)
 

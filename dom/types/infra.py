@@ -5,6 +5,7 @@ not configuration models.
 """
 
 from enum import Enum
+from typing import Any
 
 
 class ServiceStatus(str, Enum):
@@ -20,11 +21,11 @@ class ServiceStatus(str, Enum):
 class InfrastructureStatus:
     """Container for infrastructure status information."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.docker_available: bool = False
         self.docker_error: str | None = None
         self.services: dict[str, ServiceStatus] = {}
-        self.service_details: dict[str, dict] = {}
+        self.service_details: dict[str, dict[str, Any]] = {}
 
     def is_healthy(self) -> bool:
         """Check if all critical services are healthy."""
@@ -38,7 +39,7 @@ class InfrastructureStatus:
 
         return True
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert status to dictionary for JSON output."""
         return {
             "overall_status": "healthy" if self.is_healthy() else "unhealthy",

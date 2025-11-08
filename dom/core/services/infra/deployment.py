@@ -26,7 +26,7 @@ class InfrastructureDeploymentService:
     providing a clean boundary between the operations layer and infrastructure layer.
     """
 
-    def __init__(self, docker_client: DockerClient | None = None):
+    def __init__(self, docker_client: DockerClient | None = None) -> None:
         """
         Initialize the deployment service.
 

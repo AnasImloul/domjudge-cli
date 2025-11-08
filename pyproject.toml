@@ -142,6 +142,7 @@ select = [
     "PTH",    # flake8-use-pathlib
     "PL",     # pylint
     "RUF",    # ruff-specific rules
+    "ANN204", # Require return type annotation for __init__ specifically
 ]
 ignore = [
     "E501",   # line too long (handled by black)
@@ -167,17 +168,37 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 # ===== MyPy - Static Type Checker =====
 [tool.mypy]
 python_version = "3.11"
+# Strict mode settings
+strict = true  # Enable all strict optional checks
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Start relaxed, can tighten later
-disallow_any_unimported = false
+# Require type hints for all functions
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+# Disallow Any types
+disallow_any_unimported = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+# Optional strictness
 no_implicit_optional = true
+strict_optional = true
+# Warnings
 warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
+warn_unreachable = true
+# Miscellaneous strictness
 check_untyped_defs = true
 strict_equality = true
+strict_concatenate = true
 ignore_missing_imports = false
+# Ensure functions are fully typed
+disallow_any_explicit = false  # Allow explicit Any when needed
+# Error messages
+show_error_codes = true
+show_error_context = true
 
 [[tool.mypy.overrides]]
 module = [

@@ -1,7 +1,7 @@
 import datetime
 
 
-def format_datetime(date_str):
+def format_datetime(date_str: str) -> str:
     """Convert datetime string to ISO 8601 format with timezone"""
     try:
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
@@ -10,7 +10,7 @@ def format_datetime(date_str):
         return date_str
 
 
-def format_duration(duration_str):
+def format_duration(duration_str: str) -> str:
     """Format duration to include milliseconds"""
     if "." not in duration_str:
         return duration_str + ".000"

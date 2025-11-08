@@ -52,7 +52,7 @@ class DomJudgeClient:
         retry_config: RetryConfig | None = None,
         enable_circuit_breaker: bool = True,
         circuit_breaker_config: CircuitBreakerConfig | None = None,
-    ):
+    ) -> None:
         """
         Initialize the DOMjudge API client.
 
@@ -174,7 +174,11 @@ class DomJudgeClient:
             )
 
     def _get_internal(
-        self, path: str, cache_key: str | None = None, cache_ttl: int | None = None, **kwargs
+        self,
+        path: str,
+        cache_key: str | None = None,
+        cache_ttl: int | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """Internal GET implementation without retry/circuit breaker."""
         # Check cache
@@ -206,7 +210,11 @@ class DomJudgeClient:
             raise APINetworkError(f"Network error: {e}") from e
 
     def get(
-        self, path: str, cache_key: str | None = None, cache_ttl: int | None = None, **kwargs
+        self,
+        path: str,
+        cache_key: str | None = None,
+        cache_ttl: int | None = None,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         """
         Perform GET request with caching, retry, and circuit breaker.
@@ -244,7 +252,7 @@ class DomJudgeClient:
             return _call_with_cb()
 
     def _post_internal(
-        self, path: str, invalidate_cache: str | None = None, **kwargs
+        self, path: str, invalidate_cache: str | None = None, **kwargs: Any
     ) -> dict[str, Any]:
         """Internal POST implementation without retry/circuit breaker."""
         # Rate limit
@@ -265,7 +273,7 @@ class DomJudgeClient:
             logger.error(f"Network error during POST {path}: {e}")
             raise APINetworkError(f"Network error: {e}") from e
 
-    def post(self, path: str, invalidate_cache: str | None = None, **kwargs) -> dict[str, Any]:
+    def post(self, path: str, invalidate_cache: str | None = None, **kwargs: Any) -> dict[str, Any]:
         """
         Perform POST request with retry and circuit breaker.
 
@@ -301,7 +309,7 @@ class DomJudgeClient:
             return _call_with_cb()
 
     def _put_internal(
-        self, path: str, invalidate_cache: str | None = None, **kwargs
+        self, path: str, invalidate_cache: str | None = None, **kwargs: Any
     ) -> dict[str, Any]:
         """Internal PUT implementation without retry/circuit breaker."""
         # Rate limit
@@ -322,7 +330,7 @@ class DomJudgeClient:
             logger.error(f"Network error during PUT {path}: {e}")
             raise APINetworkError(f"Network error: {e}") from e
 
-    def put(self, path: str, invalidate_cache: str | None = None, **kwargs) -> dict[str, Any]:
+    def put(self, path: str, invalidate_cache: str | None = None, **kwargs: Any) -> dict[str, Any]:
         """
         Perform PUT request with retry and circuit breaker.
 
@@ -357,7 +365,9 @@ class DomJudgeClient:
         else:
             return _call_with_cb()
 
-    def _delete_internal(self, path: str, invalidate_cache: str | None = None, **kwargs) -> None:
+    def _delete_internal(
+        self, path: str, invalidate_cache: str | None = None, **kwargs: Any
+    ) -> None:
         """Internal DELETE implementation without retry/circuit breaker."""
         # Rate limit
         self.rate_limiter.acquire()
@@ -375,7 +385,7 @@ class DomJudgeClient:
             logger.error(f"Network error during DELETE {path}: {e}")
             raise APINetworkError(f"Network error: {e}") from e
 
-    def delete(self, path: str, invalidate_cache: str | None = None, **kwargs) -> None:
+    def delete(self, path: str, invalidate_cache: str | None = None, **kwargs: Any) -> None:
         """
         Perform DELETE request with retry and circuit breaker.
 

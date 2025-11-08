@@ -9,8 +9,9 @@ from pydantic import SecretStr
 
 from dom.constants import ContainerNames
 from dom.core.services.base import StateComparatorService
+from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import get_logger
-from dom.shared.filesystem import get_container_prefix, get_secrets_manager
+from dom.shared.filesystem import ensure_dom_directory, get_container_prefix
 from dom.types.config.processed import InfraConfig
 
 logger = get_logger(__name__)
@@ -96,7 +97,7 @@ class InfraStateComparator(StateComparatorService[InfraConfig, InfraChangeSet]):
     - Unsafe: Port changes, password changes (require restart)
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize infrastructure state comparator."""
         self.container_prefix = get_container_prefix()
 
@@ -210,7 +211,7 @@ class InfraStateComparator(StateComparatorService[InfraConfig, InfraChangeSet]):
             judges = self._count_judgehost_containers()
 
             # Get password from secrets (already stored there)
-            secrets = get_secrets_manager()
+            secrets = SecretsManager(ensure_dom_directory())
             password = secrets.get("admin_password")
 
             if not password:

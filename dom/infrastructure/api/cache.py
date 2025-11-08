@@ -26,7 +26,7 @@ class TTLCache:
         max_size: Maximum number of entries (None = unlimited)
     """
 
-    def __init__(self, default_ttl: int = 300, max_size: int | None = 1000):
+    def __init__(self, default_ttl: int = 300, max_size: int | None = 1000) -> None:
         """
         Initialize the TTL cache.
 

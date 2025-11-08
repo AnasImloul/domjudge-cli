@@ -24,7 +24,7 @@ class SubmissionAPIService:
     Handles all submission-related API operations.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the submission API service.
 

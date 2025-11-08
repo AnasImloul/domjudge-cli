@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class LoadSingleContestStep(ExecutableStep):
     """Step to load a single contest configuration."""
 
-    def __init__(self, config_path: Path | None, contest_name: str):
+    def __init__(self, config_path: Path | None, contest_name: str) -> None:
         super().__init__("load", "Load contest configuration")
         self.config_path = config_path
         self.contest_name = contest_name
@@ -37,7 +37,7 @@ class LoadSingleContestStep(ExecutableStep):
 class ValidateSingleContestStep(ExecutableStep):
     """Step to validate single contest configuration."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("validate", "Validate contest configuration")
 
     def execute(self, _context: OperationContext) -> None:
@@ -53,7 +53,7 @@ class ValidateSingleContestStep(ExecutableStep):
 class LoadContestConfigOperation(SteppedOperation[ContestConfig]):
     """Load a single contest configuration."""
 
-    def __init__(self, config_path: Path | None, contest_name: str):
+    def __init__(self, config_path: Path | None, contest_name: str) -> None:
         """
         Initialize single contest loading operation.
 

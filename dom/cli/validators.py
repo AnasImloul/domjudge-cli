@@ -21,6 +21,8 @@ def validate_contest_name(value: str | None) -> str | None:
     Uses: ValidationRules.contest_name()
     Rules: See dom.validation.rules.ValidationRules.contest_name()
     """
+    if value is None:
+        return None
     return for_typer(ValidationRules.contest_name())(value)  # type: ignore[no-any-return]
 
 
@@ -46,7 +48,7 @@ def validate_port(value: int | None) -> int | None:
     """
     if value is None:
         return None
-    return for_typer(ValidationRules.port())(value)  # type: ignore[no-any-return]
+    return for_typer(ValidationRules.port())(value)  # type: ignore[no-any-return,arg-type]
 
 
 def validate_judges_count(value: int | None) -> int | None:
@@ -58,7 +60,7 @@ def validate_judges_count(value: int | None) -> int | None:
     """
     if value is None:
         return None
-    return for_typer(ValidationRules.judges_count())(value)  # type: ignore[no-any-return]
+    return for_typer(ValidationRules.judges_count())(value)  # type: ignore[no-any-return,arg-type]
 
 
 # ------------------------------------------------------------
@@ -73,6 +75,8 @@ def validate_shortname(value: str | None) -> str | None:
     Uses: ValidationRules.contest_shortname()
     Rules: See dom.validation.rules.ValidationRules.contest_shortname()
     """
+    if value is None:
+        return None
     return for_typer(ValidationRules.contest_shortname())(value)  # type: ignore[no-any-return]
 
 
@@ -83,7 +87,7 @@ def validate_email(value: str | None) -> str | None:
     Uses: ValidationRules.email()
     Rules: See dom.validation.rules.ValidationRules.email()
     """
-    return for_typer(ValidationRules.email())(value)  # type: ignore[no-any-return]
+    return for_typer(ValidationRules.email())(value)  # type: ignore[no-any-return,arg-type]
 
 
 def validate_url(value: str | None) -> str | None:
@@ -93,4 +97,6 @@ def validate_url(value: str | None) -> str | None:
     Uses: ValidationRules.url()
     Rules: See dom.validation.rules.ValidationRules.url()
     """
+    if value is None:
+        return None
     return for_typer(ValidationRules.url())(value)  # type: ignore[no-any-return]

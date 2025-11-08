@@ -26,7 +26,7 @@ class DockerClient:
     Encapsulates Docker command execution with proper error handling and logging.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initialize Docker client.
 

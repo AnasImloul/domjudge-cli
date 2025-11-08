@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 class LoadInfraConfigFileStep(ExecutableStep):
     """Step to load infrastructure configuration from file."""
 
-    def __init__(self, config_path: Path | None):
+    def __init__(self, config_path: Path | None) -> None:
         super().__init__("load", "Load configuration file")
         self.config_path = config_path
 
@@ -36,7 +36,7 @@ class LoadInfraConfigFileStep(ExecutableStep):
 class ValidateInfraConfigStep(ExecutableStep):
     """Step to validate infrastructure configuration schema."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("validate", "Validate configuration schema")
 
     def execute(self, _context: OperationContext) -> None:
@@ -52,7 +52,7 @@ class ValidateInfraConfigStep(ExecutableStep):
 class LoadInfraConfigOperation(SteppedOperation[InfraConfig]):
     """Load infrastructure configuration from file."""
 
-    def __init__(self, config_path: Path | None = None):
+    def __init__(self, config_path: Path | None = None) -> None:
         """
         Initialize infra config loading operation.
 

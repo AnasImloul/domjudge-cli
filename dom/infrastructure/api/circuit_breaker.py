@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable
 from enum import Enum
 from threading import Lock
-from typing import TypeVar
+from typing import Any, Literal, TypeVar
 
 from dom.exceptions import APIError
 from dom.logging_config import get_logger
@@ -41,7 +41,7 @@ class CircuitBreakerConfig:
         failure_threshold: int = 5,
         recovery_timeout: float = 30.0,
         success_threshold: int = 2,
-    ):
+    ) -> None:
         """
         Initialize circuit breaker configuration.
 
@@ -73,7 +73,7 @@ class CircuitBreaker:
         ...     result = api.call()
     """
 
-    def __init__(self, name: str, config: CircuitBreakerConfig | None = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig | None = None) -> None:
         """
         Initialize circuit breaker.
 
@@ -196,7 +196,7 @@ class CircuitBreaker:
                 if self._failure_count >= self.config.failure_threshold:
                     self._transition_to_open()
 
-    def call(self, func: Callable[..., T], *args, **kwargs) -> T:
+    def call(self, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
         """
         Execute function with circuit breaker protection.
 
@@ -246,11 +246,17 @@ class CircuitBreaker:
 
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> Literal[False]:
         """Exit circuit breaker context."""
         if exc_type is None:
             self.record_success()
-        elif exc_type is not CircuitBreakerError:
+        elif (
+            exc_type is not CircuitBreakerError
+            and exc_val is not None
+            and isinstance(exc_val, Exception)
+        ):
             self.record_failure(exc_val)
         return False
 

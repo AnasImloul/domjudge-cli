@@ -19,7 +19,7 @@ class UserAPIService:
     Handles all user-related API operations.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the user API service.
 

@@ -6,6 +6,7 @@ This module provides health check functionality for DOMjudge infrastructure.
 import json
 import subprocess  # nosec B404
 from pathlib import Path
+from typing import Any
 
 import yaml
 from rich import box
@@ -129,7 +130,7 @@ def check_infrastructure_status(config: InfraConfig | None = None) -> Infrastruc
 
 def _check_container_status(
     docker: DockerClient, container_name: str
-) -> tuple[ServiceStatus, dict]:
+) -> tuple[ServiceStatus, dict[str, Any]]:
     """
     Check the status of a specific container.
 

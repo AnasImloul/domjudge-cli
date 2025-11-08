@@ -75,7 +75,7 @@ class DomJudgeAPI:
         cache_ttl: int = DEFAULT_CACHE_TTL,
         rate_limit: float = DEFAULT_RATE_LIMIT,
         rate_burst: int = DEFAULT_RATE_BURST,
-    ):
+    ) -> None:
         """
         Initialize the DOMjudge API client.
 

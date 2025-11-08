@@ -17,7 +17,7 @@ test: ## Run tests with coverage
 	pytest --cov --cov-report=term-missing --cov-report=html -v
 
 lint: ## Run all linters
-	ruff check .
+	ruff check . --exit-non-zero-on-fix
 	ruff format --check .
 	bandit -c pyproject.toml -r dom/ -q
 	lint-imports

@@ -21,7 +21,7 @@ class RateLimiter:
     Thread-safe implementation.
     """
 
-    def __init__(self, rate: float = 10.0, burst: int = 20):
+    def __init__(self, rate: float = 10.0, burst: int = 20) -> None:
         """
         Initialize the rate limiter.
 

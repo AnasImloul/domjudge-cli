@@ -3,6 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import jmespath
 import typer
@@ -37,7 +38,7 @@ def inspect_command(
         data = jmespath.search(format, data)
 
     # Custom JSON encoder to handle datetime objects
-    def json_serializer(obj):
+    def json_serializer(obj: Any) -> str:
         if isinstance(obj, datetime):
             return obj.isoformat()
         raise TypeError(f"Type {type(obj)} not serializable")

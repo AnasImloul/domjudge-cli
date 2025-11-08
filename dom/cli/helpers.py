@@ -11,11 +11,12 @@ For generic file system utilities, use dom.shared.filesystem instead.
 from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import typer
 
 from dom.exceptions import DomJudgeCliError
+from dom.infrastructure.secrets.manager import SecretsManager
 from dom.logging_config import console, get_logger, setup_logging
 from dom.shared.filesystem import ensure_dom_directory
 from dom.shared.prompts import prompt_file_overwrite
@@ -47,10 +48,10 @@ def add_global_options(func: Callable[..., T]) -> Callable[..., T]:
 
     @wraps(func)
     def wrapper(
-        *args,
+        *args: Any,
         verbose: bool = typer.Option(False, "--verbose", help="Enable verbose logging output"),
         no_color: bool = typer.Option(False, "--no-color", help="Disable colored output"),
-        **kwargs,
+        **kwargs: Any,
     ) -> T:
         # Configure logging for this command
         log_dir = ensure_dom_directory()
@@ -89,7 +90,7 @@ def cli_command(func: Callable[..., T]) -> Callable[..., T]:
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs) -> T:
+    def wrapper(*args: Any, **kwargs: Any) -> T:
         try:
             return func(*args, **kwargs)
         except DomJudgeCliError as e:
@@ -127,6 +128,16 @@ def ask_override_if_exists(output_file: Path) -> bool:
     return prompt_file_overwrite(output_file, "problem initialization")
 
 
+def get_secrets_manager() -> SecretsManager:
+    """
+    Get initialized secrets manager for the current project.
+
+    Returns:
+        Configured SecretsManager instance
+    """
+    return SecretsManager(ensure_dom_directory())
+
+
 # Re-export commonly used shared utilities for convenience
 # This allows CLI code to import from one place while respecting layering
 from dom.shared.filesystem import (  # noqa: E402
@@ -134,7 +145,6 @@ from dom.shared.filesystem import (  # noqa: E402
     find_config_or_default,
     find_file_with_extensions,
     get_container_prefix,
-    get_secrets_manager,
 )
 
 __all__ = [

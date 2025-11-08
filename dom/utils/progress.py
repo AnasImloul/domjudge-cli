@@ -6,9 +6,10 @@ for better user experience and automation integration.
 
 import json
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from rich.progress import (
     BarColumn,
@@ -22,6 +23,8 @@ from rich.progress import (
 )
 
 from dom.logging_config import console, get_logger
+
+ProgressTask = TaskID  # Type alias for progress task IDs
 
 logger = get_logger(__name__)
 
@@ -40,7 +43,7 @@ class ProgressTracker:
         ...         tracker.update(task, advance=1, status=f"Step {i}")
     """
 
-    def __init__(self, json_output: bool = False, show_percentage: bool = True):
+    def __init__(self, json_output: bool = False, show_percentage: bool = True) -> None:
         """
         Initialize progress tracker.
 
@@ -76,7 +79,9 @@ class ProgressTracker:
         return Progress(*columns, console=console)
 
     @contextmanager
-    def track(self, description: str, total: int | None = None):
+    def track(
+        self, description: str, total: int | None = None
+    ) -> Generator[ProgressTask, None, None]:
         """
         Context manager for tracking a task.
 
@@ -102,7 +107,7 @@ class ProgressTracker:
                 "timestamp": self._get_timestamp(),
             }
             self._emit_json(event)
-            yield description  # Use description as task ID in JSON mode
+            yield description  # type: ignore[misc]  # Use description as task ID in JSON mode
         else:
             # Progress bar mode
             if self._progress is None:
@@ -181,7 +186,9 @@ class ProgressTracker:
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> Literal[False]:
         """Exit context manager."""
         self.finish()
         return False

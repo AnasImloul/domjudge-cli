@@ -5,7 +5,7 @@ import os
 import re
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 
 # --- Reuse the user's Invalid error type ---
@@ -17,7 +17,7 @@ T = TypeVar("T")
 U = TypeVar("U")
 Number = TypeVar("Number", int, float)
 
-S = TypeVar("S", bound="ValidatorBuilder")
+S = TypeVar("S", bound="ValidatorBuilder[Any]")
 
 
 # ------------------------------------------------------------
@@ -35,7 +35,7 @@ class ValidatorBuilder(Generic[T]):
     Call .build() to get the final function:  (str) -> T
     """
 
-    def __init__(self, parser: Callable[[str], T] | None = None):
+    def __init__(self, parser: Callable[[str], T] | None = None) -> None:
         self._parser: Callable[[str], T] = parser or (lambda s: s)  # type: ignore
         self._transforms: list[Callable[[T], T]] = []
         self._checks: list[Callable[[T], None]] = []
@@ -145,8 +145,8 @@ class ValidatorBuilder(Generic[T]):
 # StringBuilder
 # ------------------------------------------------------------
 class StringBuilder(ValidatorBuilder[str]):
-    def __init__(self, *, none_as_empty: bool = False, coerce: bool = False):
-        def _parse(s) -> str:
+    def __init__(self, *, none_as_empty: bool = False, coerce: bool = False) -> None:
+        def _parse(s: Any) -> str:
             # Handle None first
             if s is None:
                 if none_as_empty:
@@ -205,7 +205,7 @@ class StringBuilder(ValidatorBuilder[str]):
 # NumberBuilder
 # ------------------------------------------------------------
 class NumberBuilder(ValidatorBuilder[Number], Generic[Number]):
-    def __init__(self, caster: Callable[[str], Number], *, kind_name: str = "number"):
+    def __init__(self, caster: Callable[[str], Number], *, kind_name: str = "number") -> None:
         # Robust parse with good error messages
         def _parse(s: str) -> Number:
             try:
@@ -237,7 +237,7 @@ class NumberBuilder(ValidatorBuilder[Number], Generic[Number]):
 # Datetime builder
 # ------------------------------------------------------------
 class DateTimeBuilder(ValidatorBuilder[dt.datetime]):
-    def __init__(self, fmt: str):
+    def __init__(self, fmt: str) -> None:
         def _parse(s: str) -> dt.datetime:
             try:
                 return dt.datetime.strptime(s.strip(), fmt)
@@ -264,7 +264,7 @@ class DateTimeBuilder(ValidatorBuilder[dt.datetime]):
 # Duration HH:MM:SS -> (h, m, s)
 # ------------------------------------------------------------
 class DurationBuilder(ValidatorBuilder[tuple[int, int, int]]):
-    def __init__(self):
+    def __init__(self) -> None:
         def _parse(s: str) -> tuple[int, int, int]:
             try:
                 h, m, sec = map(int, s.split(":"))
@@ -281,7 +281,7 @@ class DurationBuilder(ValidatorBuilder[tuple[int, int, int]]):
 # Path (string)
 # ------------------------------------------------------------
 class PathBuilder(ValidatorBuilder[str]):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(parser=lambda s: s.strip())
 
     # ---- reusable checks ----
@@ -313,7 +313,7 @@ class PathBuilder(ValidatorBuilder[str]):
 class PortBuilder(NumberBuilder[int]):
     """Specialized validator for network port numbers."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(int, kind_name="port number")
         # Standard port validation
         self.min(1).max(65535)

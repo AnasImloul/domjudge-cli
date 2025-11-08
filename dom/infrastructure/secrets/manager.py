@@ -81,7 +81,7 @@ class SecretsManager(SecretsProvider):
         >>> value = manager.get_secret("api_key")
     """
 
-    def __init__(self, secrets_dir: Path):
+    def __init__(self, secrets_dir: Path) -> None:
         """
         Initialize the secrets manager.
 
@@ -129,7 +129,7 @@ class SecretsManager(SecretsProvider):
         except Exception as e:
             raise SecretsError(f"Failed to load secrets: {e}") from e
 
-    def _save_secrets(self, secrets: dict) -> None:
+    def _save_secrets(self, secrets: dict[str, str]) -> None:
         """Encrypt and save all secrets to disk."""
         try:
             json_data = json.dumps(secrets, indent=2)

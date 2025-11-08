@@ -6,8 +6,6 @@ Generic file system operations that don't depend on CLI or domain logic.
 from hashlib import sha256
 from pathlib import Path
 
-from dom.infrastructure.secrets.manager import SecretsManager
-
 
 def ensure_dom_directory() -> Path:
     """
@@ -45,16 +43,6 @@ def get_container_prefix() -> str:
     path_hash = sha256(str(cwd).encode()).hexdigest()[:6]
 
     return f"domjudge-{path_hash}"
-
-
-def get_secrets_manager() -> SecretsManager:
-    """
-    Get initialized secrets manager for the current project.
-
-    Returns:
-        Configured SecretsManager instance
-    """
-    return SecretsManager(ensure_dom_directory())
 
 
 def find_file_with_extensions(

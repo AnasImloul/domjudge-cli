@@ -7,7 +7,7 @@ and thread pools, preventing resource exhaustion from unbounded parallelism.
 import threading
 from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from typing import Any, TypeVar
+from typing import Any, Literal, TypeVar
 
 from dom.constants import MAX_CONCURRENT_PROBLEM_OPERATIONS, MAX_CONCURRENT_TEAM_OPERATIONS
 from dom.logging_config import get_logger
@@ -30,7 +30,7 @@ class BoundedExecutor:
         >>> results = executor.map(process_item, items)
     """
 
-    def __init__(self, max_workers: int, max_concurrent: int | None = None):
+    def __init__(self, max_workers: int, max_concurrent: int | None = None) -> None:
         """
         Initialize bounded executor.
 
@@ -163,7 +163,9 @@ class BoundedExecutor:
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any
+    ) -> Literal[False]:
         """Exit context manager."""
         self.shutdown(wait=True)
         return False

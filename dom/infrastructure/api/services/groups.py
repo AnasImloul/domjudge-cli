@@ -20,7 +20,7 @@ class GroupAPIService:
     appear on each contest's scoreboard.
     """
 
-    def __init__(self, client: DomJudgeClient):
+    def __init__(self, client: DomJudgeClient) -> None:
         """
         Initialize the group API service.
 
