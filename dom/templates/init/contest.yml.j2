@@ -15,4 +15,4 @@ contests:
       rows: "{{ rows }}"
       name: "${{ name_column }}"
       affiliation: "${{ affiliation_column }}"
-      country: "${{ country_column }}"
+      {% if country_column %}country: "${{ country_column }}"{% endif %}

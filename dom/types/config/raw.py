@@ -59,7 +59,7 @@ class RawTeam(BaseModel):
     """Inline team definition in YAML."""
     name: str
     affiliation: str
-    country: str 
+    country: str | None = None  # ISO 3166-1 alpha-3 country code (optional)
 
     class Config:
         frozen = True
@@ -72,7 +72,7 @@ class RawTeamsConfig(BaseModel):
     rows: str
     name: str
     affiliation: str
-    country: str  # ISO 3166-1 alpha-3 country code (e.g., "MAR", "USA", "FRA")
+    country: str | None = None  # ISO 3166-1 alpha-3 country code (optional)
 
     class Config:
         frozen = True

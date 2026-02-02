@@ -145,14 +145,23 @@ def initialize_contest():
         affiliation_column = validate_column_index(affiliation_input, num_columns)
 
     country_column = None
-    while country_column is None:
-        country_input = ask(
-            "Country column",
-            console=console,
-            default="3",
-            parser=ValidatorBuilder.string().strip().non_empty().build(),
-        )
+    country_input = ask(
+        "Country column (optional, press Enter to skip)",
+        console=console,
+        default="",
+        parser=ValidatorBuilder.string().strip().build(),
+    )
+    if country_input:
         country_column = validate_column_index(country_input, num_columns)
+        while country_column is None and country_input:
+            country_input = ask(
+                "Country column (optional, press Enter to skip)",
+                console=console,
+                default="",
+                parser=ValidatorBuilder.string().strip().build(),
+            )
+            if country_input:
+                country_column = validate_column_index(country_input, num_columns)
 
     # Auto-detect row range based on confirmed header status
     total_rows = count_csv_rows(teams_file_path, delimiter)
@@ -203,7 +212,7 @@ def initialize_contest():
     table.add_row("Teams row range", rows)
     table.add_row("Name column", f"{name_column}")
     table.add_row("Affiliation column", f"{affiliation_column}")
-    table.add_row("Country column", f"{country_column}")
+    table.add_row("Country column", f"{country_column}" if country_column else "(not specified)")
     console.print(table)
 
     rendered = contest_template.render(

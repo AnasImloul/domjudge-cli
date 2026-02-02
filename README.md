@@ -717,7 +717,7 @@ teams:
 |-------|------|----------|-------------|
 | `name` | string | Yes | Team display name |
 | `affiliation` | string | Yes | Organization name |
-| `country` | string | Yes | 3-letter code (USA, CAN, etc.) |
+| `country` | string | No | 3-letter code (USA, CAN, etc.) |
 
 #### CSV File Format
 
@@ -742,7 +742,7 @@ teams:
 | `rows` | string | Yes | Row range to import (e.g., `"2-50"`) |
 | `name` | string | Yes | Column mapping for team name (e.g., `"$2"`) |
 | `affiliation` | string | Yes | Column mapping for affiliation (e.g., `"$3"`) |
-| `country` | string | Yes | Column mapping for country code (e.g., `"$4"`) |
+| `country` | string | No | Column mapping for country code (e.g., `"$4"`) |
 
 **Interactive Column Mapping:**
 

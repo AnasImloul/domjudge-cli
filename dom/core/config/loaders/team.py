@@ -124,8 +124,9 @@ def load_teams_from_config(
                 if team_config.affiliation.strip()
                 else None
             )
-            # Country is now required - parse from template
-            country = parse_from_template(team_config.country, row).strip()
+            country = None
+            if team_config.country and team_config.country.strip():
+                country = parse_from_template(team_config.country, row).strip()
 
             teams.append(
                 Team(
