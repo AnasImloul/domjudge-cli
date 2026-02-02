@@ -12,6 +12,7 @@ contests:
     teams:
       from: "{{ teams }}"
       delimiter: "{{ delimiter }}"
-      rows: "2-50"
-      name: "$2"
-      affiliation: "$3"
+      rows: "{{ rows }}"
+      name: "${{ name_column }}"
+      affiliation: "${{ affiliation_column }}"
+      country: "${{ country_column }}"

@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 from dom.logging_config import get_logger
-from dom.types.config.raw import RawTeamsConfig
+from dom.types.config.raw import RawTeam, RawTeamsConfig
 from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
 
@@ -42,21 +42,53 @@ def parse_from_template(template: str, row: list[str]) -> str:
 
 
 def load_teams_from_config(
-    team_config: RawTeamsConfig,
+    team_config: RawTeamsConfig | list[RawTeam],
     config_path: Path,
     secrets: SecretsProvider,
 ):
     """
     Load teams from configuration file.
 
+    Supports two formats:
+    1. CSV/TSV file (RawTeamsConfig)
+    2. Inline YAML list (list[RawTeam])
+
     Args:
-        team_config: Raw team configuration
+        team_config: Raw team configuration (CSV config or inline list)
         config_path: Path to config file for relative path resolution
         secrets: Secrets manager for generating deterministic passwords
 
     Returns:
         List of Team objects
     """
+    # Handle inline YAML team definitions
+    if isinstance(team_config, list):
+        logger.info(f"Loading {len(team_config)} teams from inline YAML configuration")
+        teams = []
+        for raw_team in team_config:
+            team = Team(
+                name=raw_team.name,
+                password=secrets.generate_deterministic_password(
+                    seed=raw_team.name.strip(), length=10
+                ),
+                affiliation=raw_team.affiliation,
+                country=raw_team.country,
+            )
+            teams.append(team)
+        
+        # Validate no duplicate team names
+        team_names = [team.name for team in teams]
+        if len(team_names) != len(set(team_names)):
+            duplicates = {name for name in team_names if team_names.count(name) > 1}
+            raise ValueError(
+                f"Duplicate team names detected within the same contest: {', '.join(duplicates)}. "
+                f"Teams within a contest must have unique names to avoid ambiguity on the leaderboard."
+            )
+        
+        logger.info(f"Successfully loaded {len(teams)} teams from inline configuration")
+        return teams
+
+    # Handle CSV/TSV file-based configuration
     # Resolve file_path relative to the directory of config_path
     config_dir = config_path.resolve().parent
     file_path = config_dir / team_config.from_
@@ -92,14 +124,8 @@ def load_teams_from_config(
                 if team_config.affiliation.strip()
                 else None
             )
-            # Country can be a template ($N) or a constant value
-            # parse_from_template handles both: returns constant as-is, replaces $N with column value
-            # If not specified, the Team model will set it to DEFAULT_COUNTRY_CODE
-            country = (
-                parse_from_template(team_config.country, row).strip()
-                if team_config.country and team_config.country.strip()
-                else None
-            )
+            # Country is now required - parse from template
+            country = parse_from_template(team_config.country, row).strip()
 
             teams.append(
                 Team(
@@ -108,7 +134,7 @@ def load_teams_from_config(
                         seed=team_name.strip(), length=10
                     ),
                     affiliation=affiliation.strip() or None,  # type: ignore[union-attr]
-                    country=country.strip() or None if country else None,
+                    country=country,
                 )
             )
 

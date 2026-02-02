@@ -39,13 +39,14 @@ contests:
       rows: "2-10"
       name: "$2"
       affiliation: "$3"
+      country: "$4"
 """
     config_file = tmp_path / "test-config.yaml"
     config_file.write_text(config_content)
 
     # Also create a dummy teams file
     teams_file = tmp_path / "teams.csv"
-    teams_file.write_text("id,name,affiliation\n1,Team A,School A\n")
+    teams_file.write_text("id,name,affiliation,country\n1,Team A,School A,USA\n")
 
     return config_file
 

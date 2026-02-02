@@ -55,13 +55,24 @@ class RawProblem(BaseModel):
         frozen = True
 
 
+class RawTeam(BaseModel):
+    """Inline team definition in YAML."""
+    name: str
+    affiliation: str
+    country: str 
+
+    class Config:
+        frozen = True
+
+
 class RawTeamsConfig(BaseModel):
+    """CSV/TSV file-based team configuration."""
     from_: str = Field(alias="from")
     delimiter: str | None = None
     rows: str
     name: str
     affiliation: str
-    country: str | None = None  # ISO 3166-1 alpha-3 country code (e.g., "MAR", "USA", "FRA")
+    country: str  # ISO 3166-1 alpha-3 country code (e.g., "MAR", "USA", "FRA")
 
     class Config:
         frozen = True
@@ -78,7 +89,7 @@ class RawContestConfig(BaseModel):
     allow_submit: bool = True
 
     problems: Union[RawProblemsConfig, list[RawProblem]]
-    teams: RawTeamsConfig
+    teams: Union[RawTeamsConfig, list[RawTeam]]
 
     # Use centralized validation rules
     validate_name = field_validator("name")(for_pydantic(ValidationRules.contest_name()))
