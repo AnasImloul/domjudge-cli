@@ -178,7 +178,7 @@ class StringBuilder(ValidatorBuilder[str]):
         return self.transform(lambda s: s.replace(_from, _to))
 
     def repr(self) -> StringBuilder:
-        return self.transform(lambda s: repr(s))
+        return self.transform(repr)
 
     # checks
     def non_empty(self, message: str = "This field cannot be empty.") -> StringBuilder:
