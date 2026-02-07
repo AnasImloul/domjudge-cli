@@ -26,7 +26,7 @@ classifiers = [
 
 dependencies = [
     # Core Runtime Dependencies
-    "typer>=0.15.2,<0.21",  # Pin to <0.18 due to breaking API changes in 0.18+
+    "typer>=0.15.2,<0.22",  # Pin to <0.18 due to breaking API changes in 0.18+
     "PyYAML>=6.0.2,<7.0",
     "pydantic>=2.11.3,<3.0",
     "pydantic[email]>=2.11.3,<3.0",
