@@ -59,6 +59,10 @@ class TestCLIInit:
             allow_submit=True,
             teams="teams.csv",
             delimiter=",",
+            rows="2-50",
+            name_column=2,
+            affiliation_column=3,
+            country_column=4,
         )
 
         # Write to file
@@ -188,7 +192,7 @@ class TestConfigLoading:
 
         # Create teams.csv file
         teams_file = tmp_path / "teams.csv"
-        teams_file.write_text("id,name,affiliation\n1,Team A,Org A\n")
+        teams_file.write_text("id,name,affiliation,country\n1,Team A,Org A,USA\n")
 
         # Create valid config
         config_data = {
@@ -205,6 +209,7 @@ class TestConfigLoading:
                 "rows": "2-100",
                 "name": "$2",
                 "affiliation": "$3",
+                "country": "$4",
             },
         }
 
