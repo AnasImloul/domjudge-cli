@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "domjudge-cli"
-version = "0.4.0"
+version = "0.4.1"
 description = "CLI tool for managing DOMjudge contests and infrastructure"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,7 +31,7 @@ dependencies = [
     "pydantic>=2.11.3,<3.0",
     "pydantic[email]>=2.11.3,<3.0",
     "p2d>=0.3.0,<1.0",
-    "bcrypt>=4.3.0,<5.0",
+    "bcrypt>=4.3.0,<6.0",
     "webcolors>=24.11.1,<25.0",
     "requests>=2.32.3,<3.0",
     "Jinja2>=3.1.6,<4.0",
@@ -46,14 +46,14 @@ dependencies = [
 [project.optional-dependencies]
 # Development and testing dependencies
 dev = [
-    "pytest>=8.0.0,<9.0",
+    "pytest>=8.0.0,<10.0",
     "pytest-cov>=5.0.0,<8.0",
     "pytest-mock>=3.14.0,<4.0",
     "build>=1.0.0",  # Required for package building tests
     "tomli>=2.0.0;python_version<'3.11'",  # Backport of tomllib for Python 3.10
     "mypy>=1.11.0,<2.0",
     "ruff>=0.6.0,<1.0",
-    "black>=24.0.0,<26.0",
+    "black>=24.0.0,<27.0",
     "pre-commit>=3.8.0,<5.0",
     "types-PyYAML>=6.0.12,<7.0",
     "types-requests>=2.32.0,<3.0",
