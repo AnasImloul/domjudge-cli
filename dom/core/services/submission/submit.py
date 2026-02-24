@@ -9,6 +9,7 @@ from dom.types.team import Team
 
 # Mapping from file extension to language
 EXTENSION_TO_LANGUAGE = {
+    ".c": "c",
     ".cpp": "cpp",
     ".cc": "cpp",
     ".cxx": "cpp",
