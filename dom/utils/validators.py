@@ -117,10 +117,6 @@ class ValidatorBuilder(Generic[T]):
     def integer(cls) -> NumberBuilder[int]:
         return NumberBuilder(int, kind_name="integer")
 
-    @classmethod
-    def floating(cls) -> NumberBuilder[float]:
-        return NumberBuilder(float, kind_name="number")
-
     # --------------------------------------------------------
     # Specific parsers
     # --------------------------------------------------------

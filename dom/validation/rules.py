@@ -193,69 +193,6 @@ class ValidationRules:
             .allowed_extensions([".yaml", ".yml"])
         )
 
-    @staticmethod
-    def problem_archive_path() -> ValidatorBuilder:
-        """
-        Validate problem archive file path.
-
-        Rules:
-        - Must exist
-        - Must be a file
-        - Must have .zip extension
-        """
-        return (
-            ValidatorBuilder.path()
-            .normalize()
-            .must_exist()
-            .must_be_file()
-            .allowed_extensions([".zip"])
-        )
-
-    @staticmethod
-    def teams_file_path() -> ValidatorBuilder:
-        """
-        Validate teams CSV/TSV file path.
-
-        Rules:
-        - Must exist
-        - Must be a file
-        - Must have .csv, .tsv, or .txt extension
-        """
-        return (
-            ValidatorBuilder.path()
-            .normalize()
-            .must_exist()
-            .must_be_file()
-            .allowed_extensions([".csv", ".tsv", ".txt"])
-        )
-
-    # ============================================================
-    # Team Validation
-    # ============================================================
-
-    @staticmethod
-    def team_name() -> ValidatorBuilder:
-        """
-        Validate team name.
-
-        Rules:
-        - Cannot be empty
-        - Max 100 characters
-        """
-        return (
-            ValidatorBuilder.string().strip().non_empty("Team name cannot be empty").max_length(100)
-        )
-
-    @staticmethod
-    def organization_name() -> ValidatorBuilder:
-        """
-        Validate organization/affiliation name.
-
-        Rules:
-        - Max 200 characters if provided
-        """
-        return ValidatorBuilder.string().strip().max_length(200)
-
     # ============================================================
     # Email Validation
     # ============================================================
