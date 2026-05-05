@@ -123,22 +123,3 @@ def optional_for_pydantic(validator: ValidatorBuilder) -> Callable:
             raise ValueError(str(e)) from e
 
     return classmethod(pydantic_validator)  # type: ignore[return-value]
-
-
-def with_default_for_typer(validator: ValidatorBuilder, default: Any) -> Callable:
-    """
-    Adapt a ValidatorBuilder for Typer with a default value.
-
-    If no value provided, returns default. Otherwise validates.
-    """
-    validator_fn = validator.build()
-
-    def typer_callback(value: Any | None) -> Any:
-        if value is None:
-            return default
-        try:
-            return validator_fn(str(value))
-        except Invalid as e:
-            raise typer.BadParameter(str(e)) from e
-
-    return typer_callback

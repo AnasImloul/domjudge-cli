@@ -247,18 +247,6 @@ class DateTimeBuilder(ValidatorBuilder[dt.datetime]):
         super().__init__(parser=_parse)
         self._fmt = fmt
 
-    def between(
-        self,
-        *,
-        min_dt: dt.datetime | None = None,
-        max_dt: dt.datetime | None = None,
-    ) -> DateTimeBuilder:
-        if min_dt is not None:
-            self.check(lambda d: d >= min_dt, f"Must be on/after {min_dt.strftime(self._fmt)}.")
-        if max_dt is not None:
-            self.check(lambda d: d <= max_dt, f"Must be on/before {max_dt.strftime(self._fmt)}.")
-        return self
-
 
 # ------------------------------------------------------------
 # Duration HH:MM:SS -> (h, m, s)
@@ -291,9 +279,6 @@ class PathBuilder(ValidatorBuilder[str]):
     def must_be_file(self) -> PathBuilder:
         return self.check(os.path.isfile, "Path is not a file.")
 
-    def must_be_dir(self) -> PathBuilder:
-        return self.check(os.path.isdir, "Path is not a directory.")
-
     def allowed_extensions(self, exts: Iterable[str]) -> PathBuilder:
         allowed = {e.lower() if e.startswith(".") else f".{e.lower()}" for e in exts}
         formatted = ", ".join(repr(e) for e in sorted(allowed))
@@ -324,11 +309,3 @@ class PortBuilder(NumberBuilder[int]):
     ) -> PortBuilder:
         """Ensure port is >= 1024 (doesn't require root)."""
         return self.check(lambda p: p >= 1024, message)
-
-    def high_port(self) -> PortBuilder:
-        """Ensure port is in high/dynamic range (>= 49152)."""
-        return self.min(49152)  # type: ignore[return-value]
-
-    def registered_port(self) -> PortBuilder:
-        """Ensure port is in registered range (1024-49151)."""
-        return self.min(1024).max(49151)  # type: ignore[return-value]
