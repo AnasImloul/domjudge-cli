@@ -116,7 +116,6 @@ class ContainerNames(str, Enum):
     DOMSERVER = "domserver"
     MARIADB = "mariadb"
     MYSQL_CLIENT = "mysql-client"
-    JUDGEHOST = "judgehost"
 
     def with_prefix(self, prefix: str) -> str:
         """Get full container name with prefix.
