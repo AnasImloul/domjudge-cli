@@ -1,4 +1,3 @@
-import sys
 import tempfile
 import zipfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -8,6 +7,7 @@ from typing import Union
 import yaml
 from p2d import convert
 
+from dom.logging_config import get_logger
 from dom.types.config.raw import RawProblem, RawProblemsConfig
 from dom.types.problem import (
     OutputValidators,
@@ -20,6 +20,8 @@ from dom.types.problem import (
 from dom.utils.cli import find_file_with_extensions
 from dom.utils.color import get_hex_color
 from dom.utils.sys import load_folder_as_dict
+
+logger = get_logger(__name__)
 
 
 def convert_and_load_problem(archive_path: Path, with_statement: bool) -> ProblemPackage:
@@ -227,7 +229,7 @@ def load_problems_from_config(
                     error_context="No 'from' path provided and no default problems file found.",
                 )
             except FileNotFoundError as e:
-                print(f"[ERROR] {e}", file=sys.stderr)
+                logger.error(str(e))
                 raise
         else:
             # Resolve file_path relative to the directory of config_path
@@ -238,7 +240,7 @@ def load_problems_from_config(
                 # Explicit file path provided
                 file_path = from_path
                 if not file_path.exists():
-                    print(f"[ERROR] Problems file '{file_path}' does not exist.", file=sys.stderr)
+                    logger.error(f"Problems file '{file_path}' does not exist.")
                     raise FileNotFoundError(f"Problems file not found: {file_path}")
             else:
                 # Directory path provided or base name without extension
@@ -250,7 +252,7 @@ def load_problems_from_config(
                         error_context=f"No problems.yaml or problems.yml found in '{from_path}'.",
                     )
                 except FileNotFoundError as e:
-                    print(f"[ERROR] {e}", file=sys.stderr)
+                    logger.error(str(e))
                     raise
     elif isinstance(problem_config, list) and all(
         isinstance(p, RawProblem) for p in problem_config
@@ -260,7 +262,7 @@ def load_problems_from_config(
         # Skip file loading, go directly to validation
         file_path = None
     else:
-        print("[ERROR] Invalid problem configuration.", file=sys.stderr)
+        logger.error("Invalid problem configuration.")
         raise TypeError("Invalid problem configuration type.")
 
     # Load from file if file_path is set
@@ -269,16 +271,11 @@ def load_problems_from_config(
             with file_path.open() as f:
                 loaded_data = yaml.safe_load(f)
                 if not isinstance(loaded_data, list):
-                    print(
-                        f"[ERROR] Problems file '{file_path}' must contain a list.", file=sys.stderr
-                    )
+                    logger.error(f"Problems file '{file_path}' must contain a list.")
                     raise ValueError(f"Problems file must contain a list of problems: {file_path}")
                 problems = [RawProblem(**problem) for problem in loaded_data]
-        except Exception as e:
-            print(
-                f"[ERROR] Failed to load problems from '{file_path}'. Error: {e!s}",
-                file=sys.stderr,
-            )
+        except Exception:
+            logger.error(f"Failed to load problems from '{file_path}'", exc_info=True)
             raise
 
     # Validate archives are unique and convert to Path objects
