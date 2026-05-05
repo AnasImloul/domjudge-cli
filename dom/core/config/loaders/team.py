@@ -126,7 +126,8 @@ def load_teams_from_config(
             )
             country = None
             if team_config.country and team_config.country.strip():
-                country = parse_from_template(team_config.country, row).strip()
+                # Fall back to None for blank values so Team applies its default country code
+                country = parse_from_template(team_config.country, row).strip() or None
 
             teams.append(
                 Team(
