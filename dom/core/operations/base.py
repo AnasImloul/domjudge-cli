@@ -26,27 +26,6 @@ class OperationStatus(str, Enum):
     SKIPPED = "skipped"
 
 
-@dataclass
-class OperationStep:
-    """
-    Represents a single step in an operation.
-
-    Steps allow operations to declare their work upfront, enabling:
-    - Better progress tracking
-    - Step-by-step execution
-    - Clear visibility into operation phases
-    - Easier testing and debugging
-    """
-
-    name: str
-    description: str
-    weight: float = 1.0  # Relative weight for progress calculation
-
-    def __str__(self) -> str:
-        """String representation for display."""
-        return self.description
-
-
 class ExecutableStep(ABC):
     """
     Base class for executable operation steps.
@@ -107,10 +86,6 @@ class ExecutableStep(ABC):
         """
         return True
 
-    def to_operation_step(self) -> OperationStep:
-        """Convert to OperationStep for compatibility."""
-        return OperationStep(self.name, self.description, self.weight)
-
     def __str__(self) -> str:
         """String representation for display."""
         return self.description
@@ -132,16 +107,6 @@ class OperationContext:
     dry_run: bool = False
     verbose: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
-
-    def with_metadata(self, **kwargs: Any) -> OperationContext:
-        """Create new context with additional metadata."""
-        new_metadata = {**self.metadata, **kwargs}
-        return OperationContext(
-            secrets=self.secrets,
-            dry_run=self.dry_run,
-            verbose=self.verbose,
-            metadata=new_metadata,
-        )
 
 
 @dataclass
