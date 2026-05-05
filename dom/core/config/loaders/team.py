@@ -116,7 +116,7 @@ def load_teams_from_config(
         teams_data = read_teams_file(file_path, delimiter=team_config.delimiter)
     except Exception as e:
         logger.error(f"Failed to load teams from '{file_path}': {e}")
-        raise e
+        raise
 
     row_range = team_config.rows
     if row_range:
@@ -151,7 +151,7 @@ def load_teams_from_config(
 
         except Exception as e:
             logger.error(f"Failed to prepare team from row {idx}: {e}")
-            raise e
+            raise
 
     # Validate no duplicate team names within this contest
     team_names = [team.name for team in teams]
