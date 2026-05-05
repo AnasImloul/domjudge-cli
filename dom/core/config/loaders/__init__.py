@@ -55,25 +55,6 @@ def load_infrastructure_config(file_path: Path | None) -> InfraConfig:
     return load_infra_from_config(config.infra, config_path=config.loaded_from)
 
 
-def load_contests_config(file_path: Path | None, secrets: SecretsProvider) -> list[ContestConfig]:
-    """
-    Load contests configuration.
-
-    Args:
-        file_path: Path to config file
-        secrets: Secrets manager instance (required for dependency injection)
-
-    Returns:
-        List of contest configurations
-    """
-    config = _load_raw_config(file_path)
-    return load_contests_from_config(
-        config.contests,
-        config_path=config.loaded_from,
-        secrets=secrets,
-    )
-
-
 def load_contest_config(
     file_path: Path | None,
     contest_name: str,
