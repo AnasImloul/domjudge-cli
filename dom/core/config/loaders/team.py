@@ -30,15 +30,24 @@ def read_teams_file(file_path: Path, delimiter: str | None = None) -> list[list[
 
 
 def parse_from_template(template: str, row: list[str]) -> str:
-    def replacer(match):
+    """Substitute ``$N`` placeholders in ``template`` with values from ``row``.
+
+    Placeholders are 1-based: ``$1`` refers to ``row[0]``, ``$2`` to ``row[1]``,
+    and so on. Used in YAML team config to build names/affiliations from CSV
+    columns, e.g. ``name: "$1 from $2"`` with row ``["Alice", "MIT"]`` yields
+    ``"Alice from MIT"``.
+
+    Raises ``IndexError`` if a placeholder index is out of range.
+    """
+    pattern = re.compile(r"\$(\d+)")
+
+    def replacer(match: re.Match[str]) -> str:
         index = int(match.group(1)) - 1
         if index < 0 or index >= len(row):
             raise IndexError(f"Placeholder '${index + 1}' is out of range for row: {row}")
         return row[index]
 
-    pattern = re.compile(r"\$(\d+)")
-    name = pattern.sub(replacer, template)
-    return name
+    return pattern.sub(replacer, template)
 
 
 def load_teams_from_config(
