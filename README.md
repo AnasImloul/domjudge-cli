@@ -695,11 +695,153 @@ This pattern is useful when:
 
 ### Team Registration
 
+Teams can be defined in two ways: inline YAML or CSV file import.
+
+#### Inline YAML Format
+
+Define teams directly in your configuration file:
+
+```yaml
+teams:
+  - name: "Team Alpha"
+    affiliation: "University A"
+    country: "USA"
+  - name: "Team Beta"
+    affiliation: "University B"
+    country: "CAN"
+```
+
+**Fields:**
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | Team display name |
 | `affiliation` | string | Yes | Organization name |
-| `country` | string | Yes | 3-letter code (USA, CAN, etc.) |
+| `country` | string | No | 3-letter code (USA, CAN, etc.) |
+
+#### CSV File Format
+
+For contests with many teams, import from CSV files:
+
+```yaml
+teams:
+  from: "teams.csv"
+  delimiter: ","
+  rows: "2-50"
+  name: "$2"
+  affiliation: "$3"
+  country: "$4"
+```
+
+**Configuration Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `from` | string | Yes | Path to CSV/TSV file |
+| `delimiter` | string | No | Field separator (`,` for CSV, `\t` for TSV) |
+| `rows` | string | Yes | Row range to import (e.g., `"2-50"`) |
+| `name` | string | Yes | Column mapping for team name (e.g., `"$2"`) |
+| `affiliation` | string | Yes | Column mapping for affiliation (e.g., `"$3"`) |
+| `country` | string | No | Column mapping for country code (e.g., `"$4"`) |
+
+**Interactive Column Mapping:**
+
+When you run `dom init`, you'll:
+1. Select your teams CSV file
+2. See a preview of the first few rows with column numbers
+3. Choose which columns map to name, affiliation, and country
+4. Confirm or adjust the detected row range
+
+This ensures flexibility regardless of your CSV structure.
+
+**CSV File Best Practices:**
+
+1. **Include clear headers** in the first row (excluded from import)
+2. **Use UTF-8 encoding** to support international characters
+3. **Keep consistent formatting** across all rows
+4. **Include all required fields**: name, affiliation, country
+
+**Example CSV: teams.csv**
+
+```csv
+id,name,affiliation,country
+1,Team Alpha,University A,USA
+2,Team Beta,University B,CAN
+3,Team Gamma,College C,FRA
+4,Team Delta,Institute D,DEU
+5,Team Epsilon,Academy E,GBR
+```
+
+**Alternative CSV (different column order):**
+
+```csv
+team_name,country_code,university,team_id
+Alpha Warriors,USA,MIT,T001
+Beta Coders,CAN,UBC,T002
+Gamma Hackers,FRA,ENS,T003
+```
+
+During `dom init`, you'll map:
+- Column 1 (`team_name`) → name: `"$1"`
+- Column 3 (`university`) → affiliation: `"$3"`
+- Column 2 (`country_code`) → country: `"$2"`
+
+**Country Codes:**
+
+Use ISO 3166-1 alpha-3 country codes. Common examples:
+
+| Code | Country |
+|------|---------|
+| USA | United States |
+| CAN | Canada |
+| DEU | Germany |
+| GBR | United Kingdom |
+| JPN | Japan |
+| MAR | Morocco |
+
+
+**Row Range Specification:**
+
+The `rows` field defines which rows contain team data:
+
+- Format: `"start-end"` (1-indexed, inclusive)
+- Example: `"2-50"` imports rows 2 through 50
+- Row 1 is typically headers (excluded)
+- During `dom init`, the tool auto-detects the range based on file size
+
+**TSV Format Support:**
+
+For tab-separated files, use `.tsv` extension:
+
+```yaml
+teams:
+  from: "teams.tsv"
+  delimiter: "\t"  # Tab character
+  rows: "2-100"
+  name: "$1"
+  affiliation: "$2"
+  country: "$3"
+```
+
+**Complete Example:**
+
+```yaml
+contests:
+  - name: "ICPC Regional 2025"
+    shortname: "ICPC2025"
+    duration: "5:00:00"
+    
+    problems:
+      from: "problems.yaml"
+    
+    teams:
+      from: "teams.csv"
+      delimiter: ","
+      rows: "2-45"
+      name: "$2"
+      affiliation: "$3"
+      country: "$4"
+```
 
 ---
 

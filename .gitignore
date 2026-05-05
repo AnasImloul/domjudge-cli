@@ -203,5 +203,6 @@ coverage.xml
 dom-judge.yaml
 problems.yaml
 teams.csv
+teams.tsv
 problems/
 .import_linter_cache/

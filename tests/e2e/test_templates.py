@@ -138,6 +138,10 @@ class TestTemplateRendering:
             allow_submit=True,
             teams="teams.csv",
             delimiter=",",
+            rows="2-50",
+            name_column=2,
+            affiliation_column=3,
+            country_column=4,
         )
 
         # Must be valid YAML
