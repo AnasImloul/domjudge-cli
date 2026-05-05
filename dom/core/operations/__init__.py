@@ -12,7 +12,6 @@ from .base import (
     Operation,
     OperationContext,
     OperationResult,
-    OperationStep,
     SteppedOperation,
 )
 from .runner import OperationRunner
@@ -24,7 +23,6 @@ __all__ = [
     "OperationContext",
     "OperationResult",
     "OperationRunner",
-    "OperationStep",
     "SteppedOperation",
     # Domain modules
     "contest",

@@ -150,17 +150,3 @@ class TTLCache:
                 logger.debug(f"Cleaned up {len(expired_keys)} expired cache entries")
 
             return len(expired_keys)
-
-    def get_stats(self) -> dict[str, Any]:
-        """
-        Get cache statistics.
-
-        Returns:
-            Dictionary with cache stats (size, max_size, etc.)
-        """
-        with self._lock:
-            return {
-                "size": len(self._cache),
-                "max_size": self.max_size,
-                "default_ttl": self.default_ttl,
-            }

@@ -123,18 +123,6 @@ class ProblemError(DomJudgeCliError):
     pass
 
 
-class ProblemLoadError(ProblemError):
-    """Raised when loading or converting a problem fails."""
-
-    pass
-
-
-class ProblemValidationError(ProblemError):
-    """Raised when problem validation fails."""
-
-    pass
-
-
 class TeamError(DomJudgeCliError):
     """Raised when team-related operations fail."""
 
@@ -143,11 +131,5 @@ class TeamError(DomJudgeCliError):
 
 class ContestError(DomJudgeCliError):
     """Raised when contest-related operations fail."""
-
-    pass
-
-
-class ValidationError(DomJudgeCliError):
-    """Raised when validation of input data fails."""
 
     pass
