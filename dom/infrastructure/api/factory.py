@@ -131,28 +131,3 @@ class APIClientFactory:
             password=admin_password,
             **kwargs,
         )
-
-    def create_test_client(
-        self,
-        base_url: str = "http://localhost:8080",
-        username: str = "admin",
-        password: str = "test_password",  # nosec B107
-    ) -> DomJudgeAPI:
-        """
-        Create a test API client with mock-friendly settings.
-
-        Args:
-            base_url: Test base URL
-            username: Test username
-            password: Test password
-
-        Returns:
-            Test API client
-        """
-        return self.create_client(
-            base_url=base_url,
-            username=username,
-            password=password,
-            enable_cache=False,  # Disable cache for testing
-            rate_limit=1000.0,  # High limit for tests
-        )

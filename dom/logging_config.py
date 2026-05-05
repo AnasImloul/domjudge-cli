@@ -7,31 +7,12 @@ and log levels for the entire application.
 import logging
 import sys
 from pathlib import Path
-from typing import ClassVar
 
 from rich.console import Console
 from rich.logging import RichHandler
 
 # Global console for rich output
 console = Console()
-
-
-class ColoredFormatter(logging.Formatter):
-    """Custom formatter with colors for different log levels."""
-
-    COLORS: ClassVar[dict[str, str]] = {
-        "DEBUG": "cyan",
-        "INFO": "green",
-        "WARNING": "yellow",
-        "ERROR": "red",
-        "CRITICAL": "bold red",
-    }
-
-    def format(self, record):
-        levelname = record.levelname
-        if levelname in self.COLORS:
-            record.levelname = f"[{self.COLORS[levelname]}]{levelname}[/{self.COLORS[levelname]}]"
-        return super().format(record)
 
 
 def setup_logging(

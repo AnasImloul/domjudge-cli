@@ -7,7 +7,6 @@ including starting services, checking health, and managing passwords.
 import re
 import subprocess  # nosec B404
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from dom.constants import HEALTH_CHECK_INTERVAL, HEALTH_CHECK_TIMEOUT, ContainerNames
@@ -169,54 +168,6 @@ class DockerClient:
                 )
 
             time.sleep(HEALTH_CHECK_INTERVAL)
-
-    def wait_for_containers_healthy(
-        self, container_names: list[str], timeout: int = HEALTH_CHECK_TIMEOUT
-    ) -> None:
-        """
-        Wait for multiple containers to become healthy concurrently.
-
-        This is much faster than sequential health checks, especially with many judgehosts.
-        Uses thread pool to check health of all containers in parallel.
-
-        Args:
-            container_names: List of container names to wait for (with prefix)
-            timeout: Maximum time to wait in seconds per container
-
-        Raises:
-            DockerError: If any container becomes unhealthy or times out
-        """
-        logger.info(f"Waiting for {len(container_names)} containers to become healthy...")
-
-        failures: list[tuple[str, Exception]] = []
-        successful = []
-
-        with ThreadPoolExecutor(max_workers=min(len(container_names), 10)) as executor:
-            # Submit all health checks concurrently
-            future_to_container = {
-                executor.submit(self.wait_for_container_healthy, name, timeout): name
-                for name in container_names
-            }
-
-            # Collect results as they complete
-            for future in as_completed(future_to_container):
-                container_name = future_to_container[future]
-                try:
-                    future.result()
-                    successful.append(container_name)
-                    logger.debug(f"Health check passed: {container_name}")
-                except Exception as e:
-                    logger.error(f"Health check failed for {container_name}: {e}")
-                    failures.append((container_name, e))
-
-        # Report results
-        if failures:
-            failure_details = ", ".join([f"{name}: {e}" for name, e in failures])
-            raise DockerError(
-                f"Health check failed for {len(failures)} container(s): {failure_details}"
-            )
-
-        logger.info(f"All {len(successful)} containers are healthy!")
 
     def fetch_judgedaemon_password(self) -> str:
         """
