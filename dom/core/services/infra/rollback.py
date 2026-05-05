@@ -128,8 +128,6 @@ class DeploymentTransaction:
         if not self.compose_file:
             self.compose_file = ensure_dom_directory() / "docker-compose.yml"
 
-        # container_prefix = get_container_prefix()  # TODO: Use for container naming
-
         if step == DeploymentStep.GENERATE_COMPOSE:
             # Remove generated compose file
             if self.compose_file and self.compose_file.exists():
