@@ -9,7 +9,6 @@ from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any, TypeVar
 
-from dom.constants import MAX_CONCURRENT_PROBLEM_OPERATIONS, MAX_CONCURRENT_TEAM_OPERATIONS
 from dom.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -167,29 +166,3 @@ class BoundedExecutor:
         """Exit context manager."""
         self.shutdown(wait=True)
         return False
-
-
-def get_team_executor() -> BoundedExecutor:
-    """
-    Get a bounded executor for team operations.
-
-    Returns:
-        Executor with MAX_CONCURRENT_TEAM_OPERATIONS limit
-    """
-    return BoundedExecutor(
-        max_workers=MAX_CONCURRENT_TEAM_OPERATIONS * 2,  # Buffer for I/O waiting
-        max_concurrent=MAX_CONCURRENT_TEAM_OPERATIONS,
-    )
-
-
-def get_problem_executor() -> BoundedExecutor:
-    """
-    Get a bounded executor for problem operations.
-
-    Returns:
-        Executor with MAX_CONCURRENT_PROBLEM_OPERATIONS limit
-    """
-    return BoundedExecutor(
-        max_workers=MAX_CONCURRENT_PROBLEM_OPERATIONS * 2,  # Buffer for I/O waiting
-        max_concurrent=MAX_CONCURRENT_PROBLEM_OPERATIONS,
-    )
