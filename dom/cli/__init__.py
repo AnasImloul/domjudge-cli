@@ -61,9 +61,6 @@ def callback(
         console.print(f"dom-cli version {__version__}")
         raise typer.Exit()
 
-    # Store verbose flag in context for subcommands
-    ctx.obj = {"verbose": verbose}
-
     # If no subcommand was provided, show help
     if ctx.invoked_subcommand is None:
         console.print(ctx.get_help())
