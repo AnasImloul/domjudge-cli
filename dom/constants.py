@@ -12,51 +12,14 @@ from enum import Enum
 
 
 class SecretKeys(str, Enum):
-    """
-    Enumeration of all secret keys used in the application.
+    """Enumeration of secret keys used in the application.
 
-    Using an enum instead of magic strings provides:
-    - Compile-time checking (import errors instead of runtime KeyErrors)
-    - IDE autocompletion
-    - Easy refactoring (find all usages)
-    - Self-documentation
-
-    Usage:
-        >>> secrets.get(SecretKeys.ADMIN_PASSWORD.value)
-        >>> secrets.set(SecretKeys.DB_PASSWORD.value, "secret")
+    Note: Most of the codebase passes secret-key string literals directly
+    rather than going through this enum — only HASH_SEED is read via this
+    indirection (see dom/infrastructure/secrets/manager.py).
     """
 
-    # Infrastructure secrets
-    ADMIN_PASSWORD = "admin_password"  # nosec B105
-    DB_PASSWORD = "db_password"  # nosec B105
-    JUDGEDAEMON_PASSWORD = "judgedaemon_password"  # nosec B105
-
-    # API credentials
-    API_USERNAME = "api_username"
-    API_PASSWORD = "api_password"  # nosec B105
-
-    # Deterministic hashing
     HASH_SEED = "hash_seed"  # nosec B105  # Seed for deterministic team ID generation
-
-    # Contest-specific secrets
-    TEAM_PASSWORD_PREFIX = "team_password_"  # nosec B105  # Followed by team ID
-
-    @classmethod
-    def team_password_key(cls, team_id: str) -> str:
-        """
-        Generate a team-specific password key.
-
-        Args:
-            team_id: Team identifier
-
-        Returns:
-            Secret key for the team's password
-
-        Example:
-            >>> SecretKeys.team_password_key("team-123")
-            'team_password_team-123'
-        """
-        return f"{cls.TEAM_PASSWORD_PREFIX.value}{team_id}"
 
 
 # ============================================================
@@ -135,9 +98,6 @@ MAX_PASSWORD_LENGTH = 128
 # Docker & Infrastructure
 # ============================================================
 
-# Container name prefix for DOMjudge services
-CONTAINER_PREFIX = "dom-cli"
-
 # Default health check timeout in seconds
 HEALTH_CHECK_TIMEOUT = 60
 
@@ -179,39 +139,3 @@ MAX_CONTEST_NAME_LENGTH = 100
 
 # Maximum contest shortname length
 MAX_CONTEST_SHORTNAME_LENGTH = 50
-
-# Maximum team name length
-MAX_TEAM_NAME_LENGTH = 100
-
-# Maximum problem name length
-MAX_PROBLEM_NAME_LENGTH = 100
-
-# Port range validation
-MIN_PORT = 1
-MAX_PORT = 65535
-MIN_UNPRIVILEGED_PORT = 1024
-
-
-# ============================================================
-# File System
-# ============================================================
-
-# Default DOMjudge CLI directory name
-DOM_DIRECTORY_NAME = ".dom"
-
-# Supported config file names (in order of precedence)
-CONFIG_FILE_NAMES = ["dom-judge.yaml", "dom-judge.yml"]
-
-# Supported config file extensions
-CONFIG_FILE_EXTENSIONS = [".yaml", ".yml"]
-
-
-# ============================================================
-# Logging
-# ============================================================
-
-# Default log file name
-LOG_FILE_NAME = "domjudge-cli.log"
-
-# Default log level
-DEFAULT_LOG_LEVEL = "INFO"
