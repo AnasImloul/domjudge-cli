@@ -2,12 +2,7 @@
 
 from typing import Any
 
-from dom.core.operations.base import (
-    ExecutableStep,
-    OperationContext,
-    OperationResult,
-    SteppedOperation,
-)
+from dom.core.operations.base import OperationContext, SimpleOperation
 from dom.core.services.contest.changes import ChangeType
 from dom.core.services.contest.state import ContestStateComparator
 from dom.infrastructure.api.factory import APIClientFactory
@@ -17,31 +12,7 @@ from dom.types.config.processed import DomConfig
 logger = get_logger(__name__)
 
 
-# ============================================================================
-# Steps
-# ============================================================================
-
-
-class AnalyzeChangesStep(ExecutableStep):
-    def __init__(self, config: DomConfig):
-        super().__init__("analyze", "Analyze configuration changes")
-        self.config = config
-
-    def execute(self, context: OperationContext) -> list[dict[str, Any]]:
-        client = APIClientFactory().create_admin_client(self.config.infra, context.secrets)
-        comparator = ContestStateComparator(client)
-        return [
-            {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}
-            for contest in self.config.contests
-        ]
-
-
-# ============================================================================
-# Operation
-# ============================================================================
-
-
-class PlanContestChangesOperation(SteppedOperation[list[dict[str, Any]]]):
+class PlanContestChangesOperation(SimpleOperation[list[dict[str, Any]]]):
     """Plan contest changes without applying them."""
 
     def __init__(self, config: DomConfig):
@@ -50,21 +21,19 @@ class PlanContestChangesOperation(SteppedOperation[list[dict[str, Any]]]):
     def describe(self) -> str:
         return "Plan contest configuration changes"
 
-    def define_steps(self) -> list[ExecutableStep]:
-        return [AnalyzeChangesStep(self.config)]
-
-    def _build_result(
-        self,
-        step_results: dict[str, Any],
-        _context: OperationContext,
-    ) -> OperationResult[list[dict[str, Any]]]:
-        changes = step_results.get("analyze") or []
+    def run(self, context: OperationContext) -> list[dict[str, Any]]:
+        client = APIClientFactory().create_admin_client(self.config.infra, context.secrets)
+        comparator = ContestStateComparator(client)
+        changes = [
+            {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}
+            for contest in self.config.contests
+        ]
         _print_planned_changes(changes)
+        return changes
 
+    def _success_message(self, changes: list[dict[str, Any]]) -> str:
         total_changes = sum(1 for item in changes if item["change_set"].has_changes)
-        return OperationResult.success(
-            changes, f"Analyzed {len(changes)} contest(s) • {total_changes} with changes"
-        )
+        return f"Analyzed {len(changes)} contest(s) • {total_changes} with changes"
 
 
 # ============================================================================

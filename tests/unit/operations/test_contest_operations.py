@@ -10,22 +10,10 @@ from dom.core.operations.contest.apply import (
     ApplyAllContestsStep,
     ApplyContestsOperation,
 )
-from dom.core.operations.contest.load_config import (
-    LoadConfigOperation,
-    ParseConfigFileStep,
-)
-from dom.core.operations.contest.load_contest_config import (
-    LoadContestConfigOperation,
-    LoadSingleContestStep,
-)
-from dom.core.operations.contest.plan_changes import (
-    AnalyzeChangesStep,
-    PlanContestChangesOperation,
-)
-from dom.core.operations.contest.verify_problemset import (
-    VerifyProblemsetOperation,
-    VerifyProblemsetStep,
-)
+from dom.core.operations.contest.load_config import LoadConfigOperation
+from dom.core.operations.contest.load_contest_config import LoadContestConfigOperation
+from dom.core.operations.contest.plan_changes import PlanContestChangesOperation
+from dom.core.operations.contest.verify_problemset import VerifyProblemsetOperation
 from dom.core.services.contest.changes import ChangeType
 from dom.types.secrets import SecretsProvider
 
@@ -97,37 +85,51 @@ def test_apply_operation_message_multiple_contests(context):
 # ---------------------------------------------------------------- PlanChanges
 
 
-def test_analyze_step_returns_per_contest_change_sets(context):
+def test_plan_run_returns_per_contest_change_sets(context):
     config = _make_dom_config(num_contests=2)
     fake_change = MagicMock(has_changes=True)
 
     with (
         patch("dom.core.operations.contest.plan_changes.APIClientFactory"),
         patch("dom.core.operations.contest.plan_changes.ContestStateComparator") as comparator_cls,
+        patch("dom.core.operations.contest.plan_changes._print_planned_changes"),
     ):
         comparator_cls.return_value.compare_contest.return_value = fake_change
-        result = AnalyzeChangesStep(config).execute(context)
+        result = PlanContestChangesOperation(config).run(context)
 
     assert len(result) == 2
     assert all(item["change_set"] is fake_change for item in result)
 
 
-def test_plan_build_result_invokes_presenter(context):
+def test_plan_run_invokes_presenter(context):
     config = _make_dom_config()
-    changes = [{"shortname": "C0", "change_set": MagicMock(has_changes=True)}]
+    fake_change = MagicMock(has_changes=True)
 
-    with patch("dom.core.operations.contest.plan_changes._print_planned_changes") as presenter:
-        result = PlanContestChangesOperation(config)._build_result({"analyze": changes}, context)
-        presenter.assert_called_once_with(changes)
+    with (
+        patch("dom.core.operations.contest.plan_changes.APIClientFactory"),
+        patch("dom.core.operations.contest.plan_changes.ContestStateComparator") as comparator_cls,
+        patch("dom.core.operations.contest.plan_changes._print_planned_changes") as presenter,
+    ):
+        comparator_cls.return_value.compare_contest.return_value = fake_change
+        PlanContestChangesOperation(config).run(context)
 
-    assert "1 with changes" in result.message
+    presenter.assert_called_once()
 
 
-def test_plan_build_result_handles_empty_analyze(context):
+def test_plan_success_message_counts_changes():
     config = _make_dom_config()
-    with patch("dom.core.operations.contest.plan_changes._print_planned_changes"):
-        result = PlanContestChangesOperation(config)._build_result({}, context)
-    assert "0 with changes" in result.message
+    op = PlanContestChangesOperation(config)
+    changes = [
+        {"shortname": "C0", "change_set": MagicMock(has_changes=True)},
+        {"shortname": "C1", "change_set": MagicMock(has_changes=False)},
+    ]
+    assert "1 with changes" in op._success_message(changes)
+
+
+def test_plan_success_message_handles_empty():
+    config = _make_dom_config()
+    op = PlanContestChangesOperation(config)
+    assert "0 with changes" in op._success_message([])
 
 
 def test_plan_presenter_handles_no_changes(capsys):
@@ -168,7 +170,7 @@ def test_load_config_validate_passes_when_no_path(context):
     assert LoadConfigOperation(None).validate(context) == []
 
 
-def test_parse_config_step_delegates_to_loader(context, tmp_path):
+def test_load_config_run_delegates_to_loader(context, tmp_path):
     cfg = tmp_path / "dom.yaml"
     cfg.write_text("infra: {port: 8080, judges: 1}\n")
     expected = MagicMock()
@@ -176,34 +178,37 @@ def test_parse_config_step_delegates_to_loader(context, tmp_path):
     with patch(
         "dom.core.operations.contest.load_config.load_config", return_value=expected
     ) as loader:
-        result = ParseConfigFileStep(cfg).execute(context)
+        result = LoadConfigOperation(cfg).run(context)
 
     loader.assert_called_once_with(cfg, context.secrets)
     assert result is expected
 
 
-def test_load_config_build_result_failure_when_step_returns_none(context):
-    result = LoadConfigOperation(None)._build_result({"parse": None}, context)
+def test_load_config_execute_failure_propagates(context):
+    err = RuntimeError("boom")
+    with patch("dom.core.operations.contest.load_config.load_config", side_effect=err):
+        result = LoadConfigOperation(None).execute(context)
     assert result.is_failure()
+    assert result.error is err
 
 
-def test_load_config_build_result_message_for_single_contest(context):
+def test_load_config_success_message_for_single_contest():
     config = _make_dom_config(num_contests=1, problems=5, teams=7)
-    result = LoadConfigOperation(None)._build_result({"parse": config}, context)
-    assert "C0" in result.message
-    assert "5 problems" in result.message
+    msg = LoadConfigOperation(None)._success_message(config)
+    assert "C0" in msg
+    assert "5 problems" in msg
 
 
 # ---------------------------------------------------------------- LoadContestConfig
 
 
-def test_load_contest_step_delegates_with_name(context):
+def test_load_contest_run_delegates_with_name(context):
     expected = MagicMock()
     with patch(
         "dom.core.operations.contest.load_contest_config.load_contest_config",
         return_value=expected,
     ) as loader:
-        result = LoadSingleContestStep(Path("x.yaml"), "ContestA").execute(context)
+        result = LoadContestConfigOperation(Path("x.yaml"), "ContestA").run(context)
     loader.assert_called_once_with(Path("x.yaml"), "ContestA", context.secrets)
     assert result is expected
 
@@ -213,17 +218,23 @@ def test_load_contest_operation_describe_includes_contest_name():
     assert "ContestA" in op.describe()
 
 
-def test_load_contest_build_result_failure_when_none(context):
-    op = LoadContestConfigOperation(None, "ContestA")
-    assert op._build_result({"load": None}, context).is_failure()
+def test_load_contest_execute_failure_propagates(context):
+    err = RuntimeError("boom")
+    with patch(
+        "dom.core.operations.contest.load_contest_config.load_contest_config",
+        side_effect=err,
+    ):
+        result = LoadContestConfigOperation(None, "ContestA").execute(context)
+    assert result.is_failure()
 
 
 # ---------------------------------------------------------------- VerifyProblemset
 
 
-def test_verify_step_loads_and_delegates_to_service(context):
+def test_verify_run_loads_and_delegates_to_service(context):
     contest = MagicMock(problems=[1, 2])
     infra = MagicMock()
+    client = MagicMock()
 
     with (
         patch(
@@ -234,13 +245,16 @@ def test_verify_step_loads_and_delegates_to_service(context):
             "dom.core.operations.contest.verify_problemset.load_infrastructure_config",
             return_value=infra,
         ) as load_infra,
+        patch("dom.core.operations.contest.verify_problemset.APIClientFactory") as factory_cls,
         patch("dom.core.operations.contest.verify_problemset.verify_problemset") as verify,
     ):
-        result = VerifyProblemsetStep(Path("c.yaml"), "ContestA", Path("i.yaml")).execute(context)
+        factory_cls.return_value.create_admin_client.return_value = client
+        result = VerifyProblemsetOperation(Path("c.yaml"), "ContestA", Path("i.yaml")).run(context)
 
     load_contest.assert_called_once_with(Path("c.yaml"), "ContestA", context.secrets)
     load_infra.assert_called_once_with(Path("i.yaml"))
-    verify.assert_called_once_with(infra=infra, contest=contest, secrets=context.secrets)
+    factory_cls.return_value.create_admin_client.assert_called_once_with(infra, context.secrets)
+    verify.assert_called_once_with(client=client, contest=contest, secrets=context.secrets)
     assert result is contest
 
 
@@ -253,9 +267,7 @@ def test_verify_validate_rejects_missing_files(context, tmp_path):
     assert len(errors) == 2
 
 
-def test_verify_build_result_message_includes_problem_count(context):
+def test_verify_success_message_includes_problem_count():
     contest = MagicMock(problems=[1, 2, 3, 4])
     op = VerifyProblemsetOperation(None, "ContestA")
-    result = op._build_result({"verify": contest}, context)
-    assert result.is_success()
-    assert "4 problems" in result.message
+    assert "4 problems" in op._success_message(contest)

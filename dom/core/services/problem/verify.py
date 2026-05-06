@@ -6,9 +6,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from dom.core.services.contest.verification import create_temp_contest
 from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.core.services.submission.submit import submit_problem
-from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.contest import ContestConfig
-from dom.types.infra import InfraConfig
 from dom.types.secrets import SecretsProvider
 
 VERDICT = {
@@ -20,21 +18,19 @@ VERDICT = {
 }
 
 
-def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: SecretsProvider):
+def verify_problemset(
+    client: DomJudgeAPIProtocol,
+    contest: ContestConfig,
+    secrets: SecretsProvider,
+):
     """
     Verifies a set of contest problems by running submissions and summarizing results.
 
     Args:
-        infra: Infrastructure configuration
+        client: DOMjudge API client
         contest: Contest configuration with problems to verify
         secrets: Secrets manager for retrieving credentials
     """
-    client = DomJudgeAPI(
-        base_url=f"http://localhost:{infra.port}",
-        username="admin",
-        password=secrets.get_required("admin_password"),
-    )
-
     api_contest, team = create_temp_contest(client, contest, secrets)
     results = asyncio.run(_run_submissions(client, api_contest.id, team, contest.problems))  # type: ignore[arg-type]
 

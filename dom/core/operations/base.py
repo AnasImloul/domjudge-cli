@@ -327,3 +327,47 @@ class SteppedOperation(Operation[T], ABC):
             Final operation result
         """
         return OperationResult.success(None, f"{self.describe()} completed successfully")
+
+
+class SimpleOperation(Operation[T], ABC):
+    """
+    Single-step operation: implement run() to do the work.
+
+    Use this when an operation has no internal steps to orchestrate. It
+    removes the ceremony of SteppedOperation (no ExecutableStep subclass,
+    no define_steps(), no _build_result() with step-dict lookup).
+
+    - run() returns a value on success or raises on failure.
+    - Override _success_message(value) to add a result message.
+
+    Example:
+        >>> class LoadConfigOperation(SimpleOperation[DomConfig]):
+        ...     def __init__(self, path: Path):
+        ...         self.path = path
+        ...
+        ...     def describe(self) -> str:
+        ...         return f"Load configuration from {self.path}"
+        ...
+        ...     def run(self, ctx: OperationContext) -> DomConfig:
+        ...         return load_config(self.path, ctx.secrets)
+    """
+
+    @abstractmethod
+    def run(self, context: OperationContext) -> T:
+        """Do the work; return the result, or raise on failure."""
+
+    def execute(self, context: OperationContext) -> OperationResult[T]:
+        try:
+            value = self.run(context)
+        except Exception as e:
+            logger.error(
+                f"Operation failed: {self.describe()}",
+                exc_info=True,
+                extra={"operation": self.describe()},
+            )
+            return OperationResult.failure(e, str(e))
+        return OperationResult.success(value, self._success_message(value))
+
+    def _success_message(self, _value: T) -> str:
+        """Override to provide a custom success message based on the result."""
+        return ""
