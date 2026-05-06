@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
-from dom.utils.validation import (
+from dom.utils.prerequisites import (
     is_port_used_by_domjudge,
     validate_config_file,
     validate_docker_available,
@@ -49,7 +49,7 @@ def test_validate_port_available_when_used_by_domjudge():
         used_port = s.getsockname()[1]
 
         # Mock is_port_used_by_domjudge to return True
-        with patch("dom.utils.validation.is_port_used_by_domjudge", return_value=True):
+        with patch("dom.utils.prerequisites.is_port_used_by_domjudge", return_value=True):
             # Should NOT raise because it's our own infrastructure
             validate_port_available(used_port, allow_domjudge=True)
 
@@ -89,7 +89,7 @@ def test_validate_port_available_with_allow_domjudge_false():
         used_port = s.getsockname()[1]
 
         # Even if DOMjudge is using it, should raise when allow_domjudge=False
-        with patch("dom.utils.validation.is_port_used_by_domjudge", return_value=True):
+        with patch("dom.utils.prerequisites.is_port_used_by_domjudge", return_value=True):
             with pytest.raises(InfrastructureError, match="already in use"):
                 validate_port_available(used_port, allow_domjudge=False)
 
@@ -186,14 +186,14 @@ class TestValidateInfrastructurePrerequisites:
 
     def test_passes_when_docker_and_port_ok(self):
         with (
-            patch("dom.utils.validation.validate_docker_available"),
-            patch("dom.utils.validation.validate_port_available"),
+            patch("dom.utils.prerequisites.validate_docker_available"),
+            patch("dom.utils.prerequisites.validate_port_available"),
         ):
             validate_infrastructure_prerequisites(port=8080)  # should not raise
 
     def test_propagates_docker_error(self):
         with patch(
-            "dom.utils.validation.validate_docker_available",
+            "dom.utils.prerequisites.validate_docker_available",
             side_effect=DockerError("nope"),
         ):
             with pytest.raises(DockerError):
@@ -201,9 +201,9 @@ class TestValidateInfrastructurePrerequisites:
 
     def test_propagates_port_error(self):
         with (
-            patch("dom.utils.validation.validate_docker_available"),
+            patch("dom.utils.prerequisites.validate_docker_available"),
             patch(
-                "dom.utils.validation.validate_port_available",
+                "dom.utils.prerequisites.validate_port_available",
                 side_effect=InfrastructureError("busy"),
             ),
         ):
@@ -212,8 +212,8 @@ class TestValidateInfrastructurePrerequisites:
 
     def test_skips_port_check_when_port_is_none(self):
         with (
-            patch("dom.utils.validation.validate_docker_available"),
-            patch("dom.utils.validation.validate_port_available") as mock_port,
+            patch("dom.utils.prerequisites.validate_docker_available"),
+            patch("dom.utils.prerequisites.validate_port_available") as mock_port,
         ):
             validate_infrastructure_prerequisites(port=None)
 
@@ -224,11 +224,11 @@ class TestWarnIfPrivilegedPort:
     """Tests for warn_if_privileged_port."""
 
     def test_warns_for_privileged_port(self):
-        with patch("dom.utils.validation.console") as mock_console:
+        with patch("dom.utils.prerequisites.console") as mock_console:
             warn_if_privileged_port(80)
         assert mock_console.print.called
 
     def test_silent_for_unprivileged_port(self):
-        with patch("dom.utils.validation.console") as mock_console:
+        with patch("dom.utils.prerequisites.console") as mock_console:
             warn_if_privileged_port(8080)
         mock_console.print.assert_not_called()
