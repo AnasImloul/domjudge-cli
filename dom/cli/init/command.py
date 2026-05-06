@@ -2,9 +2,11 @@
 
 import typer
 
-from dom.core.operations import OperationContext, OperationRunner
-from dom.core.operations.init import InitializeProjectOperation
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
+from dom.cli.init.wizard import run_wizard
+from dom.logging_config import console, get_logger
+from dom.utils.cli import add_global_options, cli_command
+
+logger = get_logger(__name__)
 
 
 @add_global_options
@@ -16,7 +18,7 @@ def callback(
         "--dry-run",
         help="Preview what files would be created without actually creating them",
     ),
-    verbose: bool = False,
+    verbose: bool = False,  # noqa: ARG001
     no_color: bool = False,  # noqa: ARG001
 ):
     """
@@ -24,17 +26,18 @@ def callback(
 
     Use --dry-run to preview what files would be created without actually creating them.
     """
-    # Create execution context
-    secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets, dry_run=dry_run, verbose=verbose)
+    if dry_run:
+        console.print(
+            "[yellow]* Dry run:[/yellow] would launch the interactive init wizard "
+            "to create dom-judge.yaml (and optionally problems.yaml)."
+        )
+        return
 
-    # Run operation (operations handle dry-run)
-    runner = OperationRunner(
-        operation=InitializeProjectOperation(overwrite=overwrite),
-        show_progress=False,
-    )
-    result = runner.run(context)
-
-    # Don't treat dry-run (skipped) as failure
-    if result.is_failure():
-        raise typer.Exit(code=1)
+    try:
+        run_wizard(overwrite=overwrite)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to initialize project: {e}", exc_info=True)
+        console.print(f"[red]x[/red] Failed to initialize project: {e}")
+        raise typer.Exit(code=1) from e
