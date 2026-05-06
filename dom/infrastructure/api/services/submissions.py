@@ -70,7 +70,6 @@ class SubmissionService:
                 files = {"code": (file_name, code_file, "text/x-source-code")}
                 data = {"problem": problem_id, "language": language, "team": team.id}
 
-                self.client.rate_limiter.acquire()
                 response = requests.post(url, data=data, files=files, auth=auth, timeout=30)
 
                 if not response.ok:

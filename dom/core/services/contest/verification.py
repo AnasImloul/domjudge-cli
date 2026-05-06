@@ -6,8 +6,8 @@ from datetime import datetime
 
 from dom.core.services.base import ServiceContext
 from dom.core.services.problem.apply import ProblemService
+from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.core.services.team.apply import TeamService
-from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.api.models import Contest
 from dom.types.contest import ContestConfig
 from dom.types.secrets import SecretsProvider
@@ -15,7 +15,7 @@ from dom.types.team import Team
 
 
 def create_temp_contest(
-    client: DomJudgeAPI, contest: ContestConfig, secrets_mgr: SecretsProvider
+    client: DomJudgeAPIProtocol, contest: ContestConfig, secrets_mgr: SecretsProvider
 ) -> tuple[Contest, Team]:
     """
     Create a temporary contest for verification purposes.

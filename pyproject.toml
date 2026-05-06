@@ -35,12 +35,10 @@ dependencies = [
     "webcolors>=24.11.1,<25.0",
     "requests>=2.32.3,<3.0",
     "Jinja2>=3.1.6,<4.0",
-    "typeguard>=4.4.2,<5.0",
     "jmespath>=1.0.1,<2.0",
     "tqdm>=4.67.1,<5.0",
     "cryptography>=43.0.0,<47.0",
     "rich>=13.7.0,<15.0",
-    "pymysql>=1.1.0,<2.0",
 ]
 
 [project.optional-dependencies]
@@ -183,7 +181,6 @@ ignore_missing_imports = false
 module = [
     "p2d.*",
     "webcolors.*",
-    "typeguard.*",
     "jmespath.*",
     "tqdm.*",
 ]

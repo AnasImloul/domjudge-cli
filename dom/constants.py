@@ -53,7 +53,6 @@ DEFAULT_COUNTRY_CODE = "MAR"
 # ============================================================
 
 # Maximum concurrent team additions to avoid overwhelming the API
-# This works in conjunction with the rate limiter
 MAX_CONCURRENT_TEAM_OPERATIONS = 5
 
 # Maximum concurrent problem additions
@@ -72,12 +71,6 @@ SHORT_CACHE_TTL = 60  # 1 minute
 
 # Cache TTL for rarely changing data (all problems)
 LONG_CACHE_TTL = 600  # 10 minutes
-
-# Default rate limit (requests per second)
-DEFAULT_RATE_LIMIT = 10.0
-
-# Default rate limit burst capacity
-DEFAULT_RATE_BURST = 20
 
 
 # ============================================================

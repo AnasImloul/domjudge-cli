@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from dom.infrastructure.api.domjudge import DomJudgeAPI
+from dom.core.services.protocols import DomJudgeAPIProtocol
 
 TOutput = TypeVar("TOutput")
 TEntity = TypeVar("TEntity")
@@ -22,7 +22,7 @@ class ServiceContext:
     Provides access to dependencies needed by services.
     """
 
-    client: DomJudgeAPI
+    client: DomJudgeAPIProtocol
     contest_id: str | None = None
     contest_shortname: str | None = None
     team_group_id: str | None = None  # Contest-specific team group for scoreboard filtering
@@ -91,7 +91,7 @@ class Service(ABC, Generic[TEntity]):
         ...         pass
     """
 
-    def __init__(self, client: DomJudgeAPI):
+    def __init__(self, client: DomJudgeAPIProtocol):
         """
         Initialize service with API client.
 
