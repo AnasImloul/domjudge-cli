@@ -1,41 +1,16 @@
 """Load infrastructure configuration operation."""
 
 from pathlib import Path
-from typing import Any
 
 from dom.core.config.loaders import load_infrastructure_config
-from dom.core.operations.base import (
-    ExecutableStep,
-    OperationContext,
-    OperationResult,
-    SteppedOperation,
-)
+from dom.core.operations.base import OperationContext, SimpleOperation
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig
 
 logger = get_logger(__name__)
 
 
-# ============================================================================
-# Steps
-# ============================================================================
-
-
-class LoadInfraConfigFileStep(ExecutableStep):
-    def __init__(self, config_path: Path | None):
-        super().__init__("load", "Load configuration file")
-        self.config_path = config_path
-
-    def execute(self, _context: OperationContext) -> InfraConfig:
-        return load_infrastructure_config(self.config_path)
-
-
-# ============================================================================
-# Operation
-# ============================================================================
-
-
-class LoadInfraConfigOperation(SteppedOperation[InfraConfig]):
+class LoadInfraConfigOperation(SimpleOperation[InfraConfig]):
     """Load infrastructure configuration from file."""
 
     def __init__(self, config_path: Path | None = None):
@@ -50,18 +25,8 @@ class LoadInfraConfigOperation(SteppedOperation[InfraConfig]):
             return [f"Configuration file not found: {self.config_path}"]
         return []
 
-    def define_steps(self) -> list[ExecutableStep]:
-        return [LoadInfraConfigFileStep(self.config_path)]
+    def run(self, _context: OperationContext) -> InfraConfig:
+        return load_infrastructure_config(self.config_path)
 
-    def _build_result(
-        self,
-        step_results: dict[str, Any],
-        _context: OperationContext,
-    ) -> OperationResult[InfraConfig]:
-        config = step_results.get("load")
-        if config is None:
-            return OperationResult.failure(
-                ValueError("Configuration loading failed"),
-                "Failed to load infrastructure configuration",
-            )
-        return OperationResult.success(config, f"Port {config.port} • {config.judges} judgehost(s)")
+    def _success_message(self, config: InfraConfig) -> str:
+        return f"Port {config.port} • {config.judges} judgehost(s)"

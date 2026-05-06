@@ -6,12 +6,13 @@ with consistent error handling, logging, and validation.
 
 # Core abstractions
 # Operations by domain
-from . import contest, infrastructure, init
+from . import contest, infrastructure
 from .base import (
     ExecutableStep,
     Operation,
     OperationContext,
     OperationResult,
+    SimpleOperation,
     SteppedOperation,
 )
 from .runner import OperationRunner
@@ -23,9 +24,9 @@ __all__ = [
     "OperationContext",
     "OperationResult",
     "OperationRunner",
+    "SimpleOperation",
     "SteppedOperation",
     # Domain modules
     "contest",
     "infrastructure",
-    "init",
 ]

@@ -3,15 +3,15 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-from dom.core.services.init.contest import initialize_contest
-from dom.core.services.init.infra import initialize_infrastructure
-from dom.core.services.init.problems import initialize_problems
+from dom.cli.init.wizard.contest import initialize_contest
+from dom.cli.init.wizard.infra import initialize_infrastructure
+from dom.cli.init.wizard.problems import initialize_problems
 from dom.utils.cli import check_file_exists
 
 console = Console()
 
 
-def callback(overwrite: bool):
+def run_wizard(overwrite: bool) -> None:
     console.print(
         Panel.fit(
             "[bold blue]DOMjudge Configuration Wizard[/bold blue]",
