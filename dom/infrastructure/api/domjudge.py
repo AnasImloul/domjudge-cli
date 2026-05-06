@@ -4,7 +4,7 @@ This is the main API client that all code should use. It provides a clean interf
 through service composition rather than being a monolithic God class.
 
 Architecture:
-- DomJudgeClient: Base HTTP client (auth, caching, rate limiting)
+- DomJudgeClient: Base HTTP client (auth, caching, retry)
 - Service classes: Focused on specific resources (contests, problems, teams, etc.)
 - DomJudgeAPI: Facade that composes services
 
@@ -23,7 +23,7 @@ Single Way to Use:
     >>> api.teams.add_to_contest(contest_id, team_data)
 """
 
-from dom.constants import DEFAULT_CACHE_TTL, DEFAULT_RATE_BURST, DEFAULT_RATE_LIMIT
+from dom.constants import DEFAULT_CACHE_TTL
 from dom.infrastructure.api.client import DomJudgeClient
 from dom.infrastructure.api.services import (
     ContestService,
@@ -73,8 +73,6 @@ class DomJudgeAPI:
         password: str,
         enable_cache: bool = True,
         cache_ttl: int = DEFAULT_CACHE_TTL,
-        rate_limit: float = DEFAULT_RATE_LIMIT,
-        rate_burst: int = DEFAULT_RATE_BURST,
     ):
         """
         Initialize the DOMjudge API client.
@@ -85,8 +83,6 @@ class DomJudgeAPI:
             password: API password
             enable_cache: Enable response caching
             cache_ttl: Cache time-to-live in seconds
-            rate_limit: Requests per second limit
-            rate_burst: Maximum burst size
         """
         # Create base HTTP client
         self.client = DomJudgeClient(
@@ -95,8 +91,6 @@ class DomJudgeAPI:
             password=password,
             enable_cache=enable_cache,
             cache_ttl=cache_ttl,
-            rate_limit=rate_limit,
-            rate_burst=rate_burst,
         )
 
         # Compose focused services

@@ -80,9 +80,9 @@ def is_retryable_error(error: Exception) -> bool:
     Examples:
         - RetryableAPIError (5xx, network errors) → True
         - PermanentAPIError (4xx, auth failures) → False
-        - APIRateLimitError → False (handled by rate limiter)
+        - APIRateLimitError → False (HTTP 429; should respect Retry-After)
     """
-    # Don't retry rate limit errors (handled by rate limiter)
+    # Don't blindly retry HTTP 429 — Retry-After must be respected.
     if isinstance(error, APIRateLimitError):
         return False
 

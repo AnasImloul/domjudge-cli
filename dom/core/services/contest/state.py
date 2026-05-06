@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 from dom.utils.cli import get_secrets_manager
@@ -103,7 +104,7 @@ class ContestStateComparator:
     between the current state and desired configuration.
     """
 
-    def __init__(self, client):
+    def __init__(self, client: DomJudgeAPIProtocol):
         """
         Initialize state comparator.
 
@@ -173,7 +174,7 @@ class ContestStateComparator:
             for contest in contests:
                 if contest.get("shortname") == shortname:
                     logger.debug(f"Found existing contest '{shortname}'")
-                    return contest  # type: ignore[no-any-return]
+                    return contest
             logger.debug(f"Contest '{shortname}' not found (will be created)")
             return None
         except Exception as e:

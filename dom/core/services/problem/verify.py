@@ -4,6 +4,7 @@ from collections import defaultdict
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 from dom.core.services.contest.verification import create_temp_contest
+from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.core.services.submission.submit import submit_problem
 from dom.infrastructure.api.domjudge import DomJudgeAPI
 from dom.types.contest import ContestConfig
@@ -42,7 +43,7 @@ def verify_problemset(infra: InfraConfig, contest: ContestConfig, secrets: Secre
     _print_overall(overall_correct, overall_mismatch)
 
 
-async def _run_submissions(client: DomJudgeAPI, contest_id: str, team, problems):
+async def _run_submissions(client: DomJudgeAPIProtocol, contest_id: str, team, problems):
     """
     Submits all problems asynchronously and collects results,
     showing progress with Rich.

@@ -2,7 +2,7 @@ import asyncio
 import re
 from pathlib import Path
 
-from dom.infrastructure.api import DomJudgeAPI
+from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.types.api.models import JudgingWrapper
 from dom.types.problem import ProblemPackage
 from dom.types.team import Team
@@ -45,7 +45,7 @@ def modify_source_code(file_name: str, code_bytes: bytes, language: str) -> tupl
 
 
 async def submit_problem(
-    client: DomJudgeAPI,
+    client: DomJudgeAPIProtocol,
     contest_id: str,
     problem: ProblemPackage,
     team: Team,
