@@ -206,3 +206,6 @@ teams.csv
 teams.tsv
 problems/
 .import_linter_cache/
+
+# macOS
+**/.DS_Store
