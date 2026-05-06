@@ -8,7 +8,8 @@ from dom.core.operations.base import (
     OperationResult,
     SteppedOperation,
 )
-from dom.core.services.contest.state import ChangeType, ContestStateComparator
+from dom.core.services.contest.changes import ChangeType
+from dom.core.services.contest.state import ContestStateComparator
 from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import console, get_logger
 from dom.types.config.processed import DomConfig

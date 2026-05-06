@@ -18,7 +18,7 @@ from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
 from dom.types.secrets import SecretsProvider
 from dom.utils.cli import ensure_dom_directory, get_container_prefix
-from dom.utils.validation import (
+from dom.utils.prerequisites import (
     validate_infrastructure_prerequisites,
     warn_if_privileged_port,
 )
