@@ -21,9 +21,11 @@ class InspectMixin:
         If `json_safe` is True, coerce non-JSON-serializable types (e.g., datetime)
         into JSON-safe primitives (str, int, float, bool, None, list, dict).
         """
+        # Subclasses combine InspectMixin with BaseModel, so model_fields exists at runtime;
+        # mypy can't see that through the mixin alone. Pydantic v2.11 deprecated instance access.
         out = {
             name: self._inspect_value(getattr(self, name), name, show_secrets, json_safe)
-            for name in getattr(self, "model_fields", {})  # pydantic v2
+            for name in type(self).model_fields  # type: ignore[attr-defined]
             if name != "id"
         }
         return out
@@ -90,7 +92,7 @@ class InspectMixin:
             # Use the same logic recursively for arbitrary pydantic models
             nested = {
                 name: self._inspect_value(getattr(value, name), name, show_secrets, json_safe)
-                for name in getattr(value, "model_fields", {})
+                for name in type(value).model_fields  # pydantic v2: access on class
                 if name != "id"
             }
             return nested
