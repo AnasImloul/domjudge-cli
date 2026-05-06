@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from dom.core.services.contest.apply import ContestApplicationService, apply_contests
-from dom.core.services.contest.state import ChangeType
+from dom.core.services.contest.changes import ChangeType
 from dom.exceptions import ContestError
 from dom.types.secrets import SecretsProvider
 

@@ -4,13 +4,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from dom.core.services.contest.state import (
+from dom.core.services.contest.changes import (
     ChangeType,
     ContestChangeSet,
-    ContestStateComparator,
     FieldChange,
     ResourceChange,
 )
+from dom.core.services.contest.state import ContestStateComparator
 from dom.types.config.processed import ContestConfig
 
 

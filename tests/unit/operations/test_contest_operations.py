@@ -26,7 +26,7 @@ from dom.core.operations.contest.verify_problemset import (
     VerifyProblemsetOperation,
     VerifyProblemsetStep,
 )
-from dom.core.services.contest.state import ChangeType
+from dom.core.services.contest.changes import ChangeType
 from dom.types.secrets import SecretsProvider
 
 

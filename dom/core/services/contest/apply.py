@@ -3,7 +3,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from dom.core.services.base import ServiceContext
-from dom.core.services.contest.state import ChangeType, ContestStateComparator
+from dom.core.services.contest.changes import ChangeType
+from dom.core.services.contest.state import ContestStateComparator
 from dom.core.services.problem.apply import ProblemService
 from dom.core.services.team.apply import TeamService
 from dom.exceptions import ContestError
