@@ -51,7 +51,7 @@ class ProblemYAML(InspectMixin, BaseModel):
     validation: str
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> set[str]:
-        content = yaml.safe_dump(self.dict(), sort_keys=False)
+        content = yaml.safe_dump(self.model_dump(), sort_keys=False)
         path = "problem.yaml"
         zf.writestr(path, content)
         return {path}

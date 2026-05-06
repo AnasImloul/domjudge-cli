@@ -1,17 +1,16 @@
 from enum import Enum
 
-from pydantic import BaseModel, SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 from dom.utils.pydantic import InspectMixin
 
 
 class InfraConfig(InspectMixin, BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     port: int = 12345
     judges: int = 1
     password: SecretStr | None = None
-
-    class Config:
-        frozen = True
 
 
 class ServiceStatus(str, Enum):

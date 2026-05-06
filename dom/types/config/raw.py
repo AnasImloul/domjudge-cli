@@ -2,13 +2,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from dom.validation import ValidationRules, for_pydantic, optional_for_pydantic
 from dom.validation.adapters import for_prompt
 
 
 class RawInfraConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     port: int = 12345
     judges: int = 1
     password: SecretStr | None = None
@@ -33,41 +35,36 @@ class RawInfraConfig(BaseModel):
             raise ValueError(str(e)) from e
         return v
 
-    class Config:
-        frozen = True
-
 
 class RawProblemsConfig(BaseModel):
-    from_: str | None = Field(default=None, alias="from")
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    class Config:
-        frozen = True
-        populate_by_name = True
+    from_: str | None = Field(default=None, alias="from")
 
 
 class RawProblem(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     archive: str
     platform: str
     color: str
     with_statement: bool = True
 
-    class Config:
-        frozen = True
-
 
 class RawTeam(BaseModel):
     """Inline team definition in YAML."""
+
+    model_config = ConfigDict(frozen=True)
 
     name: str
     affiliation: str
     country: str | None = None  # ISO 3166-1 alpha-3 country code (optional)
 
-    class Config:
-        frozen = True
-
 
 class RawTeamsConfig(BaseModel):
     """CSV/TSV file-based team configuration."""
+
+    model_config = ConfigDict(frozen=True, populate_by_name=True)
 
     from_: str = Field(alias="from")
     delimiter: str | None = None
@@ -76,12 +73,10 @@ class RawTeamsConfig(BaseModel):
     affiliation: str
     country: str | None = None  # ISO 3166-1 alpha-3 country code (optional)
 
-    class Config:
-        frozen = True
-        populate_by_name = True
-
 
 class RawContestConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str
     shortname: str | None = None
     formal_name: str | None = None
@@ -105,14 +100,10 @@ class RawContestConfig(BaseModel):
         optional_for_pydantic(ValidationRules.duration())
     )
 
-    class Config:
-        frozen = True
-
 
 class RawDomConfig(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     infra: RawInfraConfig = RawInfraConfig()
     contests: list[RawContestConfig] = []  # Always a list, never None
     loaded_from: Path
-
-    class Config:
-        frozen = True
