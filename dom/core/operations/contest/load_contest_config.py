@@ -22,27 +22,13 @@ logger = get_logger(__name__)
 
 
 class LoadSingleContestStep(ExecutableStep):
-    """Step to load a single contest configuration."""
-
     def __init__(self, config_path: Path | None, contest_name: str):
         super().__init__("load", "Load contest configuration")
         self.config_path = config_path
         self.contest_name = contest_name
 
     def execute(self, context: OperationContext) -> ContestConfig:
-        """Load and return the contest."""
         return load_contest_config(self.config_path, self.contest_name, context.secrets)
-
-
-class ValidateSingleContestStep(ExecutableStep):
-    """Step to validate single contest configuration."""
-
-    def __init__(self):
-        super().__init__("validate", "Validate contest configuration")
-
-    def execute(self, _context: OperationContext) -> None:
-        """Validate contest - already done in load step."""
-        return None
 
 
 # ============================================================================
@@ -54,40 +40,26 @@ class LoadContestConfigOperation(SteppedOperation[ContestConfig]):
     """Load a single contest configuration."""
 
     def __init__(self, config_path: Path | None, contest_name: str):
-        """
-        Initialize single contest loading operation.
-
-        Args:
-            config_path: Path to configuration file
-            contest_name: Contest short name
-        """
         self.config_path = config_path
         self.contest_name = contest_name
 
     def describe(self) -> str:
-        """Describe what this operation does."""
         path_str = str(self.config_path) if self.config_path else "default location"
         return f"Load contest '{self.contest_name}' from {path_str}"
 
     def validate(self, _context: OperationContext) -> list[str]:
-        """Validate that config file exists if path provided."""
         if self.config_path and not self.config_path.exists():
             return [f"Configuration file not found: {self.config_path}"]
         return []
 
     def define_steps(self) -> list[ExecutableStep]:
-        """Define the steps for loading a single contest."""
-        return [
-            LoadSingleContestStep(self.config_path, self.contest_name),
-            ValidateSingleContestStep(),
-        ]
+        return [LoadSingleContestStep(self.config_path, self.contest_name)]
 
     def _build_result(
         self,
         step_results: dict[str, Any],
         _context: OperationContext,
     ) -> OperationResult[ContestConfig]:
-        """Build final result from step results."""
         contest = step_results.get("load")
         if contest is None:
             return OperationResult.failure(
