@@ -5,8 +5,8 @@ from pathlib import Path
 import typer
 
 from dom.cli.validators import validate_file_path
-from dom.core.operations import OperationContext, OperationRunner
-from dom.core.operations.infrastructure import PrintInfrastructureStatusOperation
+from dom.core.operations import Context, run
+from dom.core.operations.infrastructure import print_infra_status_op
 from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
@@ -26,28 +26,14 @@ def status_command(
     verbose: bool = False,
     no_color: bool = False,  # noqa: ARG001
 ) -> None:
-    """
-    Check the health status of DOMjudge infrastructure.
-
-    This command checks:
-    - Docker daemon availability
-    - DOMserver container status
-    - MariaDB container status
-    - Judgehost containers status
-    - MySQL client container status
+    """Check the health status of DOMjudge infrastructure.
 
     Returns exit code 0 if all systems healthy, 1 otherwise.
-    Useful for CI/CD pipelines and automation scripts.
     """
     secrets = get_secrets_manager()
-    context = OperationContext(secrets=secrets, verbose=verbose)
-
-    print_status_runner = OperationRunner(
-        PrintInfrastructureStatusOperation(json_output=json_output),
-        show_progress=False,
-        silent=True,
+    status = run(
+        print_infra_status_op(json_output=json_output),
+        Context(secrets=secrets, verbose=verbose),
     )
-    result = print_status_runner.run(context)
-
-    if result.is_failure():
+    if status is not None and not status.is_healthy():
         raise typer.Exit(code=1)

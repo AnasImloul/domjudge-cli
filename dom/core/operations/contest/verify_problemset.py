@@ -1,44 +1,32 @@
-"""Verify problemset operation."""
+"""Verify a contest's problemset against the platform."""
 
 from pathlib import Path
 
 from dom.core.config.loaders import load_contest_config, load_infrastructure_config
-from dom.core.operations.base import OperationContext, SimpleOperation
+from dom.core.operations.framework import Context, operation
 from dom.core.services.problem.verify import verify_problemset
 from dom.infrastructure.api.factory import APIClientFactory
-from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 
-logger = get_logger(__name__)
+
+def _summary(contest: ContestConfig) -> str:
+    return f"Verified {len(contest.problems)} problems"
 
 
-class VerifyProblemsetOperation(SimpleOperation[ContestConfig]):
-    """Verify a contest's problemset."""
+@operation("Verify problemset", summary=_summary, show_progress=False)
+def verify_problemset_op(
+    ctx: Context,
+    config_path: Path | None,
+    contest_name: str,
+    infra_config_path: Path | None = None,
+) -> ContestConfig:
+    if config_path is not None and not config_path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {config_path}")
+    if infra_config_path is not None and not infra_config_path.exists():
+        raise FileNotFoundError(f"Infrastructure config file not found: {infra_config_path}")
 
-    def __init__(
-        self, config_path: Path | None, contest_name: str, infra_config_path: Path | None = None
-    ):
-        self.config_path = config_path
-        self.contest_name = contest_name
-        self.infra_config_path = infra_config_path
-
-    def describe(self) -> str:
-        return f"Verify problemset for contest '{self.contest_name}'"
-
-    def validate(self, _context: OperationContext) -> list[str]:
-        errors = []
-        if self.config_path and not self.config_path.exists():
-            errors.append(f"Configuration file not found: {self.config_path}")
-        if self.infra_config_path and not self.infra_config_path.exists():
-            errors.append(f"Infrastructure config file not found: {self.infra_config_path}")
-        return errors
-
-    def run(self, context: OperationContext) -> ContestConfig:
-        contest = load_contest_config(self.config_path, self.contest_name, context.secrets)
-        infra = load_infrastructure_config(self.infra_config_path)
-        client = APIClientFactory().create_admin_client(infra, context.secrets)
-        verify_problemset(client=client, contest=contest, secrets=context.secrets)
-        return contest
-
-    def _success_message(self, contest: ContestConfig) -> str:
-        return f"Verified {len(contest.problems)} problems"
+    contest = load_contest_config(config_path, contest_name, ctx.secrets)
+    infra = load_infrastructure_config(infra_config_path)
+    client = APIClientFactory().create_admin_client(infra, ctx.secrets)
+    verify_problemset(client=client, contest=contest, secrets=ctx.secrets)
+    return contest

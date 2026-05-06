@@ -6,8 +6,8 @@ import typer
 
 from dom.cli.contest.helpers import load_config_with_secrets
 from dom.cli.validators import validate_file_path
-from dom.core.operations import OperationContext, OperationRunner
-from dom.core.operations.contest import PlanContestChangesOperation
+from dom.core.operations import Context, run
+from dom.core.operations.contest import plan_contest_changes_op
 from dom.utils.cli import add_global_options, cli_command
 
 
@@ -20,24 +20,10 @@ def plan_command(
     verbose: bool = False,
     no_color: bool = False,  # noqa: ARG001
 ) -> None:
-    """
-    Show what changes would be made to contests without applying them.
+    """Show what changes would be made to contests without applying them.
 
-    This command analyzes your configuration and displays:
-    - Which contests would be created
-    - Which contests would be updated and what fields would change
-    - Which problems/teams would be added
-
-    This is more detailed than --dry-run and shows actual differences
-    between current state and desired configuration.
+    Displays creates/updates per contest, including which fields would change
+    and which problems/teams would be added.
     """
-    # Load configuration
     config, secrets = load_config_with_secrets(file, verbose)
-
-    # Plan changes
-    plan_context = OperationContext(secrets=secrets, dry_run=False, verbose=verbose)
-    plan_runner = OperationRunner(PlanContestChangesOperation(config), show_progress=False)
-    plan_result = plan_runner.run(plan_context)
-
-    if plan_result.is_failure():
-        raise typer.Exit(code=1)
+    run(plan_contest_changes_op(config), Context(secrets=secrets, verbose=verbose))

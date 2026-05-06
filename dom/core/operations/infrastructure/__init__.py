@@ -1,17 +1,17 @@
-"""Infrastructure operations for DomJudge CLI."""
+"""Infrastructure operations."""
 
-from .apply import ApplyInfrastructureOperation
-from .check_status import CheckInfrastructureStatusOperation
-from .destroy import DestroyInfrastructureOperation
-from .load_config import LoadInfraConfigOperation
-from .plan_changes import PlanInfraChangesOperation
-from .print_status import PrintInfrastructureStatusOperation
+from .apply import apply_infrastructure_op
+from .check_status import check_infra_status_op
+from .destroy import destroy_infrastructure_op
+from .load_config import load_infra_config_op
+from .plan_changes import plan_infra_changes_op
+from .print_status import print_infra_status_op
 
 __all__ = [
-    "ApplyInfrastructureOperation",
-    "CheckInfrastructureStatusOperation",
-    "DestroyInfrastructureOperation",
-    "LoadInfraConfigOperation",
-    "PlanInfraChangesOperation",
-    "PrintInfrastructureStatusOperation",
+    "apply_infrastructure_op",
+    "check_infra_status_op",
+    "destroy_infrastructure_op",
+    "load_infra_config_op",
+    "plan_infra_changes_op",
+    "print_infra_status_op",
 ]

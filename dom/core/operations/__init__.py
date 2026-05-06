@@ -1,32 +1,20 @@
-"""Declarative operation framework for DomJudge CLI.
+"""Declarative operations framework for DomJudge CLI.
 
-This module provides a declarative way to define and execute operations
-with consistent error handling, logging, and validation.
+See :mod:`dom.core.operations.framework` for the framework, and
+:mod:`dom.core.operations.contest` / :mod:`dom.core.operations.infrastructure`
+for concrete operations.
 """
 
-# Core abstractions
-# Operations by domain
 from . import contest, infrastructure
-from .base import (
-    ExecutableStep,
-    Operation,
-    OperationContext,
-    OperationResult,
-    SimpleOperation,
-    SteppedOperation,
-)
-from .runner import OperationRunner
+from .framework import Context, Operation, Step, Steps, operation, run
 
 __all__ = [
-    # Core abstractions
-    "ExecutableStep",
+    "Context",
     "Operation",
-    "OperationContext",
-    "OperationResult",
-    "OperationRunner",
-    "SimpleOperation",
-    "SteppedOperation",
-    # Domain modules
+    "Step",
+    "Steps",
     "contest",
     "infrastructure",
+    "operation",
+    "run",
 ]
