@@ -64,20 +64,22 @@ class TestCoreImports:
     """Test critical imports that must work."""
 
     def test_operations_imports(self):
-        """Test that operation classes can be imported."""
+        """Test that the operations framework primitives can be imported."""
         from dom.core.operations import (
+            Context,
             Operation,
-            OperationContext,
-            OperationResult,
-            OperationRunner,
+            Step,
+            Steps,
+            operation,
+            run,
         )
-        from dom.core.operations.base import OperationStatus
 
+        assert Context is not None
         assert Operation is not None
-        assert OperationContext is not None
-        assert OperationResult is not None
-        assert OperationRunner is not None
-        assert OperationStatus is not None
+        assert Step is not None
+        assert Steps is not None
+        assert callable(operation)
+        assert callable(run)
 
     def test_service_imports(self):
         """Test that service classes can be imported."""

@@ -1,249 +1,156 @@
-"""Tests for the operation runner."""
+"""Tests for the operations framework: @operation, run(), Step/Steps."""
+
+from unittest.mock import MagicMock
 
 import pytest
+import typer
 
-from dom.core.operations.base import (
-    ExecutableStep,
-    Operation,
-    OperationContext,
-    OperationResult,
-    OperationStatus,
-    SteppedOperation,
-)
-from dom.core.operations.runner import OperationRunner
+from dom.core.operations import Context, Step, Steps, operation, run
+from dom.types.secrets import SecretsProvider
 
 
-class SimpleOperation(Operation[str]):
-    """A simple test operation that returns success."""
+@pytest.fixture
+def context():
+    return Context(secrets=MagicMock(spec=SecretsProvider))
 
-    def describe(self) -> str:
-        return "Simple test operation"
 
-    def validate(self, context: OperationContext) -> list[str]:
-        return []
+# ---------------------------------------------------------------- single-step
 
-    def execute(self, context: OperationContext) -> OperationResult[str]:
-        return OperationResult.success("Success!", "Operation completed successfully")
 
+@operation("Single step", summary=lambda v: f"got {v}")
+def _single(_ctx: Context, value: str) -> str:
+    return value
 
-class FailingOperation(Operation[str]):
-    """An operation that always fails."""
 
-    def describe(self) -> str:
-        return "Failing test operation"
+def test_single_step_returns_value(context, capsys):
+    result = run(_single("hello"), context)
+    assert result == "hello"
+    out = capsys.readouterr().out
+    assert "got hello" in out
 
-    def validate(self, context: OperationContext) -> list[str]:
-        return []
 
-    def execute(self, context: OperationContext) -> OperationResult[str]:
-        return OperationResult.failure("Operation failed")
+@operation("Single step without summary")
+def _single_no_summary(_ctx: Context) -> int:
+    return 42
 
 
-class ValidatingOperation(Operation[str]):
-    """An operation with validation errors."""
+def test_single_step_without_summary_prints_label(context, capsys):
+    result = run(_single_no_summary(), context)
+    assert result == 42
+    assert "Single step without summary" in capsys.readouterr().out
 
-    def describe(self) -> str:
-        return "Validating operation"
 
-    def validate(self, context: OperationContext) -> list[str]:
-        return ["Validation error 1", "Validation error 2"]
+@operation("Failing single step")
+def _single_failure(_ctx: Context) -> str:
+    raise RuntimeError("boom")
 
-    def execute(self, context: OperationContext) -> OperationResult[str]:
-        return OperationResult.success("Should not reach here")
 
+def test_single_step_failure_raises_typer_exit(context, capsys):
+    with pytest.raises(typer.Exit) as excinfo:
+        run(_single_failure(), context)
+    assert excinfo.value.exit_code == 1
+    out = capsys.readouterr().out
+    assert "Failing single step" in out
+    assert "boom" in out
 
-class MockStep(ExecutableStep):
-    """A simple mock step for testing."""
 
-    def __init__(self, step_name: str, should_fail: bool = False):
-        super().__init__(step_name, f"Execute {step_name}")
-        self.should_fail = should_fail
+# ---------------------------------------------------------------- multi-step
 
-    def execute(self, context: OperationContext) -> str:
-        if self.should_fail:
-            raise ValueError(f"Step {self.name} failed")
-        return f"Result from {self.name}"
 
+@operation("Multi step")
+def _multi(_ctx: Context, sink: list[str]) -> list[Step]:
+    return [
+        Step("first", lambda: sink.append("a")),
+        Step("second", lambda: sink.append("b")),
+        Step("third", lambda: sink.append("c")),
+    ]
 
-class SimpleSteppedOperation(SteppedOperation[str]):
-    """A simple stepped operation for testing."""
 
-    def __init__(self, steps: list[ExecutableStep]):
-        self.steps_to_execute = steps
+def test_multi_step_executes_steps_in_order(context):
+    sink: list[str] = []
+    result = run(_multi(sink), context)
+    assert result is None
+    assert sink == ["a", "b", "c"]
 
-    def describe(self) -> str:
-        return "Simple stepped operation"
 
-    def validate(self, context: OperationContext) -> list[str]:
-        return []
+@operation("Multi step with summary")
+def _multi_with_summary(_ctx: Context) -> Steps:
+    return Steps(
+        steps=[Step("noop", lambda: None)],
+        summary="custom summary",
+    )
 
-    def define_steps(self) -> list[ExecutableStep]:
-        return self.steps_to_execute
 
-    def _build_result(
-        self, step_results: dict[str, object], context: OperationContext
-    ) -> OperationResult[str]:
-        return OperationResult.success("All steps completed", "Stepped operation done")
+def test_multi_step_with_steps_wrapper_uses_summary(context, capsys):
+    run(_multi_with_summary(), context)
+    assert "custom summary" in capsys.readouterr().out
 
 
-class TestOperationRunner:
-    """Tests for OperationRunner."""
+@operation("Multi step with failing step")
+def _multi_failing(_ctx: Context, sink: list[str]) -> list[Step]:
+    return [
+        Step("ok", lambda: sink.append("ok")),
+        Step("bad", lambda: (_ for _ in ()).throw(ValueError("step boom"))),
+        Step("never", lambda: sink.append("never")),
+    ]
 
-    @pytest.fixture
-    def context(self, tmp_path):
-        """Create an OperationContext for testing."""
-        from dom.infrastructure.secrets.manager import SecretsManager
 
-        secrets = SecretsManager(tmp_path)
-        return OperationContext(secrets=secrets, dry_run=False)
+def test_multi_step_failure_stops_at_failing_step(context):
+    sink: list[str] = []
+    with pytest.raises(typer.Exit):
+        run(_multi_failing(sink), context)
+    assert sink == ["ok"]
 
-    def test_run_simple_operation_success(self, context):
-        """Test running a simple successful operation."""
-        operation = SimpleOperation()
-        runner = OperationRunner(operation, silent=True)
 
-        result = runner.run(context)
-
-        assert result.is_success()
-        assert result.data == "Success!"
-        assert not result.is_failure()
-        assert result.status == OperationStatus.SUCCESS
+# ---------------------------------------------------------------- dry run
 
-    def test_run_failing_operation(self, context):
-        """Test running an operation that fails."""
-        operation = FailingOperation()
-        runner = OperationRunner(operation, silent=True)
 
-        result = runner.run(context)
+def test_dry_run_skips_execution_for_multi_step(context, capsys):
+    sink: list[str] = []
+    dry_ctx = Context(secrets=context.secrets, dry_run=True)
+    result = run(_multi(sink), dry_ctx)
+    assert result is None
+    assert sink == []
+    out = capsys.readouterr().out
+    assert "Dry run" in out
+    assert "first" in out
 
-        assert result.is_failure()
-        assert not result.is_success()
 
-    def test_run_operation_with_validation_errors(self, context):
-        """Test that validation errors prevent execution."""
-        operation = ValidatingOperation()
-        runner = OperationRunner(operation, silent=True)
+def test_dry_run_skips_execution_for_single_step(context, capsys):
+    dry_ctx = Context(secrets=context.secrets, dry_run=True)
+    # _single would otherwise return its arg; in dry-run it returns None
+    result = run(_single("hello"), dry_ctx)
+    assert result is None
+    assert "Dry run" in capsys.readouterr().out
 
-        result = runner.run(context)
 
-        assert result.is_failure()
-        assert "validation" in result.message.lower()
+# ---------------------------------------------------------------- build errors
 
-    def test_run_operation_in_dry_run_mode(self, tmp_path):
-        """Test that dry_run mode skips execution."""
-        from dom.infrastructure.secrets.manager import SecretsManager
 
-        secrets = SecretsManager(tmp_path)
-        dry_run_context = OperationContext(secrets=secrets, dry_run=True)
-        operation = SimpleOperation()
-        runner = OperationRunner(operation, silent=True)
+@operation("Validating op")
+def _validating(_ctx: Context, ok: bool) -> str:
+    if not ok:
+        raise FileNotFoundError("missing")
+    return "fine"
 
-        result = runner.run(dry_run_context)
 
-        assert result.status == OperationStatus.SKIPPED
-        assert "dry" in result.message.lower()
+def test_build_errors_become_typer_exit(context, capsys):
+    with pytest.raises(typer.Exit):
+        run(_validating(False), context)
+    out = capsys.readouterr().out
+    assert "Validating op" in out
+    assert "missing" in out
 
-    def test_run_stepped_operation_success(self, context):
-        """Test running a stepped operation where all steps succeed."""
-        steps = [
-            MockStep("step1"),
-            MockStep("step2"),
-            MockStep("step3"),
-        ]
-        operation = SimpleSteppedOperation(steps)
-        runner = OperationRunner(operation, silent=True)
 
-        result = runner.run(context)
+# ---------------------------------------------------------------- show_progress
 
-        assert result.is_success()
 
-    def test_run_stepped_operation_with_failing_step(self, context):
-        """Test running a stepped operation where one step fails."""
-        steps = [
-            MockStep("step1"),
-            MockStep("step2", should_fail=True),
-            MockStep("step3"),
-        ]
-        operation = SimpleSteppedOperation(steps)
-        runner = OperationRunner(operation, silent=True)
+@operation("No-progress op", show_progress=False)
+def _no_progress(_ctx: Context, sink: list[int]) -> list[Step]:
+    return [Step("only", lambda: sink.append(1))]
 
-        result = runner.run(context)
 
-        assert result.is_failure()
-        assert "step" in result.message.lower() or "failed" in result.message.lower()
-
-    def test_operation_result_status_checks(self):
-        """Test OperationResult status checking methods."""
-        success = OperationResult.success("data", "Success message")
-        failure = OperationResult.failure(ValueError("Failure message"))
-        skipped = OperationResult.skipped("Skipped message")
-
-        # Success checks
-        assert success.is_success()
-        assert not success.is_failure()
-        assert success.status == OperationStatus.SUCCESS
-
-        # Failure checks
-        assert failure.is_failure()
-        assert not failure.is_success()
-        assert failure.status == OperationStatus.FAILURE
-
-        # Skipped checks
-        assert skipped.status == OperationStatus.SKIPPED
-        assert not skipped.is_success()
-        assert not skipped.is_failure()
-
-    def test_operation_result_data_access(self):
-        """Test accessing data from OperationResult."""
-        result = OperationResult.success("test_data", "Success")
-
-        assert result.data == "test_data"
-        assert result.message == "Success"
-
-    def test_operation_context_dry_run_flag(self, tmp_path):
-        """Test OperationContext dry_run flag."""
-        from dom.infrastructure.secrets.manager import SecretsManager
-
-        secrets = SecretsManager(tmp_path)
-
-        # Normal context
-        normal_context = OperationContext(secrets=secrets, dry_run=False)
-        assert not normal_context.dry_run
-
-        # Dry-run context
-        dry_run_context = OperationContext(secrets=secrets, dry_run=True)
-        assert dry_run_context.dry_run
-
-
-class TestExecutableStep:
-    """Tests for ExecutableStep."""
-
-    def test_step_initialization(self):
-        """Test that steps are initialized correctly."""
-        step = MockStep("test_step")
-
-        assert step.name == "test_step"
-        assert step.description == "Execute test_step"
-
-    def test_step_execution(self, tmp_path):
-        """Test that steps can be executed."""
-        from dom.infrastructure.secrets.manager import SecretsManager
-
-        secrets = SecretsManager(tmp_path)
-        context = OperationContext(secrets=secrets, dry_run=False)
-        step = MockStep("test_step")
-
-        result = step.execute(context)
-
-        assert "test_step" in result
-
-    def test_step_execution_failure(self, tmp_path):
-        """Test that step execution failures are handled."""
-        from dom.infrastructure.secrets.manager import SecretsManager
-
-        secrets = SecretsManager(tmp_path)
-        context = OperationContext(secrets=secrets, dry_run=False)
-        step = MockStep("failing_step", should_fail=True)
-
-        with pytest.raises(ValueError, match="failed"):
-            step.execute(context)
+def test_show_progress_false_still_executes(context):
+    sink: list[int] = []
+    run(_no_progress(sink), context)
+    assert sink == [1]

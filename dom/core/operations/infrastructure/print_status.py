@@ -1,81 +1,27 @@
-"""Print infrastructure status operation."""
+"""Check and display infrastructure status."""
 
 import json
-from typing import Any
 
 from rich import box
 from rich.console import Console
 from rich.table import Table
 
-from dom.core.operations.base import (
-    ExecutableStep,
-    OperationContext,
-    OperationResult,
-    SteppedOperation,
-)
+from dom.core.operations.framework import Context, operation
 from dom.core.services.infra.service import InfraService
-from dom.logging_config import get_logger
 from dom.types.infra import InfrastructureStatus, ServiceStatus
 
-logger = get_logger(__name__)
+
+@operation("Display infrastructure status", show_progress=False)
+def print_infra_status_op(ctx: Context, json_output: bool = False) -> InfrastructureStatus:
+    status = InfraService(ctx.secrets).check_status()
+    if json_output:
+        _print_status_json(status)
+    else:
+        _print_status_human_readable(status)
+    return status
 
 
-# ============================================================================
-# Steps
-# ============================================================================
-
-
-class CheckInfraStatusStep(ExecutableStep):
-    def __init__(self):
-        super().__init__("check", "Check infrastructure status")
-
-    def execute(self, context: OperationContext) -> InfrastructureStatus:
-        return InfraService(context.secrets).check_status()
-
-
-# ============================================================================
-# Operation
-# ============================================================================
-
-
-class PrintInfrastructureStatusOperation(SteppedOperation[None]):
-    """Check and print infrastructure status."""
-
-    def __init__(self, json_output: bool = False):
-        self.json_output = json_output
-
-    def describe(self) -> str:
-        return "Check and display infrastructure status"
-
-    def define_steps(self) -> list[ExecutableStep]:
-        return [CheckInfraStatusStep()]
-
-    def _build_result(
-        self,
-        step_results: dict[str, Any],
-        _context: OperationContext,
-    ) -> OperationResult[None]:
-        status = step_results.get("check")
-        if status is None:
-            return OperationResult.failure(
-                ValueError("Status check failed"),
-                "Failed to check infrastructure status",
-            )
-
-        if self.json_output:
-            _print_status_json(status)
-        else:
-            _print_status_human_readable(status)
-
-        message = (
-            "Infrastructure is healthy" if status.is_healthy() else "Infrastructure is not healthy"
-        )
-        return OperationResult.success(None, message)
-
-
-# ============================================================================
-# Presenters
-# ============================================================================
+# ---------------------------------------------------------------- presenters
 
 
 def _print_status_human_readable(status: InfrastructureStatus) -> None:

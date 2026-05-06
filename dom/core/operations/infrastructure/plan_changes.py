@@ -1,37 +1,26 @@
-"""Plan infrastructure changes operation."""
+"""Plan infrastructure changes without applying them."""
 
-from dom.core.operations.base import OperationContext, SimpleOperation
+from dom.core.operations.framework import Context, operation
 from dom.core.services.infra.state import InfraChangeSet, InfraStateComparator
-from dom.logging_config import console, get_logger
+from dom.logging_config import console
 from dom.types.infra import InfraConfig
 
-logger = get_logger(__name__)
+
+def _summary(change_set: InfraChangeSet | None) -> str:
+    if not change_set:
+        return "No infrastructure state found"
+    safety = "safe" if change_set.is_safe_live_change else "requires restart"
+    return f"Infrastructure change: {change_set.change_type.value} ({safety})"
 
 
-class PlanInfraChangesOperation(SimpleOperation[InfraChangeSet | None]):
-    """Plan infrastructure changes without applying them."""
-
-    def __init__(self, config: InfraConfig):
-        self.config = config
-
-    def describe(self) -> str:
-        return "Plan infrastructure configuration changes"
-
-    def run(self, _context: OperationContext) -> InfraChangeSet | None:
-        change_set = InfraStateComparator().compare_infrastructure(self.config)
-        _print_planned_changes(change_set)
-        return change_set
-
-    def _success_message(self, change_set: InfraChangeSet | None) -> str:
-        if not change_set:
-            return "No infrastructure state found"
-        safe_str = "safe" if change_set.is_safe_live_change else "requires restart"
-        return f"Infrastructure change: {change_set.change_type.value} ({safe_str})"
+@operation("Plan infrastructure changes", summary=_summary, show_progress=False)
+def plan_infra_changes_op(_ctx: Context, config: InfraConfig) -> InfraChangeSet | None:
+    change_set = InfraStateComparator().compare_infrastructure(config)
+    _print_planned_changes(change_set)
+    return change_set
 
 
-# ============================================================================
-# Presenter
-# ============================================================================
+# ---------------------------------------------------------------- presenter
 
 
 def _print_planned_changes(change_set: InfraChangeSet | None) -> None:

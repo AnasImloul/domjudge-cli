@@ -1,44 +1,33 @@
-"""Plan contest changes operation."""
+"""Plan contest changes without applying them."""
 
 from typing import Any
 
-from dom.core.operations.base import OperationContext, SimpleOperation
+from dom.core.operations.framework import Context, operation
 from dom.core.services.contest.changes import ChangeType
 from dom.core.services.contest.state import ContestStateComparator
 from dom.infrastructure.api.factory import APIClientFactory
-from dom.logging_config import console, get_logger
+from dom.logging_config import console
 from dom.types.config.processed import DomConfig
 
-logger = get_logger(__name__)
+
+def _summary(changes: list[dict[str, Any]]) -> str:
+    total = sum(1 for item in changes if item["change_set"].has_changes)
+    return f"Analyzed {len(changes)} contest(s) • {total} with changes"
 
 
-class PlanContestChangesOperation(SimpleOperation[list[dict[str, Any]]]):
-    """Plan contest changes without applying them."""
-
-    def __init__(self, config: DomConfig):
-        self.config = config
-
-    def describe(self) -> str:
-        return "Plan contest configuration changes"
-
-    def run(self, context: OperationContext) -> list[dict[str, Any]]:
-        client = APIClientFactory().create_admin_client(self.config.infra, context.secrets)
-        comparator = ContestStateComparator(client)
-        changes = [
-            {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}
-            for contest in self.config.contests
-        ]
-        _print_planned_changes(changes)
-        return changes
-
-    def _success_message(self, changes: list[dict[str, Any]]) -> str:
-        total_changes = sum(1 for item in changes if item["change_set"].has_changes)
-        return f"Analyzed {len(changes)} contest(s) • {total_changes} with changes"
+@operation("Plan contest changes", summary=_summary, show_progress=False)
+def plan_contest_changes_op(ctx: Context, config: DomConfig) -> list[dict[str, Any]]:
+    client = APIClientFactory().create_admin_client(config.infra, ctx.secrets)
+    comparator = ContestStateComparator(client)
+    changes = [
+        {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}
+        for contest in config.contests
+    ]
+    _print_planned_changes(changes)
+    return changes
 
 
-# ============================================================================
-# Presenter
-# ============================================================================
+# ---------------------------------------------------------------- presenter
 
 
 def _print_planned_changes(changes: list[dict[str, Any]]) -> None:
