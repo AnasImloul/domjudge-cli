@@ -1,6 +1,11 @@
 # api by datamodel-codegen:
 #   filename:  api.yaml
 #   timestamp: 2025-04-25T20:49:24+00:00
+#
+# Note: this file is auto-generated, but the source (api.yaml + codegen
+# config) is not tracked in this repo. When regenerating, ensure the
+# codegen produces Pydantic v2 idioms (min_length / max_length, not the
+# v1 min_items / max_items).
 
 from __future__ import annotations
 
@@ -355,11 +360,11 @@ class AddSubmission(BaseModel):
         None,
         description="The ID to use for the submission. Only used when adding a submission as admin and only allowed with PUT",
     )
-    files: list[AddSubmissionFile] | None = Field(  # type: ignore[call-overload]
+    files: list[AddSubmissionFile] | None = Field(
         None,
         description="The base64 encoded ZIP file to submit",
-        max_items=1,
-        min_items=1,
+        max_length=1,
+        min_length=1,
     )
     code: list[bytes] | None = Field(None, description="The file(s) to submit")
 
