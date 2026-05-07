@@ -23,7 +23,7 @@ from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.exceptions import APIError, ContestError
 from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
-from dom.utils.cli import get_secrets_manager
+from dom.types.secrets import SecretsProvider
 from dom.utils.hashing import generate_team_username
 
 logger = get_logger(__name__)
@@ -122,8 +122,9 @@ class ContestStateComparator:
     create-vs-skip per contest).
     """
 
-    def __init__(self, client: DomJudgeAPIProtocol):
+    def __init__(self, client: DomJudgeAPIProtocol, secrets: SecretsProvider):
         self.client = client
+        self.secrets = secrets
 
     def compare_contest(
         self, desired: ContestConfig, current: dict[str, Any] | None = None
@@ -214,9 +215,8 @@ class ContestStateComparator:
         seed for stable hashing) so the comparison is an exact string match.
         Display names are projected back through the ``key → name`` map.
         """
-        secrets = get_secrets_manager()
         composite_to_display: dict[str, str] = {
-            f"{generate_team_username(secrets, t.composite_key)}|{t.composite_key}": t.name
+            f"{generate_team_username(self.secrets, t.composite_key)}|{t.composite_key}": t.name
             for t in desired.teams
         }
 

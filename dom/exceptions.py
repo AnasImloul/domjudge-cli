@@ -69,10 +69,19 @@ class PermanentAPIError(APIError):
 class APIRateLimitError(RetryableAPIError):
     """Raised when API rate limit is exceeded (HTTP 429).
 
-    This is retryable but should respect Retry-After header.
+    Retryable, with the wait derived from the server's ``Retry-After`` header
+    when present. Falls back to the configured exponential backoff otherwise.
     """
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        response_body: str | None = None,
+        retry_after: float | None = None,
+    ):
+        super().__init__(message, status_code=status_code, response_body=response_body)
+        self.retry_after = retry_after
 
 
 class APIAuthenticationError(PermanentAPIError):

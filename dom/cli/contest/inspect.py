@@ -7,6 +7,7 @@ from pathlib import Path
 import jmespath
 import typer
 
+from dom import ui
 from dom.cli.contest.helpers import load_config_with_secrets
 from dom.cli.decorators import add_global_options, cli_command
 from dom.cli.validators import validate_file_path
@@ -42,5 +43,9 @@ def inspect_command(
             return obj.isoformat()
         raise TypeError(f"Type {type(obj)} not serializable")
 
-    # pretty-print or just print the dict
-    typer.echo(json.dumps(data, ensure_ascii=False, indent=2, default=json_serializer))
+    # pretty-print or just print the dict; disable Rich markup so JSON brackets render verbatim
+    ui.console.print(
+        json.dumps(data, ensure_ascii=False, indent=2, default=json_serializer),
+        markup=False,
+        highlight=False,
+    )

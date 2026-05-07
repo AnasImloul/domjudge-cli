@@ -51,7 +51,7 @@ def create_temp_contest(
     context = ServiceContext(client=client, contest_id=result.id, contest_shortname=temp_name)
 
     problem_service = ProblemService(client)
-    team_service = TeamService(client)
+    team_service = TeamService(client, secrets_mgr)
 
     problem_results = problem_service.create_many(contest.problems, context, stop_on_error=False)
     problem_summary = problem_service.get_summary(problem_results)
