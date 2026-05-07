@@ -25,10 +25,9 @@ logger = get_logger(__name__)
 
 
 def convert_and_load_problem(archive_path: Path, with_statement: bool) -> ProblemPackage:
-    """
-    Convert a Polygon archive to a DOMjudge package and load it (no caching).
-    """
-    assert archive_path.exists(), f"Archive not found: {archive_path}"
+    """Convert a Polygon archive to a DOMjudge package and load it (no caching)."""
+    if not archive_path.exists():
+        raise FileNotFoundError(f"Archive not found: {archive_path}")
 
     # Always convert into a fresh temporary ZIP
     with tempfile.TemporaryDirectory() as tmpdir:
