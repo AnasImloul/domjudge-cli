@@ -2,10 +2,12 @@
 
 An *operation* is a named, runnable unit of work. There are two shapes:
 
-* **Multi-step** — function returns ``list[Step]`` (or ``Steps`` to attach a
-  final summary message). The runner executes each step with progress UI.
-* **Single-step** — function returns the operation's result value. A
-  ``summary=`` callback on the decorator can format the success line.
+* **Multi-step** — function returns :class:`Steps` (a list of labeled
+  steps with an optional final summary). The runner executes each step
+  with progress UI.
+* **Single-step** — function returns the operation's result value
+  directly. A ``summary=`` callback on the decorator can format the
+  success line.
 
 Use ``@operation(label, summary=...)`` to declare. Calling the decorated
 function with its non-context arguments returns an :class:`Operation`
@@ -14,12 +16,12 @@ bound to those arguments; pass it to :func:`run` with a :class:`Context`.
 Example (multi-step)::
 
     @operation("Deploy infrastructure")
-    def apply_infra(ctx: Context, config: InfraConfig) -> list[Step]:
+    def apply_infra(ctx: Context, config: InfraConfig) -> Steps:
         svc = InfraService(ctx.secrets)
-        return [
+        return Steps(steps=[
             Step("Validate prerequisites", lambda: svc.validate_prerequisites(config.port)),
             Step("Start MariaDB",          lambda: svc.start_service("mariadb")),
-        ]
+        ])
 
     run(apply_infra(config), Context(secrets=mgr))
 
@@ -40,7 +42,7 @@ from __future__ import annotations
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Generic, NoReturn, TypeVar
+from typing import Any, Generic, NoReturn, TypeVar, Union
 
 import typer
 from rich.progress import (
@@ -86,11 +88,30 @@ class Steps:
 
 
 @dataclass(frozen=True)
+class _Value(Generic[T]):
+    """Wrapper marking a single-step op's return value.
+
+    Internal to the framework — operations don't construct this directly.
+    Together with :class:`Steps`, it forms the discriminated ``Plan``
+    union the runner dispatches on, replacing the prior heuristic
+    isinstance-on-list classification.
+    """
+
+    value: T
+
+
+# A plan is what an operation function returns once normalized: either a
+# multi-step ``Steps`` or a wrapped single-step ``_Value``. Any other
+# return is wrapped as ``_Value`` at normalization time.
+Plan = Union[Steps, "_Value[T]"]
+
+
+@dataclass(frozen=True)
 class Operation(Generic[T]):
     """A bound operation, ready to be executed by :func:`run`."""
 
     label: str
-    build: Callable[[Context], Any]
+    build: Callable[[Context], Plan[T]]
     summary: Callable[[T], str] | None = None
     show_progress: bool = True
 
@@ -104,17 +125,20 @@ def operation(
     """Mark a function as an operation.
 
     The decorated function takes ``(ctx: Context, *args, **kwargs)`` and
-    returns either ``list[Step]`` / ``Steps`` (multi-step) or any value
-    (single-step). Calling the decorated function with its non-context
+    returns either a :class:`Steps` (multi-step) or any value (single-step,
+    auto-wrapped). Calling the decorated function with its non-context
     arguments returns an :class:`Operation` bound to those arguments.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Operation[T]]:
         @functools.wraps(fn)
         def factory(*args: Any, **kwargs: Any) -> Operation[T]:
+            def build(ctx: Context) -> Plan[T]:
+                return _normalize(fn(ctx, *args, **kwargs))
+
             return Operation(
                 label=label,
-                build=lambda ctx: fn(ctx, *args, **kwargs),
+                build=build,
                 summary=summary,
                 show_progress=show_progress,
             )
@@ -136,47 +160,49 @@ def run(op: Operation[T], ctx: Context) -> T | None:
     )
 
     try:
-        plan = op.build(ctx)
+        plan: Plan[T] = op.build(ctx)
     except Exception as exc:
         _fail(op.label, exc)
-
-    steps, multi_step_summary, value = _interpret(plan)
 
     if ctx.dry_run:
-        _print_dry_run(op.label, steps)
+        _print_dry_run(op.label, plan.steps if isinstance(plan, Steps) else None)
         return None
 
-    try:
-        if steps is not None:
-            _execute_steps(op.label, steps, show_progress=op.show_progress, verbose=ctx.verbose)
-    except Exception as exc:
-        _fail(op.label, exc)
+    if isinstance(plan, Steps):
+        try:
+            _execute_steps(
+                op.label, plan.steps, show_progress=op.show_progress, verbose=ctx.verbose
+            )
+        except Exception as exc:
+            _fail(op.label, exc)
+        _print_success(op.label, plan.summary)
+        logger.info(f"Operation completed: {op.label}", extra={"operation": op.label})
+        return None
 
-    message = _resolve_summary(op, value, multi_step_summary)
+    message = _resolve_summary(op, plan.value)
     _print_success(op.label, message)
     logger.info(f"Operation completed: {op.label}", extra={"operation": op.label})
-    return value  # type: ignore[no-any-return]
+    return plan.value
 
 
 # ---------------------------------------------------------------- internals
 
 
-def _interpret(plan: Any) -> tuple[list[Step] | None, str, Any]:
-    """Classify what the operation function returned.
+def _normalize(plan: Any) -> Plan[Any]:
+    """Wrap an operation function's return into the discriminated ``Plan``.
 
-    Returns ``(steps, multi_step_summary, value)``. ``steps`` is ``None``
-    for single-step ops; ``value`` is ``None`` for multi-step ops.
+    A :class:`Steps` is returned as-is; everything else (including
+    ``None`` and lists of any kind) is wrapped in ``_Value``. This
+    eliminates the prior ambiguity where a bare ``list[Step]`` was
+    inferred via ``all(isinstance(...))`` — multi-step ops must now
+    return :class:`Steps` explicitly.
     """
     if isinstance(plan, Steps):
-        return list(plan.steps), plan.summary, None
-    if isinstance(plan, list) and all(isinstance(s, Step) for s in plan):
-        return plan, "", None
-    return None, "", plan
+        return plan
+    return _Value(plan)
 
 
-def _resolve_summary(op: Operation[T], value: Any, multi_step_summary: str) -> str:
-    if multi_step_summary:
-        return multi_step_summary
+def _resolve_summary(op: Operation[T], value: T) -> str:
     if op.summary is None:
         return ""
     try:
