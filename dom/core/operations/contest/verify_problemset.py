@@ -4,8 +4,8 @@ from pathlib import Path
 
 from dom.core.config.loaders import load_contest_config, load_infrastructure_config
 from dom.core.operations.framework import Context, operation
+from dom.core.operations.wiring import wire_admin_api
 from dom.core.services.problem.verify import verify_problemset
-from dom.infrastructure.api.factory import APIClientFactory
 from dom.types.config.processed import ContestConfig
 
 
@@ -27,6 +27,6 @@ def verify_problemset_op(
 
     contest = load_contest_config(config_path, contest_name, ctx.secrets)
     infra = load_infrastructure_config(infra_config_path)
-    client = APIClientFactory().create_admin_client(infra, ctx.secrets)
+    client = wire_admin_api(infra, ctx.secrets)
     verify_problemset(client=client, contest=contest, secrets=ctx.secrets)
     return contest

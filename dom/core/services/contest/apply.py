@@ -6,12 +6,11 @@ from dom.core.services.base import ServiceContext
 from dom.core.services.contest.changes import ChangeType
 from dom.core.services.contest.state import ContestStateComparator
 from dom.core.services.problem.apply import ProblemService
+from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.core.services.team.apply import TeamService
 from dom.exceptions import ContestError
-from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import console, get_logger
 from dom.types.api.models import Contest
-from dom.types.config import DomConfig
 from dom.types.config.processed import ContestConfig
 from dom.types.secrets import SecretsProvider
 
@@ -26,7 +25,7 @@ class ContestApplicationService:
     resources (problems, teams) in a clean, declarative manner.
     """
 
-    def __init__(self, client, secrets: SecretsProvider):
+    def __init__(self, client: DomJudgeAPIProtocol, secrets: SecretsProvider):
         """
         Initialize contest application service.
 
@@ -242,23 +241,3 @@ class ContestApplicationService:
         summary = self.team_service.get_summary(results)
         if summary["failed"] > 0:
             raise ContestError(f"{summary['failed']} team(s) failed to add")
-
-
-def apply_contests(config: DomConfig, secrets: SecretsProvider) -> None:
-    """
-    Apply contest configurations to DOMjudge platform.
-
-    Args:
-        config: Complete DOMjudge configuration
-        secrets: Secrets manager for retrieving credentials
-
-    Raises:
-        ContestError: If contest application fails
-    """
-    factory = APIClientFactory()
-    client = factory.create_admin_client(config.infra, secrets)
-
-    service = ContestApplicationService(client, secrets)
-
-    for contest in config.contests:
-        service.apply_contest(contest)

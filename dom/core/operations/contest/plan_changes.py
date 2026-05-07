@@ -3,9 +3,9 @@
 from typing import Any
 
 from dom.core.operations.framework import Context, operation
+from dom.core.operations.wiring import wire_admin_api
 from dom.core.services.contest.changes import ChangeType
 from dom.core.services.contest.state import ContestStateComparator
-from dom.infrastructure.api.factory import APIClientFactory
 from dom.logging_config import console
 from dom.types.config.processed import DomConfig
 
@@ -17,7 +17,7 @@ def _summary(changes: list[dict[str, Any]]) -> str:
 
 @operation("Plan contest changes", summary=_summary, show_progress=False)
 def plan_contest_changes_op(ctx: Context, config: DomConfig) -> list[dict[str, Any]]:
-    client = APIClientFactory().create_admin_client(config.infra, ctx.secrets)
+    client = wire_admin_api(config.infra, ctx.secrets)
     comparator = ContestStateComparator(client)
     changes = [
         {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}

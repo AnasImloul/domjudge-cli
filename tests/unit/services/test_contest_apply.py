@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dom.core.services.contest.apply import ContestApplicationService, apply_contests
+from dom.core.services.contest.apply import ContestApplicationService
 from dom.core.services.contest.changes import ChangeType
 from dom.exceptions import ContestError
 from dom.types.secrets import SecretsProvider
@@ -149,22 +149,29 @@ def test_apply_contest_wraps_create_error_as_contest_error(service, client):
     assert "upstream 500" in str(exc_info.value)
 
 
-# ---------------------------------------------------------------- apply_contests entrypoint
+# ---------------------------------------------------------------- apply orchestration entrypoint
 
 
-def test_apply_contests_iterates_over_all_contests(secrets):
+def test_apply_all_iterates_over_all_contests(secrets):
+    """The operations-layer orchestrator wires a client and calls the
+    service once per contest. Wiring lives in operations now, not
+    services, so we exercise it from there."""
+    from dom.core.operations.contest.apply import _apply_all
+    from dom.core.operations.framework import Context
+
     config = MagicMock()
     config.infra = MagicMock()
     config.contests = [_contest("A"), _contest("B"), _contest("C")]
+    ctx = Context(secrets=secrets)
 
     with (
-        patch("dom.core.services.contest.apply.APIClientFactory") as factory_cls,
-        patch("dom.core.services.contest.apply.ContestApplicationService") as service_cls,
+        patch("dom.core.operations.contest.apply.wire_admin_api") as wire,
+        patch("dom.core.operations.contest.apply.ContestApplicationService") as service_cls,
     ):
         instance = MagicMock()
         service_cls.return_value = instance
-        factory_cls.return_value.create_admin_client.return_value = MagicMock()
+        wire.return_value = MagicMock()
 
-        apply_contests(config, secrets)
+        _apply_all(config, ctx)
 
     assert instance.apply_contest.call_count == 3
