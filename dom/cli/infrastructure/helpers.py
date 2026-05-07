@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from dom.cli._helpers import load_with_secrets
+from dom.cli.helpers import load_with_secrets
 from dom.core.operations.infrastructure import load_infra_config_op
 
 

@@ -149,7 +149,7 @@ def test_render_planned_changes_renders_creates(capsys):
         field_changes=[],
         resource_changes=[],
     )
-    change_set.summary.return_value = "[CREATE] Contest C0"
+    change_set.summary_parts.return_value = (ChangeType.CREATE, "C0", [])
 
     render_planned_changes([{"shortname": "C0", "change_set": change_set}])
     output = capsys.readouterr().out

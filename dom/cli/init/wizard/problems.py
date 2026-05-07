@@ -5,8 +5,8 @@ from jinja2 import Template
 from rich.table import Table
 
 from dom import ui
+from dom.cli.helpers import ask_override_if_exists
 from dom.templates.init import problems_template
-from dom.utils.cli import ask_override_if_exists
 from dom.utils.color import get_hex_color
 
 

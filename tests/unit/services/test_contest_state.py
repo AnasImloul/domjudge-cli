@@ -197,48 +197,6 @@ class TestResourceChange:
 class TestContestChangeSet:
     """Tests for ContestChangeSet dataclass."""
 
-    def test_change_set_summary_for_create(self):
-        """Test summary message for CREATE."""
-        change_set = ContestChangeSet(
-            contest_shortname="test2025",
-            change_type=ChangeType.CREATE,
-            field_changes=[],
-            resource_changes=[],
-        )
-
-        summary = change_set.summary()
-        assert "CREATE" in summary
-        assert "test2025" in summary
-
-    def test_change_set_summary_for_update(self):
-        """Test summary message for UPDATE."""
-        field_changes = [FieldChange("duration", "5:00:00", "6:00:00")]
-        resource_changes = [ResourceChange("problems", ["problem-a"], [], [])]
-
-        change_set = ContestChangeSet(
-            contest_shortname="test2025",
-            change_type=ChangeType.UPDATE,
-            field_changes=field_changes,
-            resource_changes=resource_changes,
-        )
-
-        summary = change_set.summary()
-        assert "UPDATE" in summary
-        assert "test2025" in summary
-
-    def test_change_set_summary_for_no_change(self):
-        """Test summary message for NO_CHANGE."""
-        change_set = ContestChangeSet(
-            contest_shortname="test2025",
-            change_type=ChangeType.NO_CHANGE,
-            field_changes=[],
-            resource_changes=[],
-        )
-
-        summary = change_set.summary()
-        assert "NO CHANGES" in summary
-        assert "test2025" in summary
-
     def test_change_set_with_multiple_field_changes(self):
         """Test that multiple field changes are tracked."""
         field_changes = [
