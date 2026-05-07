@@ -140,8 +140,10 @@ class TestContestStateComparator:
         assert result is None
 
     def test_fetch_current_contest_handles_api_errors(self, comparator, mock_client):
-        """Test that API errors are handled gracefully."""
-        mock_client.contests.list_all.side_effect = Exception("API Error")
+        """Transient API/network errors fall through to ``None`` (treat as new)."""
+        from dom.exceptions import APINetworkError
+
+        mock_client.contests.list_all.side_effect = APINetworkError("API Error")
 
         result = comparator._fetch_current_contest("test2025")
 

@@ -1,4 +1,4 @@
-"""Tests for destroy, check_status, and print_status infrastructure operations."""
+"""Tests for destroy, check_status infrastructure operations and the status renderer."""
 
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +7,6 @@ import pytest
 from dom.core.operations import Context, run
 from dom.core.operations.infrastructure.check_status import check_infra_status_op
 from dom.core.operations.infrastructure.destroy import destroy_infrastructure_op
-from dom.core.operations.infrastructure.print_status import print_infra_status_op
 from dom.types.infra import InfrastructureStatus, ServiceStatus
 from dom.types.secrets import SecretsProvider
 
@@ -80,50 +79,42 @@ def test_check_status_summary_for_unhealthy(context, capsys):
     assert "issues" in capsys.readouterr().out.lower()
 
 
-# ---------------------------------------------------------------- Print status
+# ---------------------------------------------------------------- Status renderer (CLI layer)
 
 
-def test_print_status_calls_human_presenter_by_default(context):
-    fake_status = _make_status(docker_available=True)
-    fake_status.services["domserver"] = ServiceStatus.HEALTHY
+def test_render_status_human_readable_prints_to_console(capsys):
+    from dom.cli.infrastructure.render import render_status
 
-    with (
-        patch("dom.core.operations.infrastructure.print_status.InfraService") as svc_cls,
-        patch(
-            "dom.core.operations.infrastructure.print_status._print_status_human_readable"
-        ) as human,
-        patch("dom.core.operations.infrastructure.print_status._print_status_json") as as_json,
-    ):
-        svc_cls.return_value.check_status.return_value = fake_status
-        run(print_infra_status_op(json_output=False), context)
+    status = _make_status(docker_available=True)
+    status.services["domserver"] = ServiceStatus.HEALTHY
 
-    human.assert_called_once_with(fake_status)
-    as_json.assert_not_called()
+    render_status(status, json_output=False)
+    out = capsys.readouterr().out
+    assert "HEALTHY" in out
+    assert "domserver" in out
 
 
-def test_print_status_calls_json_presenter_when_requested(context):
-    fake_status = _make_status(docker_available=True)
+def test_render_status_json_emits_valid_json(capsys):
+    import json as _json
 
-    with (
-        patch("dom.core.operations.infrastructure.print_status.InfraService") as svc_cls,
-        patch(
-            "dom.core.operations.infrastructure.print_status._print_status_human_readable"
-        ) as human,
-        patch("dom.core.operations.infrastructure.print_status._print_status_json") as as_json,
-    ):
-        svc_cls.return_value.check_status.return_value = fake_status
-        run(print_infra_status_op(json_output=True), context)
+    from dom.cli.infrastructure.render import render_status
 
-    as_json.assert_called_once_with(fake_status)
-    human.assert_not_called()
+    status = _make_status(docker_available=True)
+    status.services["domserver"] = ServiceStatus.HEALTHY
+
+    render_status(status, json_output=True)
+    out = capsys.readouterr().out.strip()
+    parsed = _json.loads(out)
+    assert parsed["docker_available"] is True
 
 
-def test_print_status_returns_status_value(context):
-    fake_status = _make_status(docker_available=True)
-    with (
-        patch("dom.core.operations.infrastructure.print_status.InfraService") as svc_cls,
-        patch("dom.core.operations.infrastructure.print_status._print_status_human_readable"),
-    ):
-        svc_cls.return_value.check_status.return_value = fake_status
-        result = run(print_infra_status_op(), context)
-    assert result is fake_status
+def test_render_status_handles_unavailable_docker(capsys):
+    from dom.cli.infrastructure.render import render_status
+
+    status = _make_status(docker_available=False)
+    status.docker_error = "daemon down"
+
+    render_status(status)
+    out = capsys.readouterr().out
+    assert "Not available" in out
+    assert "daemon down" in out

@@ -5,7 +5,6 @@ from .check_status import check_infra_status_op
 from .destroy import destroy_infrastructure_op
 from .load_config import load_infra_config_op
 from .plan_changes import plan_infra_changes_op
-from .print_status import print_infra_status_op
 
 __all__ = [
     "apply_infrastructure_op",
@@ -13,5 +12,4 @@ __all__ = [
     "destroy_infrastructure_op",
     "load_infra_config_op",
     "plan_infra_changes_op",
-    "print_infra_status_op",
 ]

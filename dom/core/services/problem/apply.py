@@ -43,21 +43,6 @@ class ProblemService(Service[ProblemPackage], BulkOperationMixin[ProblemPackage]
 
         try:
             problem_id = self.client.problems.add_to_contest(context.contest_id, entity)
-            entity.id = problem_id
-
-            logger.info(
-                "Successfully added problem to contest",
-                extra={
-                    "problem_name": entity.yaml.name,
-                    "problem_id": problem_id,
-                    "contest_id": context.contest_id,
-                },
-            )
-
-            return ServiceResult.ok(
-                entity, f"Problem '{entity.yaml.name}' added successfully", created=True
-            )
-
         except APIError as e:
             logger.error(
                 f"Failed to add problem '{entity.yaml.name}' to contest {context.contest_id}",
@@ -73,20 +58,18 @@ class ProblemService(Service[ProblemPackage], BulkOperationMixin[ProblemPackage]
                 f"Problem '{entity.yaml.name}' failed",
             )
 
-        except Exception as e:
-            logger.error(
-                f"Unexpected error adding problem '{entity.yaml.name}' to contest {context.contest_id}",
-                exc_info=True,
-                extra={
-                    "problem_name": entity.yaml.name,
-                    "contest_id": context.contest_id,
-                    "error_type": type(e).__name__,
-                },
-            )
-            return ServiceResult.fail(
-                ProblemError(f"Unexpected error adding problem '{entity.yaml.name}': {e}"),
-                f"Unexpected error for '{entity.yaml.name}'",
-            )
+        entity.id = problem_id
+        logger.info(
+            "Successfully added problem to contest",
+            extra={
+                "problem_name": entity.yaml.name,
+                "problem_id": problem_id,
+                "contest_id": context.contest_id,
+            },
+        )
+        return ServiceResult.ok(
+            entity, f"Problem '{entity.yaml.name}' added successfully", created=True
+        )
 
     def create_many(
         self,

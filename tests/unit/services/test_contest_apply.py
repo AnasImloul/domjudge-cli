@@ -79,9 +79,11 @@ def test_apply_contest_creates_when_change_type_is_create(service, client):
     service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
     contest = _contest()
 
-    contest_id = service.apply_contest(contest)
+    result = service.apply_contest(contest)
 
-    assert contest_id == "contest-1"
+    assert result.contest_id == "contest-1"
+    assert result.contest_shortname == "C0"
+    assert result.skipped_field_changes == []
     client.contests.create.assert_called_once()
     create_arg = client.contests.create.call_args.kwargs["contest_data"]
     assert create_arg.shortname == "C0"
@@ -92,10 +94,56 @@ def test_apply_contest_skips_creation_when_no_change(service, client):
     service._comparator_mock._fetch_current_contest.return_value = {"id": "existing-1"}
     contest = _contest()
 
-    contest_id = service.apply_contest(contest)
+    result = service.apply_contest(contest)
 
-    assert contest_id == "existing-1"
+    assert result.contest_id == "existing-1"
+    assert result.skipped_field_changes == []
     client.contests.create.assert_not_called()
+
+
+def test_apply_contest_returns_skipped_field_changes(service):
+    from dom.core.services.contest.changes import FieldChange
+
+    fc = FieldChange(field="duration", old_value="5:00", new_value="6:00")
+    service._comparator_mock.compare_contest.return_value = _change_set(
+        ChangeType.NO_CHANGE, field_changes=[fc]
+    )
+    service._comparator_mock._fetch_current_contest.return_value = {"id": "existing-1"}
+
+    result = service.apply_contest(_contest())
+
+    assert result.skipped_field_changes == [fc]
+
+
+def test_apply_contest_accepts_injected_collaborators(client, secrets):
+    """Constructor injection: passing services directly bypasses module-level patches."""
+    from unittest.mock import MagicMock
+
+    from dom.core.services.contest.apply import ContestApplicationService
+
+    problem = MagicMock()
+    problem.create_many.return_value = []
+    problem.get_summary.return_value = {"failed": 0}
+    team = MagicMock()
+    team.create_many.return_value = []
+    team.get_summary.return_value = {"failed": 0}
+    comparator = MagicMock()
+    comparator.compare_contest.return_value = _change_set(ChangeType.CREATE)
+
+    svc = ContestApplicationService(
+        client,
+        secrets,
+        problem_service=problem,
+        team_service=team,
+        state_comparator=comparator,
+    )
+
+    assert svc.problem_service is problem
+    assert svc.team_service is team
+    assert svc.state_comparator is comparator
+
+    result = svc.apply_contest(_contest())
+    assert result.contest_id == "contest-1"
 
 
 def test_apply_contest_creates_team_group_for_scoreboard(service, client):
@@ -158,6 +206,7 @@ def test_apply_all_iterates_over_all_contests(secrets):
     services, so we exercise it from there."""
     from dom.core.operations.contest.apply import _apply_all
     from dom.core.operations.framework import Context
+    from dom.core.services.contest.apply import ContestApplyResult
 
     config = MagicMock()
     config.infra = MagicMock()
@@ -167,11 +216,18 @@ def test_apply_all_iterates_over_all_contests(secrets):
     with (
         patch("dom.core.operations.contest.apply.wire_admin_api") as wire,
         patch("dom.core.operations.contest.apply.ContestApplicationService") as service_cls,
+        patch("dom.core.operations.contest.apply.ProblemService"),
+        patch("dom.core.operations.contest.apply.TeamService"),
+        patch("dom.core.operations.contest.apply.ContestStateComparator"),
     ):
         instance = MagicMock()
+        instance.apply_contest.side_effect = [
+            ContestApplyResult(contest_shortname=s, contest_id=f"id-{s}") for s in ("A", "B", "C")
+        ]
         service_cls.return_value = instance
         wire.return_value = MagicMock()
 
-        _apply_all(config, ctx)
+        results = _apply_all(config, ctx)
 
     assert instance.apply_contest.call_count == 3
+    assert [r.contest_shortname for r in results] == ["A", "B", "C"]
