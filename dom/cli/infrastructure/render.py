@@ -1,31 +1,56 @@
-"""Check and display infrastructure status."""
+"""CLI-side renderers for infrastructure output."""
 
 import json
 
 from rich import box
-from rich.console import Console
 from rich.table import Table
 
-from dom.core.operations.framework import Context, operation
-from dom.core.services.infra.service import InfraService
+from dom.core.services.infra.state import InfraChangeSet
+from dom.logging_config import console
 from dom.types.infra import InfrastructureStatus, ServiceStatus
 
 
-@operation("Display infrastructure status", show_progress=False)
-def print_infra_status_op(ctx: Context, json_output: bool = False) -> InfrastructureStatus:
-    status = InfraService(ctx.secrets).check_status()
+def render_planned_changes(change_set: InfraChangeSet | None) -> None:
+    if not change_set:
+        console.print("\n[dim]No infrastructure state found.[/dim]\n")
+        return
+
+    console.print("\n[bold]Planned Infrastructure Changes:[/bold]\n")
+    console.print(f"  {change_set.summary()}\n")
+
+    if change_set.requires_restart:
+        console.print(
+            "  [yellow]⚠ WARNING:[/yellow] This change requires full infrastructure restart"
+        )
+        console.print("  [yellow]⚠ This will cause downtime for running contests![/yellow]\n")
+
+    if change_set.old_config:
+        console.print("  [bold]Current state:[/bold]")
+        console.print(f"    Port:       {change_set.old_config.port}")
+        console.print(f"    Judgehosts: {change_set.old_config.judges}")
+        console.print()
+
+    console.print("  [bold]Desired state:[/bold]")
+    console.print(f"    Port:       {change_set.new_config.port}")
+    console.print(f"    Judgehosts: {change_set.new_config.judges}")
+    console.print()
+
+    if change_set.is_safe_live_change:
+        console.print("  [green]✓ This change is safe to apply to running infrastructure[/green]\n")
+    elif change_set.requires_restart:
+        console.print("  [red]Recommendation:[/red]")
+        console.print("    1. Notify participants of downtime")
+        console.print("    2. Pause or finish active contests")
+        console.print("    3. Run: dom infra destroy --confirm")
+        console.print("    4. Run: dom infra apply")
+        console.print("    5. Reconfigure contests if needed\n")
+
+
+def render_status(status: InfrastructureStatus, *, json_output: bool = False) -> None:
+    """Render infrastructure status to the user."""
     if json_output:
-        _print_status_json(status)
-    else:
-        _print_status_human_readable(status)
-    return status
-
-
-# ---------------------------------------------------------------- presenters
-
-
-def _print_status_human_readable(status: InfrastructureStatus) -> None:
-    console = Console()
+        print(json.dumps(status.to_dict(), indent=2))
+        return
 
     if status.is_healthy():
         console.print("[OK] [bold green]Infrastructure Status: HEALTHY[/bold green]\n")
@@ -81,9 +106,6 @@ def _print_status_human_readable(status: InfrastructureStatus) -> None:
         console.print("\n[OK] [green]Ready to accept commands[/green]")
     else:
         console.print(
-            "\n[**] [yellow]Some services are not healthy. Infrastructure may not be fully operational.[/yellow]"
+            "\n[**] [yellow]Some services are not healthy. "
+            "Infrastructure may not be fully operational.[/yellow]"
         )
-
-
-def _print_status_json(status: InfrastructureStatus) -> None:
-    print(json.dumps(status.to_dict(), indent=2))

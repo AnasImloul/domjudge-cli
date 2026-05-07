@@ -2,6 +2,7 @@
 
 import re
 import subprocess  # nosec B404
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 
@@ -13,6 +14,24 @@ from dom.types.infra import InfraConfig
 from dom.utils.cli import get_container_prefix, get_secrets_manager
 
 logger = get_logger(__name__)
+
+
+def _run_docker(args: list[str], *, check: bool = False) -> subprocess.CompletedProcess | None:
+    """Invoke ``docker`` and return the completed process, or ``None`` on failure.
+
+    "Failure" here means the docker CLI itself couldn't run — not
+    installed, permission denied, killed. A nonzero exit code is *not*
+    a failure: some callers rely on it to detect "container doesn't
+    exist". Anything outside this contract is a programmer bug and is
+    re-raised.
+    """
+    try:
+        return subprocess.run(  # nosec B603 B607
+            args, capture_output=True, text=True, check=check
+        )
+    except (FileNotFoundError, OSError, subprocess.SubprocessError) as e:
+        logger.warning(f"docker {' '.join(args[1:3])}: {e}")
+        return None
 
 
 class InfraChangeType(str, Enum):
@@ -50,28 +69,59 @@ class InfraChangeSet:
         )
 
     def summary(self) -> str:
-        """Get human-readable summary of changes."""
-        if self.change_type == InfraChangeType.CREATE:
-            return "[green]CREATE[/green] new infrastructure"
+        """Render a markup-decorated summary line for the CLI to print."""
+        return _SUMMARY_RENDERERS[self.change_type](self)
 
-        if self.change_type == InfraChangeType.NO_CHANGE:
-            return "[dim]NO CHANGES[/dim] to infrastructure"
 
-        if self.change_type == InfraChangeType.SCALE_JUDGES:
-            assert self.old_config is not None  # SCALE_JUDGES always has old_config
-            if self.judge_diff > 0:
-                return f"[green]SCALE UP[/green] judgehosts: {self.old_config.judges} → {self.new_config.judges} (safe live change)"
-            else:
-                return f"[yellow]SCALE DOWN[/yellow] judgehosts: {self.old_config.judges} → {self.new_config.judges} (safe live change)"
+def _summary_scale(cs: "InfraChangeSet") -> str:
+    direction = "[green]SCALE UP[/green]" if cs.judge_diff > 0 else "[yellow]SCALE DOWN[/yellow]"
+    old = cs.old_config.judges if cs.old_config else "?"
+    return f"{direction} judgehosts: {old} → {cs.new_config.judges} " "(safe live change)"
 
-        if self.change_type == InfraChangeType.PORT_CHANGE:
-            assert self.old_config is not None  # PORT_CHANGE always has old_config
-            return f"[red]PORT CHANGE[/red]: {self.old_config.port} → {self.new_config.port} [bold](requires restart)[/bold]"
 
-        if self.change_type == InfraChangeType.PASSWORD_CHANGE:
-            return "[yellow]PASSWORD CHANGE[/yellow] [bold](requires restart)[/bold]"
+def _summary_port(cs: "InfraChangeSet") -> str:
+    old = cs.old_config.port if cs.old_config else "?"
+    return (
+        f"[red]PORT CHANGE[/red]: {old} → {cs.new_config.port} " "[bold](requires restart)[/bold]"
+    )
 
-        return "[red]MULTIPLE CHANGES[/red] [bold](requires full restart)[/bold]"
+
+_SUMMARY_RENDERERS: dict[InfraChangeType, Callable[["InfraChangeSet"], str]] = {
+    InfraChangeType.CREATE: lambda _cs: "[green]CREATE[/green] new infrastructure",
+    InfraChangeType.NO_CHANGE: lambda _cs: "[dim]NO CHANGES[/dim] to infrastructure",
+    InfraChangeType.SCALE_JUDGES: _summary_scale,
+    InfraChangeType.PORT_CHANGE: _summary_port,
+    InfraChangeType.PASSWORD_CHANGE: lambda _cs: (
+        "[yellow]PASSWORD CHANGE[/yellow] [bold](requires restart)[/bold]"
+    ),
+    InfraChangeType.FULL_RESTART: lambda _cs: (
+        "[red]MULTIPLE CHANGES[/red] [bold](requires full restart)[/bold]"
+    ),
+}
+
+
+# Each entry: which combination of changed fields maps to which change type.
+# Anything not listed (i.e. >1 field changed in an unrecognized combination)
+# falls through to FULL_RESTART.
+_CHANGE_TYPE_BY_FIELDS: dict[frozenset[str], InfraChangeType] = {
+    frozenset(): InfraChangeType.NO_CHANGE,
+    frozenset({"judges"}): InfraChangeType.SCALE_JUDGES,
+    frozenset({"port"}): InfraChangeType.PORT_CHANGE,
+    frozenset({"password"}): InfraChangeType.PASSWORD_CHANGE,
+}
+
+
+def _detect_changed_fields(old: InfraConfig, new: InfraConfig) -> frozenset[str]:
+    """Return the set of infra fields whose value differs between old and new."""
+    field_extractors: dict[str, Callable[[InfraConfig], object]] = {
+        "port": lambda c: c.port,
+        "password": lambda c: c.password,
+        "judges": lambda c: c.judges,
+    }
+    changed = {name for name, get in field_extractors.items() if get(old) != get(new)}
+    for name in changed:
+        logger.debug(f"Infra field changed: {name}")
+    return frozenset(changed)
 
 
 class InfraStateComparator:
@@ -91,17 +141,8 @@ class InfraStateComparator:
         self.container_prefix = get_container_prefix()
 
     def compare_infrastructure(self, new_config: InfraConfig) -> InfraChangeSet:
-        """
-        Compare new configuration with current deployed state.
-
-        Args:
-            new_config: New infrastructure configuration
-
-        Returns:
-            InfraChangeSet describing changes
-        """
+        """Compute an :class:`InfraChangeSet` from the live Docker state."""
         old_config = self._load_current_state()
-
         if old_config is None:
             return InfraChangeSet(
                 change_type=InfraChangeType.CREATE,
@@ -109,176 +150,71 @@ class InfraStateComparator:
                 new_config=new_config,
             )
 
-        # Detect what changed
-        changes = []
-
-        if old_config.port != new_config.port:
-            changes.append("port")
-            logger.debug(f"Port change detected: {old_config.port} → {new_config.port}")
-
-        if old_config.password != new_config.password:
-            changes.append("password")
-            logger.debug("Password change detected")
-
-        judges_changed = old_config.judges != new_config.judges
-        if judges_changed:
-            changes.append("judges")
-            logger.debug(f"Judgehost count change: {old_config.judges} → {new_config.judges}")
-
-        # Determine change type
-        if not changes:
-            return InfraChangeSet(
-                change_type=InfraChangeType.NO_CHANGE,
-                old_config=old_config,
-                new_config=new_config,
-            )
-
-        if changes == ["judges"]:
-            return InfraChangeSet(
-                change_type=InfraChangeType.SCALE_JUDGES,
-                old_config=old_config,
-                new_config=new_config,
-                judge_diff=new_config.judges - old_config.judges,
-            )
-
-        if "port" in changes and len(changes) == 1:
-            return InfraChangeSet(
-                change_type=InfraChangeType.PORT_CHANGE,
-                old_config=old_config,
-                new_config=new_config,
-            )
-
-        if "password" in changes and len(changes) == 1:
-            return InfraChangeSet(
-                change_type=InfraChangeType.PASSWORD_CHANGE,
-                old_config=old_config,
-                new_config=new_config,
-            )
-
-        # Multiple changes
+        changed = _detect_changed_fields(old_config, new_config)
         return InfraChangeSet(
-            change_type=InfraChangeType.FULL_RESTART,
+            change_type=_CHANGE_TYPE_BY_FIELDS.get(changed, InfraChangeType.FULL_RESTART),
             old_config=old_config,
             new_config=new_config,
+            judge_diff=new_config.judges - old_config.judges,
         )
 
     def _load_current_state(self) -> InfraConfig | None:
+        """Query Docker for the current deployed infrastructure state.
+
+        Returns ``None`` for a fresh deployment (no domserver container)
+        or when Docker can't be reached at all.
         """
-        Query Docker to get current deployed infrastructure state.
-
-        Uses Docker as the single source of truth - no state files needed!
-
-        Returns:
-            Current infrastructure config or None if not deployed
-        """
-        try:
-            # Check if domserver container exists
-            domserver_name = ContainerNames.DOMSERVER.with_prefix(self.container_prefix)
-
-            # Get container info (will fail if not exists)
-            result = subprocess.run(
-                ["docker", "inspect", domserver_name],
-                capture_output=True,
-                text=True,
-                check=False,  # nosec B603 B607
-            )
-
-            if result.returncode != 0:
-                logger.debug("No domserver container found (new deployment)")
-                return None
-
-            # Extract port from container
-            port = self._get_container_port(domserver_name)
-            if port is None:
-                logger.warning("Could not determine port from domserver container")
-                return None
-
-            # Count judgehost containers
-            judges = self._count_judgehost_containers()
-
-            # Get password from secrets (already stored there)
-            secrets = get_secrets_manager()
-            password = secrets.get("admin_password")
-
-            if not password:
-                logger.warning("Admin password not found in secrets")
-                return None
-
-            logger.debug(f"Current infrastructure state from Docker: port={port}, judges={judges}")
-
-            return InfraConfig(
-                port=port,
-                judges=judges,
-                password=SecretStr(password),
-            )
-
-        except Exception as e:
-            logger.warning(f"Failed to query Docker for infrastructure state: {e}")
+        domserver = ContainerNames.DOMSERVER.with_prefix(self.container_prefix)
+        result = _run_docker(["docker", "inspect", domserver])
+        if result is None or result.returncode != 0:
+            logger.debug("No domserver container found (new deployment)")
             return None
+
+        port = self._get_container_port(domserver)
+        if port is None:
+            logger.warning("Could not determine port from domserver container")
+            return None
+
+        password = get_secrets_manager().get("admin_password")
+        if not password:
+            logger.warning("Admin password not found in secrets")
+            return None
+
+        judges = self._count_judgehost_containers()
+        logger.debug(f"Current infrastructure state from Docker: port={port}, judges={judges}")
+        return InfraConfig(port=port, judges=judges, password=SecretStr(password))
 
     def _get_container_port(self, container_name: str) -> int | None:
-        """
-        Get the exposed port from a container.
-
-        Args:
-            container_name: Name of the container
-
-        Returns:
-            Port number or None if not found
-        """
+        """Return the host port mapped to container port 80, or ``None``."""
+        result = _run_docker(["docker", "port", container_name, "80"])
+        if result is None or result.returncode != 0:
+            return None
+        match = re.search(r":(\d+)", result.stdout.strip())
+        if match is None:
+            return None
         try:
-            # Get port mapping using docker port command
-            result = subprocess.run(
-                ["docker", "port", container_name, "80"],
-                capture_output=True,
-                text=True,
-                check=False,  # nosec B603 B607
-            )
-
-            if result.returncode != 0:
-                return None
-
-            # Parse output like "0.0.0.0:8080"
-            match = re.search(r":(\d+)", result.stdout.strip())
-            if match:
-                port = int(match.group(1))
-                logger.debug(f"Found port {port} for container {container_name}")
-                return port
-
+            port = int(match.group(1))
+        except ValueError:
+            logger.warning(f"Unexpected port output for {container_name}: {result.stdout!r}")
             return None
-
-        except Exception as e:
-            logger.warning(f"Failed to get port for {container_name}: {e}")
-            return None
+        logger.debug(f"Found port {port} for container {container_name}")
+        return port
 
     def _count_judgehost_containers(self) -> int:
-        """
-        Count the number of running judgehost containers.
-
-        Returns:
-            Number of judgehost containers
-        """
-        try:
-            # List containers with judgehost in the name
-            result = subprocess.run(
-                [
-                    "docker",
-                    "ps",
-                    "--filter",
-                    f"name={self.container_prefix}-judgehost",
-                    "--format",
-                    "{{.Names}}",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,  # nosec B603 B607
-            )
-
-            # Count non-empty lines
-            count = len([line for line in result.stdout.strip().split("\n") if line])
-            logger.debug(f"Found {count} judgehost containers")
-            return count
-
-        except Exception as e:
-            logger.warning(f"Failed to count judgehost containers: {e}")
+        """Return the number of running judgehost containers (0 on failure)."""
+        result = _run_docker(
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name={self.container_prefix}-judgehost",
+                "--format",
+                "{{.Names}}",
+            ],
+            check=True,
+        )
+        if result is None:
             return 0
+        count = sum(1 for line in result.stdout.splitlines() if line.strip())
+        logger.debug(f"Found {count} judgehost containers")
+        return count

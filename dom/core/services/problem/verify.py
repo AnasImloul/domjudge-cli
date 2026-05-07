@@ -6,6 +6,7 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from dom.core.services.contest.verification import create_temp_contest
 from dom.core.services.protocols import DomJudgeAPIProtocol
 from dom.core.services.submission.submit import submit_problem
+from dom.exceptions import ProblemError
 from dom.types.contest import ContestConfig
 from dom.types.secrets import SecretsProvider
 
@@ -55,7 +56,11 @@ async def _run_submissions(client: DomJudgeAPIProtocol, contest_id: str, team, p
     ) as progress:
         task = progress.add_task("Scheduling", total=len(problems))
         for problem in problems:
-            assert problem.id is not None
+            if problem.id is None:
+                raise ProblemError(
+                    f"Problem '{problem.yaml.name}' has no id; "
+                    "it must be added to the contest before verification"
+                )
             problem_tasks = await submit_problem(
                 client=client, contest_id=contest_id, problem=problem, team=team
             )

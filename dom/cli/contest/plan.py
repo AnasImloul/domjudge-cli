@@ -5,6 +5,7 @@ from pathlib import Path
 import typer
 
 from dom.cli.contest.helpers import load_config_with_secrets
+from dom.cli.contest.render import render_planned_changes
 from dom.cli.validators import validate_file_path
 from dom.core.operations import Context, run
 from dom.core.operations.contest import plan_contest_changes_op
@@ -26,4 +27,6 @@ def plan_command(
     and which problems/teams would be added.
     """
     config, secrets = load_config_with_secrets(file, verbose)
-    run(plan_contest_changes_op(config), Context(secrets=secrets, verbose=verbose))
+    changes = run(plan_contest_changes_op(config), Context(secrets=secrets, verbose=verbose))
+    if changes is not None:
+        render_planned_changes(changes)
