@@ -4,11 +4,12 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.decorators import add_global_options, cli_command
 from dom.cli.infrastructure.render import render_status
 from dom.cli.validators import validate_file_path
 from dom.core.operations import Context, run
 from dom.core.operations.infrastructure import check_infra_status_op
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
+from dom.utils.cli import get_secrets_manager
 
 
 @add_global_options

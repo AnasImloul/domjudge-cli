@@ -74,19 +74,21 @@ class ContestChangeSet:
             or any(rc.has_changes for rc in self.resource_changes)
         )
 
-    def summary(self) -> str:
-        """Get a human-readable summary of changes."""
-        if self.change_type == ChangeType.CREATE:
-            return f"[green]CREATE[/green] contest '{self.contest_shortname}'"
+    def summary_parts(self) -> tuple[ChangeType, str, list[str]]:
+        """Return the raw pieces a renderer needs.
 
-        if not self.has_changes:
-            return f"[dim]NO CHANGES[/dim] for contest '{self.contest_shortname}'"
+        Returns a ``(change_type, contest_shortname, parts)`` triple
+        where ``parts`` describes what's changing — empty when there
+        are no changes. Presentation (markup, prefixes) is the caller's
+        responsibility.
+        """
+        if self.change_type == ChangeType.CREATE or not self.has_changes:
+            return self.change_type, self.contest_shortname, []
 
-        parts = []
+        parts: list[str] = []
         if self.field_changes:
             parts.append(f"{len(self.field_changes)} field(s)")
         for rc in self.resource_changes:
             if rc.has_changes:
                 parts.append(rc.resource_type)
-
-        return f"[yellow]UPDATE[/yellow] contest '{self.contest_shortname}': {', '.join(parts)}"
+        return self.change_type, self.contest_shortname, parts

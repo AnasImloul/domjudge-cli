@@ -1,4 +1,10 @@
-"""Infrastructure state comparison and change detection."""
+"""Infrastructure state comparison and change detection.
+
+The comparator queries Docker as the source of truth for the currently
+deployed infrastructure and produces an :class:`InfraChangeSet`
+classifying the diff against the desired :class:`InfraConfig`. The CLI
+layer renders the change set; this module stays free of presentation.
+"""
 
 import re
 import subprocess  # nosec B404
@@ -37,17 +43,17 @@ def _run_docker(args: list[str], *, check: bool = False) -> subprocess.Completed
 class InfraChangeType(str, Enum):
     """Types of infrastructure changes."""
 
-    CREATE = "create"  # New infrastructure
-    SCALE_JUDGES = "scale_judges"  # Only judgehost count changed
-    PORT_CHANGE = "port_change"  # Port changed (requires restart)
-    PASSWORD_CHANGE = "password_change"  # nosec B105  # Password changed (requires restart)
-    FULL_RESTART = "full_restart"  # Multiple changes requiring full restart
-    NO_CHANGE = "no_change"  # No changes
+    CREATE = "create"
+    SCALE_JUDGES = "scale_judges"
+    PORT_CHANGE = "port_change"
+    PASSWORD_CHANGE = "password_change"  # nosec B105
+    FULL_RESTART = "full_restart"
+    NO_CHANGE = "no_change"
 
 
 @dataclass
 class InfraChangeSet:
-    """Represents detected infrastructure changes."""
+    """Detected infrastructure changes between deployed and desired state."""
 
     change_type: InfraChangeType
     old_config: InfraConfig | None
@@ -56,48 +62,17 @@ class InfraChangeSet:
 
     @property
     def is_safe_live_change(self) -> bool:
-        """Check if this change can be applied to running infrastructure safely."""
+        """Whether this change can be applied to running infrastructure safely."""
         return self.change_type in (InfraChangeType.SCALE_JUDGES, InfraChangeType.NO_CHANGE)
 
     @property
     def requires_restart(self) -> bool:
-        """Check if this change requires full infrastructure restart."""
+        """Whether this change requires a full infrastructure restart."""
         return self.change_type in (
             InfraChangeType.PORT_CHANGE,
             InfraChangeType.PASSWORD_CHANGE,
             InfraChangeType.FULL_RESTART,
         )
-
-    def summary(self) -> str:
-        """Render a markup-decorated summary line for the CLI to print."""
-        return _SUMMARY_RENDERERS[self.change_type](self)
-
-
-def _summary_scale(cs: "InfraChangeSet") -> str:
-    direction = "[green]SCALE UP[/green]" if cs.judge_diff > 0 else "[yellow]SCALE DOWN[/yellow]"
-    old = cs.old_config.judges if cs.old_config else "?"
-    return f"{direction} judgehosts: {old} → {cs.new_config.judges} " "(safe live change)"
-
-
-def _summary_port(cs: "InfraChangeSet") -> str:
-    old = cs.old_config.port if cs.old_config else "?"
-    return (
-        f"[red]PORT CHANGE[/red]: {old} → {cs.new_config.port} " "[bold](requires restart)[/bold]"
-    )
-
-
-_SUMMARY_RENDERERS: dict[InfraChangeType, Callable[["InfraChangeSet"], str]] = {
-    InfraChangeType.CREATE: lambda _cs: "[green]CREATE[/green] new infrastructure",
-    InfraChangeType.NO_CHANGE: lambda _cs: "[dim]NO CHANGES[/dim] to infrastructure",
-    InfraChangeType.SCALE_JUDGES: _summary_scale,
-    InfraChangeType.PORT_CHANGE: _summary_port,
-    InfraChangeType.PASSWORD_CHANGE: lambda _cs: (
-        "[yellow]PASSWORD CHANGE[/yellow] [bold](requires restart)[/bold]"
-    ),
-    InfraChangeType.FULL_RESTART: lambda _cs: (
-        "[red]MULTIPLE CHANGES[/red] [bold](requires full restart)[/bold]"
-    ),
-}
 
 
 # Each entry: which combination of changed fields maps to which change type.
@@ -125,19 +100,14 @@ def _detect_changed_fields(old: InfraConfig, new: InfraConfig) -> frozenset[str]
 
 
 class InfraStateComparator:
-    """
-    Service for comparing infrastructure state to detect safe vs unsafe changes.
+    """Compare desired :class:`InfraConfig` against running Docker state.
 
-    Uses Docker as the single source of truth - no state files needed!
-    Queries running containers directly to determine current infrastructure state.
-
-    This enables intelligent infrastructure updates:
-    - Safe: Scaling judgehost count (hot swap)
-    - Unsafe: Port changes, password changes (require restart)
+    Uses Docker as the single source of truth — no state files needed.
+    Distinguishes safe live changes (judgehost scaling) from unsafe ones
+    (port / password changes) so callers can warn before destructive ops.
     """
 
     def __init__(self):
-        """Initialize infrastructure state comparator."""
         self.container_prefix = get_container_prefix()
 
     def compare_infrastructure(self, new_config: InfraConfig) -> InfraChangeSet:

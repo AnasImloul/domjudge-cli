@@ -9,7 +9,17 @@ from typing import Any
 
 from dom import ui
 from dom.core.services.contest.apply import ContestApplyResult
-from dom.core.services.contest.changes import ChangeType
+from dom.core.services.contest.changes import ChangeType, ContestChangeSet
+
+
+def format_contest_change_summary(change_set: ContestChangeSet) -> str:
+    """Render a :class:`ContestChangeSet` as a Rich-markup-decorated line."""
+    change_type, shortname, parts = change_set.summary_parts()
+    if change_type == ChangeType.CREATE:
+        return f"[green]CREATE[/green] contest '{shortname}'"
+    if not parts:
+        return f"[dim]NO CHANGES[/dim] for contest '{shortname}'"
+    return f"[yellow]UPDATE[/yellow] contest '{shortname}': {', '.join(parts)}"
 
 
 def render_planned_changes(changes: list[dict[str, Any]]) -> None:
@@ -33,7 +43,7 @@ def render_planned_changes(changes: list[dict[str, Any]]) -> None:
         if change_set.change_type == ChangeType.CREATE:
             any_creates = True
 
-        ui.info(f"  {change_set.summary()}")
+        ui.info(f"  {format_contest_change_summary(change_set)}")
 
         if change_set.field_changes:
             any_field_changes = True

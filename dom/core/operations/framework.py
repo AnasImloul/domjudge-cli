@@ -4,7 +4,7 @@ An *operation* is a named, runnable unit of work. There are two shapes:
 
 * **Multi-step** — function returns :class:`Steps` (a list of labeled
   steps with an optional final summary). The runner executes each step
-  with progress UI.
+  via the configured :class:`Renderer`.
 * **Single-step** — function returns the operation's result value
   directly. A ``summary=`` callback on the decorator can format the
   success line.
@@ -12,6 +12,11 @@ An *operation* is a named, runnable unit of work. There are two shapes:
 Use ``@operation(label, summary=...)`` to declare. Calling the decorated
 function with its non-context arguments returns an :class:`Operation`
 bound to those arguments; pass it to :func:`run` with a :class:`Context`.
+
+The framework is presentation-agnostic: it emits events via a
+:class:`Renderer` and never imports ``dom.ui`` or ``rich``. The CLI
+layer supplies a Rich-flavored renderer; tests rely on the default
+:class:`_PlainRenderer` which writes plain text to stdout.
 
 Example (multi-step)::
 
@@ -25,16 +30,9 @@ Example (multi-step)::
 
     run(apply_infra(config), Context(secrets=mgr))
 
-Example (single-step)::
-
-    @operation("Load configuration", summary=lambda c: f"{len(c.contests)} contests")
-    def load_config_op(ctx: Context, path: Path | None) -> DomConfig:
-        return load_config(path, ctx.secrets)
-
-    config = run(load_config_op(path), Context(secrets=mgr))
-
-Errors propagate as exceptions. The runner logs and renders them, then
-raises ``typer.Exit(1)``. Dry-run mode prints labels without executing.
+Errors propagate as exceptions. The runner asks the renderer to display
+them, then raises ``typer.Exit(1)``. Dry-run mode emits labels via the
+renderer without executing.
 """
 
 from __future__ import annotations
@@ -42,22 +40,12 @@ from __future__ import annotations
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Generic, NoReturn, TypeVar, Union
+from typing import Any, Generic, NoReturn, Protocol, TypeVar, Union
 
 import typer
-from rich.progress import (
-    BarColumn,
-    MofNCompleteColumn,
-    Progress,
-    SpinnerColumn,
-    TextColumn,
-    TimeElapsedColumn,
-)
 
-from dom import ui
 from dom.logging_config import get_logger
 from dom.types.secrets import SecretsProvider
-from dom.ui import console
 
 logger = get_logger(__name__)
 
@@ -91,20 +79,11 @@ class Steps:
 
 @dataclass(frozen=True)
 class _Value(Generic[T]):
-    """Wrapper marking a single-step op's return value.
-
-    Internal to the framework — operations don't construct this directly.
-    Together with :class:`Steps`, it forms the discriminated ``Plan``
-    union the runner dispatches on, replacing the prior heuristic
-    isinstance-on-list classification.
-    """
+    """Wrapper marking a single-step op's return value."""
 
     value: T
 
 
-# A plan is what an operation function returns once normalized: either a
-# multi-step ``Steps`` or a wrapped single-step ``_Value``. Any other
-# return is wrapped as ``_Value`` at normalization time.
 Plan = Union[Steps, "_Value[T]"]
 
 
@@ -124,13 +103,7 @@ def operation(
     summary: Callable[[T], str] | None = None,
     show_progress: bool = True,
 ) -> Callable[[Callable[..., Any]], Callable[..., Operation[T]]]:
-    """Mark a function as an operation.
-
-    The decorated function takes ``(ctx: Context, *args, **kwargs)`` and
-    returns either a :class:`Steps` (multi-step) or any value (single-step,
-    auto-wrapped). Calling the decorated function with its non-context
-    arguments returns an :class:`Operation` bound to those arguments.
-    """
+    """Mark a function as an operation."""
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Operation[T]]:
         @functools.wraps(fn)
@@ -150,12 +123,98 @@ def operation(
     return decorator
 
 
-def run(op: Operation[T], ctx: Context) -> T | None:
-    """Execute an operation with progress UI, dry-run support, error handling.
+# ---------------------------------------------------------------- renderer
 
-    Returns the operation's result value (or ``None`` for multi-step ops).
-    On failure, logs and renders the error, then raises ``typer.Exit(1)``.
+
+class StepProgress(Protocol):
+    """Per-execution handle returned by :meth:`Renderer.steps_started`.
+
+    The runner calls :meth:`step` once per step and :meth:`finish` once
+    at the end (in a ``try``/``finally``). Plain renderers can ignore
+    these calls; Rich renderers drive a ``rich.Progress`` widget.
     """
+
+    def step(self, step_label: str, index: int) -> None: ...
+    def finish(self) -> None: ...
+
+
+class Renderer(Protocol):
+    """Sink for operation lifecycle events."""
+
+    def dry_run(self, label: str, steps: list[Step] | None) -> None: ...
+    def plan(self, steps: list[Step]) -> None: ...
+    def steps_started(self, label: str, total: int, *, show_progress: bool) -> StepProgress: ...
+    def success(self, label: str, message: str) -> None: ...
+    def failure(self, label: str, exc: Exception) -> None: ...
+
+
+class _PlainStepProgress:
+    def step(self, step_label: str, index: int) -> None:  # noqa: ARG002
+        return None
+
+    def finish(self) -> None:
+        return None
+
+
+class _PlainRenderer:
+    """Default renderer: plain stdout, no Rich, no ``dom.ui``.
+
+    Used in tests and as a safe fallback when the CLI hasn't installed a
+    fancier renderer. Output uses ASCII glyphs only.
+    """
+
+    def dry_run(self, label: str, steps: list[Step] | None) -> None:
+        print(f"* Dry run: {label}")
+        if steps:
+            print("  Steps that would be executed:")
+            for i, step in enumerate(steps, 1):
+                print(f"    {i}. {step.label}")
+
+    def plan(self, steps: list[Step]) -> None:
+        print(f"Execution plan ({len(steps)} steps):")
+        for i, step in enumerate(steps, 1):
+            print(f"  {i}. {step.label}")
+        print()
+
+    def steps_started(
+        self,
+        label: str,  # noqa: ARG002
+        total: int,  # noqa: ARG002
+        *,
+        show_progress: bool,  # noqa: ARG002
+    ) -> StepProgress:
+        return _PlainStepProgress()
+
+    def success(self, label: str, message: str) -> None:
+        print(f"+ {message or label}")
+
+    def failure(self, label: str, exc: Exception) -> None:
+        print(f"x {label}")
+        print(f"  Error: {exc}")
+
+
+_default_renderer: Renderer = _PlainRenderer()
+
+
+def set_default_renderer(renderer: Renderer) -> None:
+    """Install a process-wide default renderer for :func:`run`.
+
+    Called once during CLI startup to swap in the Rich-flavored renderer.
+    Tests leave the default :class:`_PlainRenderer` in place.
+    """
+    global _default_renderer  # noqa: PLW0603
+    _default_renderer = renderer
+
+
+def run(
+    op: Operation[T],
+    ctx: Context,
+    *,
+    renderer: Renderer | None = None,
+) -> T | None:
+    """Execute an operation. Returns the result value (or ``None`` for multi-step)."""
+    r = renderer or _default_renderer
+
     logger.info(
         f"Executing operation: {op.label}",
         extra={"operation": op.label, "dry_run": ctx.dry_run},
@@ -164,25 +223,23 @@ def run(op: Operation[T], ctx: Context) -> T | None:
     try:
         plan: Plan[T] = op.build(ctx)
     except Exception as exc:
-        _fail(op.label, exc)
+        _fail(r, op.label, exc)
 
     if ctx.dry_run:
-        _print_dry_run(op.label, plan.steps if isinstance(plan, Steps) else None)
+        r.dry_run(op.label, plan.steps if isinstance(plan, Steps) else None)
         return None
 
     if isinstance(plan, Steps):
         try:
-            _execute_steps(
-                op.label, plan.steps, show_progress=op.show_progress, verbose=ctx.verbose
-            )
+            _execute_steps(r, op.label, plan.steps, op.show_progress, ctx.verbose)
         except Exception as exc:
-            _fail(op.label, exc)
-        _print_success(op.label, plan.summary)
+            _fail(r, op.label, exc)
+        r.success(op.label, plan.summary)
         logger.info(f"Operation completed: {op.label}", extra={"operation": op.label})
         return None
 
     message = _resolve_summary(op, plan.value)
-    _print_success(op.label, message)
+    r.success(op.label, message)
     logger.info(f"Operation completed: {op.label}", extra={"operation": op.label})
     return plan.value
 
@@ -191,14 +248,6 @@ def run(op: Operation[T], ctx: Context) -> T | None:
 
 
 def _normalize(plan: Any) -> Plan[Any]:
-    """Wrap an operation function's return into the discriminated ``Plan``.
-
-    A :class:`Steps` is returned as-is; everything else (including
-    ``None`` and lists of any kind) is wrapped in ``_Value``. This
-    eliminates the prior ambiguity where a bare ``list[Step]`` was
-    inferred via ``all(isinstance(...))`` — multi-step ops must now
-    return :class:`Steps` explicitly.
-    """
     if isinstance(plan, Steps):
         return plan
     return _Value(plan)
@@ -214,51 +263,27 @@ def _resolve_summary(op: Operation[T], value: T) -> str:
         return ""
 
 
-def _execute_steps(label: str, steps: list[Step], *, show_progress: bool, verbose: bool) -> None:
-    if verbose:
-        ui.write(f"Execution plan ({len(steps)} steps):", style="cyan")
-        for i, step in enumerate(steps, 1):
-            ui.write(f"  {i}. {step.label}", style="cyan")
-        ui.blank()
+def _execute_steps(
+    renderer: Renderer,
+    label: str,
+    steps: list[Step],
+    show_progress: bool,
+    verbose: bool,
+) -> None:
+    if verbose and steps:
+        renderer.plan(steps)
 
-    if not show_progress or not steps:
-        for step in steps:
+    progress = renderer.steps_started(label, len(steps), show_progress=show_progress)
+    try:
+        for i, step in enumerate(steps, 1):
+            progress.step(step.label, i)
             logger.debug(f"Step: {step.label}")
             step.fn()
-        return
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(bar_width=30),
-        MofNCompleteColumn(),
-        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
-        task = progress.add_task(label, total=len(steps))
-        for step in steps:
-            progress.update(task, description=f"{label} - {step.label}")
-            logger.debug(f"Step: {step.label}")
-            step.fn()
-            progress.advance(task)
-        progress.update(task, description=label)
+    finally:
+        progress.finish()
 
 
-def _print_dry_run(label: str, steps: list[Step] | None) -> None:
-    ui.write(f"[yellow]* Dry run:[/yellow] {label}")
-    if steps:
-        ui.warn("  Steps that would be executed:")
-        for i, step in enumerate(steps, 1):
-            ui.warn(f"    {i}. {step.label}")
-
-
-def _print_success(label: str, message: str) -> None:
-    ui.write(f"[green]+[/green] {message or label}")
-
-
-def _fail(label: str, exc: Exception) -> NoReturn:
+def _fail(renderer: Renderer, label: str, exc: Exception) -> NoReturn:
     logger.error(f"Operation failed: {label}", exc_info=exc, extra={"operation": label})
-    ui.write(f"[red]x[/red] {label}")
-    ui.write(f"[red]  Error:[/red] {exc}")
+    renderer.failure(label, exc)
     raise typer.Exit(code=1)

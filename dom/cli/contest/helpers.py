@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from dom.cli._helpers import load_with_secrets
+from dom.cli.helpers import load_with_secrets
 from dom.core.operations.contest import load_config_op
 
 

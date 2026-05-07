@@ -4,11 +4,11 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.decorators import add_global_options, cli_command
 from dom.cli.infrastructure.helpers import load_infra_config_with_secrets
 from dom.cli.validators import validate_file_path
 from dom.core.operations import Context, run
 from dom.core.operations.infrastructure import apply_infrastructure_op
-from dom.utils.cli import add_global_options, cli_command
 
 
 @add_global_options

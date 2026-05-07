@@ -6,15 +6,28 @@ for concrete operations.
 """
 
 from . import contest, infrastructure
-from .framework import Context, Operation, Step, Steps, operation, run
+from .framework import (
+    Context,
+    Operation,
+    Renderer,
+    Step,
+    StepProgress,
+    Steps,
+    operation,
+    run,
+    set_default_renderer,
+)
 
 __all__ = [
     "Context",
     "Operation",
+    "Renderer",
     "Step",
+    "StepProgress",
     "Steps",
     "contest",
     "infrastructure",
     "operation",
     "run",
+    "set_default_renderer",
 ]
