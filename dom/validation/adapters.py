@@ -91,10 +91,10 @@ def for_prompt(validator: ValidatorBuilder) -> Callable[[str], Any]:
         Function suitable for use with ask() prompt parser
 
     Example:
+        from dom import ui
         from dom.validation import ValidationRules, for_prompt
-        from dom.utils.prompt import ask
 
-        port = ask(
+        port = ui.ask(
             "Port number",
             default="8080",
             parser=for_prompt(ValidationRules.port())

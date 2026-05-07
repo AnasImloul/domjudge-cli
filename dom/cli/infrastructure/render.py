@@ -5,45 +5,51 @@ import json
 from rich import box
 from rich.table import Table
 
+from dom import ui
 from dom.core.services.infra.state import InfraChangeSet
-from dom.logging_config import console
 from dom.types.infra import InfrastructureStatus, ServiceStatus
 
 
 def render_planned_changes(change_set: InfraChangeSet | None) -> None:
     if not change_set:
-        console.print("\n[dim]No infrastructure state found.[/dim]\n")
+        ui.blank()
+        ui.hint("No infrastructure state found.")
+        ui.blank()
         return
 
-    console.print("\n[bold]Planned Infrastructure Changes:[/bold]\n")
-    console.print(f"  {change_set.summary()}\n")
+    ui.blank()
+    ui.write("Planned Infrastructure Changes:", style="bold")
+    ui.blank()
+    ui.info(f"  {change_set.summary()}")
+    ui.blank()
 
     if change_set.requires_restart:
-        console.print(
-            "  [yellow]⚠ WARNING:[/yellow] This change requires full infrastructure restart"
-        )
-        console.print("  [yellow]⚠ This will cause downtime for running contests![/yellow]\n")
+        ui.write("  [yellow]⚠ WARNING:[/yellow] This change requires full infrastructure restart")
+        ui.warn("  ⚠ This will cause downtime for running contests!")
+        ui.blank()
 
     if change_set.old_config:
-        console.print("  [bold]Current state:[/bold]")
-        console.print(f"    Port:       {change_set.old_config.port}")
-        console.print(f"    Judgehosts: {change_set.old_config.judges}")
-        console.print()
+        ui.write("  [bold]Current state:[/bold]")
+        ui.info(f"    Port:       {change_set.old_config.port}")
+        ui.info(f"    Judgehosts: {change_set.old_config.judges}")
+        ui.blank()
 
-    console.print("  [bold]Desired state:[/bold]")
-    console.print(f"    Port:       {change_set.new_config.port}")
-    console.print(f"    Judgehosts: {change_set.new_config.judges}")
-    console.print()
+    ui.write("  [bold]Desired state:[/bold]")
+    ui.info(f"    Port:       {change_set.new_config.port}")
+    ui.info(f"    Judgehosts: {change_set.new_config.judges}")
+    ui.blank()
 
     if change_set.is_safe_live_change:
-        console.print("  [green]✓ This change is safe to apply to running infrastructure[/green]\n")
+        ui.success("  ✓ This change is safe to apply to running infrastructure")
+        ui.blank()
     elif change_set.requires_restart:
-        console.print("  [red]Recommendation:[/red]")
-        console.print("    1. Notify participants of downtime")
-        console.print("    2. Pause or finish active contests")
-        console.print("    3. Run: dom infra destroy --confirm")
-        console.print("    4. Run: dom infra apply")
-        console.print("    5. Reconfigure contests if needed\n")
+        ui.error("  Recommendation:")
+        ui.info("    1. Notify participants of downtime")
+        ui.info("    2. Pause or finish active contests")
+        ui.info("    3. Run: dom infra destroy --confirm")
+        ui.info("    4. Run: dom infra apply")
+        ui.info("    5. Reconfigure contests if needed")
+        ui.blank()
 
 
 def render_status(status: InfrastructureStatus, *, json_output: bool = False) -> None:
@@ -53,19 +59,22 @@ def render_status(status: InfrastructureStatus, *, json_output: bool = False) ->
         return
 
     if status.is_healthy():
-        console.print("[OK] [bold green]Infrastructure Status: HEALTHY[/bold green]\n")
+        ui.success("[OK] Infrastructure Status: HEALTHY", style="bold green")
     else:
-        console.print("[!!] [bold red]Infrastructure Status: UNHEALTHY[/bold red]\n")
+        ui.error("[!!] Infrastructure Status: UNHEALTHY", style="bold red")
+    ui.blank()
 
     if status.docker_available:
-        console.print("+ [green]Docker daemon: Running[/green]")
+        ui.success("+ Docker daemon: Running")
     else:
-        console.print("x [red]Docker daemon: Not available[/red]")
+        ui.error("x Docker daemon: Not available")
         if status.docker_error:
-            console.print(f"  Error: {status.docker_error}")
+            ui.info(f"  Error: {status.docker_error}")
         return
 
-    console.print("\n[bold]Services:[/bold]\n")
+    ui.blank()
+    ui.write("Services:", style="bold")
+    ui.blank()
 
     table = Table(box=box.ROUNDED)
     table.add_column("Service", style="cyan", no_wrap=True)
@@ -96,16 +105,17 @@ def render_status(status: InfrastructureStatus, *, json_output: bool = False) ->
 
         table.add_row(service_name, status_text, detail_text)
 
-    console.print(table)
-    console.print()
+    ui.render(table)
+    ui.blank()
     healthy_count = sum(1 for s in status.services.values() if s == ServiceStatus.HEALTHY)
     total_count = len(status.services)
-    console.print(f"[dim]{healthy_count}/{total_count} services healthy[/dim]")
+    ui.hint(f"{healthy_count}/{total_count} services healthy")
 
     if status.is_healthy():
-        console.print("\n[OK] [green]Ready to accept commands[/green]")
+        ui.blank()
+        ui.success("[OK] Ready to accept commands")
     else:
-        console.print(
-            "\n[**] [yellow]Some services are not healthy. "
-            "Infrastructure may not be fully operational.[/yellow]"
+        ui.blank()
+        ui.warn(
+            "[**] Some services are not healthy. " "Infrastructure may not be fully operational."
         )

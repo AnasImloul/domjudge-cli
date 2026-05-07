@@ -2,9 +2,9 @@
 
 import typer
 
+from dom import ui
 from dom.core.operations import Context, run
 from dom.core.operations.infrastructure import destroy_infrastructure_op
-from dom.logging_config import console
 from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
@@ -33,20 +33,22 @@ def destroy_command(
 
     if not dry_run:
         if not force_delete_volumes:
-            console.print("\n[yellow]** Volume Preservation Notice[/yellow]")
-            console.print(
+            ui.header("** Volume Preservation Notice", style="yellow")
+            ui.write(
                 "Docker volumes (containing contest data, database) will be"
                 " [green]PRESERVED[/green] by default."
             )
-            console.print(
+            ui.write(
                 "To completely remove all data, use the [cyan]--force-delete-volumes[/cyan] flag."
             )
-            console.print()
+            ui.blank()
         else:
-            console.print(
-                "\n[red]** WARNING: DELETING ALL VOLUMES - "
-                "THIS WILL PERMANENTLY DELETE ALL CONTEST DATA![/red]\n"
+            ui.blank()
+            ui.error(
+                "** WARNING: DELETING ALL VOLUMES - "
+                "THIS WILL PERMANENTLY DELETE ALL CONTEST DATA!"
             )
+            ui.blank()
 
     secrets = get_secrets_manager()
     run(

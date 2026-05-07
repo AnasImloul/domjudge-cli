@@ -8,11 +8,9 @@ import logging
 import sys
 from pathlib import Path
 
-from rich.console import Console
 from rich.logging import RichHandler
 
-# Global console for rich output
-console = Console()
+from dom.ui import console
 
 
 def setup_logging(

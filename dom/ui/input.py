@@ -1,26 +1,57 @@
-from collections.abc import Callable, Iterable
-from typing import TypeVar
+"""Interactive prompt helpers.
 
-from rich.console import Console
+Wraps :mod:`rich.prompt` so callers don't import rich directly. Specialize
+behavior with keyword arguments (``parser``, ``default``, ``password``,
+``choices``, ``normalizer``).
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable
+from typing import TypeVar, overload
+
 from rich.prompt import Confirm, Prompt
 
+from dom.ui.console import console
+from dom.ui.output import error
 from dom.utils.validators import Invalid
 
 T = TypeVar("T")
 
 
+@overload
 def ask(
     message: str,
     *,
-    console: Console,
+    default: str | None = ...,
+    parser: Callable[[str], T],
+    password: bool = ...,
+    show_default: bool = ...,
+) -> T: ...
+
+
+@overload
+def ask(
+    message: str,
+    *,
+    default: str | None = ...,
+    parser: None = ...,
+    password: bool = ...,
+    show_default: bool = ...,
+) -> str: ...
+
+
+def ask(
+    message: str,
+    *,
     default: str | None = None,
     parser: Callable[[str], T] | None = None,
     password: bool = False,
     show_default: bool = True,
 ) -> T | str:
-    """Prompt once; parse; reprompt on error. All looping is hidden here."""
+    """Prompt for a value; reprompts on parser failure."""
     while True:
-        raw: str = Prompt.ask(
+        raw = Prompt.ask(
             message,
             default=default or "",
             show_default=show_default,
@@ -28,29 +59,32 @@ def ask(
             console=console,
         )
         try:
-            value: T | str = parser(raw) if parser else raw
-            return value
+            return parser(raw) if parser else raw
         except Invalid as e:
-            console.print(f"[red]{e}[/red]")
+            error(str(e))
         except Exception as e:
-            console.print(f"[red]{e}[/red]")
-            console.print("[red]Invalid value.[/red]")
+            error(str(e))
+            error("Invalid value.")
 
 
-def ask_bool(message: str, *, console: Console, default: bool = True) -> bool:
+def ask_bool(message: str, *, default: bool = True) -> bool:
+    """Prompt for a yes/no answer."""
     return Confirm.ask(message, default=default, console=console)
 
 
 def ask_choice(
     message: str,
     *,
-    console: Console,
     choices: Iterable[str],
     default: str | None = None,
     normalizer: Callable[[str], str] | None = None,
     show_default: bool = True,
 ) -> str:
-    """Prompt with a fixed set of string choices; reprompts on invalid."""
+    """Prompt for one of a fixed set of string choices.
+
+    If ``normalizer`` is supplied, both user input and the choice list are
+    normalized for matching, but the original (un-normalized) value is returned.
+    """
     normalized = {(normalizer(c) if normalizer else c): c for c in choices}
     while True:
         raw = Prompt.ask(

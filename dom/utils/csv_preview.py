@@ -1,15 +1,16 @@
 """CSV preview and analysis utilities for team file import."""
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
 
-from rich.console import Console
 from rich.table import Table
 
+from dom import ui
 from dom.logging_config import get_logger
+from dom.utils.validators import Invalid
 
 logger = get_logger(__name__)
-console = Console()
 
 
 def read_csv_rows(file_path: Path, delimiter: str, max_rows: int | None = None) -> list[list[str]]:
@@ -140,54 +141,36 @@ def preview_csv(
         has_header = detect_header_row(file_path, delimiter)
 
     if not rows:
-        console.print("[yellow]Warning: CSV file is empty[/yellow]")
+        ui.warn("Warning: CSV file is empty")
         return False
 
-    # Determine column count
-    num_columns = max(len(row) for row in rows) if rows else 0
+    num_columns = max(len(row) for row in rows)
 
-    # Create Rich table
     table = Table(
         title=f"CSV Preview: {file_path.name}",
         caption=f"Showing {len(rows)} of {total_rows} rows",
         show_header=True,
         header_style="bold cyan",
     )
-
-    # Add columns based on whether first row is header
     table.add_column("Row", style="dim", width=4)
 
-    if has_header and rows:
-        # Use first row as column headers
-        first_row = rows[0]
-        for col_idx, header_name in enumerate(first_row):
-            col_label = f"{header_name} (Col {col_idx + 1})" if show_column_numbers else header_name
-            table.add_column(col_label, style="green" if col_idx == 0 else "")
-        # Pad if necessary
-        for col_idx in range(len(first_row), num_columns):
-            col_label = f"Col {col_idx + 1}" if show_column_numbers else f"Column {col_idx + 1}"
-            table.add_column(col_label)
+    header_row = rows[0] if has_header else []
+    data_rows = rows[1:] if has_header else rows
+    start_index = 2 if has_header else 1
 
-        # Add data rows (skip first row since it's the header)
-        for row_idx, row in enumerate(rows[1:], start=2):
-            padded_row = row + [""] * (num_columns - len(row))
-            table.add_row(str(row_idx), *padded_row)
-    else:
-        # Use generic column numbers
-        if show_column_numbers:
-            for col_idx in range(num_columns):
-                table.add_column(f"Col {col_idx + 1}", style="green" if col_idx == 0 else "")
+    for col_idx in range(num_columns):
+        if col_idx < len(header_row):
+            base = header_row[col_idx]
+            label = f"{base} (Col {col_idx + 1})" if show_column_numbers else base
         else:
-            for col_idx in range(num_columns):
-                table.add_column(f"Column {col_idx + 1}")
+            label = f"Col {col_idx + 1}" if show_column_numbers else f"Column {col_idx + 1}"
+        table.add_column(label, style="green" if col_idx == 0 else "")
 
-        # Add all rows as data
-        for row_idx, row in enumerate(rows, start=1):
-            padded_row = row + [""] * (num_columns - len(row))
-            table.add_row(str(row_idx), *padded_row)
+    for offset, row in enumerate(data_rows):
+        padded = row + [""] * (num_columns - len(row))
+        table.add_row(str(start_index + offset), *padded)
 
-    console.print(table)
-
+    ui.render(table)
     return has_header
 
 
@@ -208,27 +191,26 @@ def get_column_count(file_path: Path, delimiter: str) -> int:
     return max(len(row) for row in rows)
 
 
-def validate_column_index(column_str: str, num_columns: int) -> int | None:
+def column_index_parser(num_columns: int, *, optional: bool = False) -> Callable[[str], int | None]:
+    """Build a parser for a 1-indexed CSV column number.
+
+    Suitable for ``ui.ask(parser=...)``. Accepts ``"2"`` or ``"$2"`` style.
+    When ``optional=True``, an empty input parses to ``None``; otherwise
+    empty input raises :class:`Invalid` so ``ui.ask`` reprompts.
     """
-    Validate and parse a column index from user input.
 
-    Args:
-        column_str: User input (e.g., "2" or "$2")
-        num_columns: Total number of columns
+    def parse(value: str) -> int | None:
+        stripped = value.strip().lstrip("$")
+        if not stripped:
+            if optional:
+                return None
+            raise Invalid("This field cannot be empty.")
+        try:
+            col = int(stripped)
+        except ValueError as e:
+            raise Invalid(f"Invalid column number: {stripped}") from e
+        if not 1 <= col <= num_columns:
+            raise Invalid(f"Column {col} is out of range (1-{num_columns}).")
+        return col
 
-    Returns:
-        Column index (1-indexed) if valid, None otherwise
-    """
-    # Remove $ prefix if present
-    column_str = column_str.strip().lstrip("$")
-
-    try:
-        col_idx = int(column_str)
-        if 1 <= col_idx <= num_columns:
-            return col_idx
-        else:
-            console.print(f"[red]Column {col_idx} is out of range (1-{num_columns})[/red]")
-            return None
-    except ValueError:
-        console.print(f"[red]Invalid column number: {column_str}[/red]")
-        return None
+    return parse

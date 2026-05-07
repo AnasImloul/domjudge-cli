@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Generic, TypeVar
 
 
-# --- Reuse the user's Invalid error type ---
 class Invalid(Exception):
     pass
 
@@ -41,36 +40,15 @@ class ValidatorBuilder(Generic[T]):
         self._checks: list[Callable[[T], None]] = []
 
     # ---- pipeline primitives ----
-    def parse(self, parser: Callable[[str], U]) -> ValidatorBuilder[U]:
-        """Switch the parser, resetting the output type to U.
-        Keeps existing transforms/checks by capturing the current pipeline
-        into a single new parser so chaining remains intuitive.
-        """
-        prev = self.build()
-
-        def new_parser(s: str) -> U:
-            # run the existing pipeline first to get T, then coerce to U via parser
-            t_value = prev(s)  # may raise Invalid
-            try:
-                return parser(t_value if isinstance(t_value, str) else str(t_value))
-            except Invalid:
-                raise
-            except Exception as e:
-                raise Invalid("Invalid value.") from e
-
-        # return a fresh builder with the new parser and no transforms/checks yet
-        return ValidatorBuilder(new_parser)
-
     def map(self: S, fn: Callable[[T], U]) -> S:
         prev = self.build()
 
         def new_parser(s: str) -> U:
-            v_t = prev(s)
             try:
-                return fn(v_t)
+                return fn(prev(s))
             except Invalid:
                 raise
-            except Exception as e:
+            except (ValueError, TypeError, LookupError) as e:
                 raise Invalid("Invalid value.") from e
 
         return ValidatorBuilder(new_parser)  # type: ignore[return-value]
@@ -143,20 +121,15 @@ class ValidatorBuilder(Generic[T]):
 class StringBuilder(ValidatorBuilder[str]):
     def __init__(self, *, none_as_empty: bool = False, coerce: bool = False):
         def _parse(s) -> str:
-            # Handle None first
             if s is None:
                 if none_as_empty:
                     return ""
                 raise Invalid("Should be a string.")
-            # Enforce/optionally coerce non-strings
-            if not isinstance(s, str):
-                if coerce:
-                    try:
-                        return str(s)
-                    except Exception as e:
-                        raise Invalid("Should be a string.") from e
-                raise Invalid("Should be a string.")
-            return s
+            if isinstance(s, str):
+                return s
+            if coerce:
+                return str(s)
+            raise Invalid("Should be a string.")
 
         super().__init__(parser=_parse)
 
@@ -172,9 +145,6 @@ class StringBuilder(ValidatorBuilder[str]):
 
     def replace(self, _from: str, _to: str) -> StringBuilder:
         return self.transform(lambda s: s.replace(_from, _to))
-
-    def repr(self) -> StringBuilder:
-        return self.transform(repr)
 
     # checks
     def non_empty(self, message: str = "This field cannot be empty.") -> StringBuilder:
@@ -202,11 +172,10 @@ class StringBuilder(ValidatorBuilder[str]):
 # ------------------------------------------------------------
 class NumberBuilder(ValidatorBuilder[Number], Generic[Number]):
     def __init__(self, caster: Callable[[str], Number], *, kind_name: str = "number"):
-        # Robust parse with good error messages
         def _parse(s: str) -> Number:
             try:
                 return caster(s.strip())
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 raise Invalid(f"Must be a {kind_name}.") from e
 
         super().__init__(parser=_parse)  # type: ignore[arg-type]
@@ -251,8 +220,8 @@ class DurationBuilder(ValidatorBuilder[tuple[int, int, int]]):
     def __init__(self):
         def _parse(s: str) -> tuple[int, int, int]:
             try:
-                h, m, sec = map(int, s.split(":"))
-            except Exception as e:
+                h, m, sec = (int(part) for part in s.split(":"))
+            except ValueError as e:
                 raise Invalid("Duration must be HH:MM:SS") from e
             if h == m == sec == 0:
                 raise Invalid("Duration must be greater than 0 seconds.")

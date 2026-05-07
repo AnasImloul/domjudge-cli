@@ -8,8 +8,9 @@ import socket
 import subprocess  # nosec B404
 from pathlib import Path
 
+from dom import ui
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
-from dom.logging_config import console, get_logger
+from dom.logging_config import get_logger
 from dom.utils.cli import get_container_prefix
 
 logger = get_logger(__name__)
@@ -253,6 +254,7 @@ def warn_if_privileged_port(port: int) -> None:
         port: Port number to check
     """
     if port < 1024:
-        console.print(f"[yellow]** Warning: Port {port} is privileged (< 1024)[/yellow]")
-        console.print("[yellow]   You may need to run with sudo or use a port >= 1024[/yellow]\n")
+        ui.warn(f"** Warning: Port {port} is privileged (< 1024)")
+        ui.warn("   You may need to run with sudo or use a port >= 1024")
+        ui.blank()
         logger.warning(f"Using privileged port: {port}")

@@ -2,8 +2,9 @@
 
 import typer
 
+from dom import ui
 from dom.cli.init.wizard import run_wizard
-from dom.logging_config import console, get_logger
+from dom.logging_config import get_logger
 from dom.utils.cli import add_global_options, cli_command
 
 logger = get_logger(__name__)
@@ -27,7 +28,7 @@ def callback(
     Use --dry-run to preview what files would be created without actually creating them.
     """
     if dry_run:
-        console.print(
+        ui.write(
             "[yellow]* Dry run:[/yellow] would launch the interactive init wizard "
             "to create dom-judge.yaml (and optionally problems.yaml)."
         )
@@ -39,5 +40,5 @@ def callback(
         raise
     except Exception as e:
         logger.error(f"Failed to initialize project: {e}", exc_info=True)
-        console.print(f"[red]x[/red] Failed to initialize project: {e}")
+        ui.error(f"x Failed to initialize project: {e}")
         raise typer.Exit(code=1) from e

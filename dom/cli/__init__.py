@@ -5,11 +5,11 @@ from pathlib import Path
 
 import typer
 
-from dom import __version__
+from dom import __version__, ui
 from dom.cli.contest import contest_command
 from dom.cli.infrastructure import infra_command
 from dom.cli.init import init_command
-from dom.logging_config import console, get_logger, setup_logging
+from dom.logging_config import get_logger, setup_logging
 from dom.utils.cli import ensure_dom_directory
 
 logger = get_logger(__name__)
@@ -58,12 +58,12 @@ def callback(
 
     # Handle version flag
     if version:
-        console.print(f"dom-cli version {__version__}")
+        ui.info(f"dom-cli version {__version__}")
         raise typer.Exit()
 
     # If no subcommand was provided, show help
     if ctx.invoked_subcommand is None:
-        console.print(ctx.get_help())
+        ui.render(ctx.get_help())
         raise typer.Exit()
 
 
