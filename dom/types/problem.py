@@ -1,10 +1,14 @@
 import zipfile
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import BaseModel
 
+from dom.logging_config import get_logger
 from dom.utils.pydantic import InspectMixin
+
+logger = get_logger(__name__)
 
 
 def write_files_to_zip(zf: zipfile.ZipFile, base_path: str, files: dict[str, bytes]) -> set[str]:
@@ -24,14 +28,13 @@ class ProblemINI(InspectMixin, BaseModel):
 
     @classmethod
     def parse(cls, content: str) -> "ProblemINI":
-        data = {}
+        data: dict[str, Any] = {}
         for line in content.strip().splitlines():
-            if "=" in line:
-                key, value = map(str.strip, line.split("=", 1))
-                if key == "timelimit":
-                    value = float(value)  # type: ignore[assignment]
-                data[key.replace("-", "_")] = value
-        return cls(**data)  # type: ignore[arg-type]
+            if "=" not in line:
+                continue
+            key, value = (part.strip() for part in line.split("=", 1))
+            data[key.replace("-", "_")] = float(value) if key == "timelimit" else value
+        return cls(**data)
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> set[str]:
         content = (
@@ -84,11 +87,7 @@ class Submissions(InspectMixin, BaseModel):
     mixed: dict[str, bytes] = {}
 
     def _verdicts(self) -> dict[str, dict[str, bytes]]:
-        return {
-            field: getattr(self, field)
-            for field in self.model_fields
-            if isinstance(getattr(self, field), dict)
-        }
+        return {field: getattr(self, field) for field in type(self).model_fields}
 
     def write_to_zip(self, zf: zipfile.ZipFile) -> set[str]:
         written = set()
@@ -125,7 +124,6 @@ class ProblemPackage(InspectMixin, BaseModel):
         missing = written_files - extracted_files
         unexpected = extracted_files - written_files
         if missing:
-            print(f"[ERROR] Missing expected files: {sorted(missing)}")
-        if unexpected:
-            for path in sorted(unexpected):
-                print(f"[WARNING] Unexpected file found: {path}")
+            logger.error("Missing expected files: %s", sorted(missing))
+        for path in sorted(unexpected):
+            logger.warning("Unexpected file found: %s", path)

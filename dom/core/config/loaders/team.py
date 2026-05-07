@@ -1,5 +1,6 @@
 import csv
 import re
+from collections import Counter
 from pathlib import Path
 
 from dom.logging_config import get_logger
@@ -8,6 +9,15 @@ from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
 
 logger = get_logger(__name__)
+
+
+def _check_unique_team_names(teams: list[Team]) -> None:
+    duplicates = [name for name, n in Counter(t.name for t in teams).items() if n > 1]
+    if duplicates:
+        raise ValueError(
+            f"Duplicate team names detected within the same contest: {', '.join(duplicates)}. "
+            f"Teams within a contest must have unique names to avoid ambiguity on the leaderboard."
+        )
 
 
 def read_teams_file(file_path: Path, delimiter: str | None = None) -> list[list[str]]:
@@ -73,9 +83,8 @@ def load_teams_from_config(
     # Handle inline YAML team definitions
     if isinstance(team_config, list):
         logger.info(f"Loading {len(team_config)} teams from inline YAML configuration")
-        teams = []
-        for raw_team in team_config:
-            team = Team(
+        teams = [
+            Team(
                 name=raw_team.name,
                 password=secrets.generate_deterministic_password(
                     seed=raw_team.name.strip(), length=10
@@ -83,17 +92,9 @@ def load_teams_from_config(
                 affiliation=raw_team.affiliation,
                 country=raw_team.country,
             )
-            teams.append(team)
-
-        # Validate no duplicate team names
-        team_names = [team.name for team in teams]
-        if len(team_names) != len(set(team_names)):
-            duplicates = {name for name in team_names if team_names.count(name) > 1}
-            raise ValueError(
-                f"Duplicate team names detected within the same contest: {', '.join(duplicates)}. "
-                f"Teams within a contest must have unique names to avoid ambiguity on the leaderboard."
-            )
-
+            for raw_team in team_config
+        ]
+        _check_unique_team_names(teams)
         logger.info(f"Successfully loaded {len(teams)} teams from inline configuration")
         return teams
 
@@ -123,44 +124,27 @@ def load_teams_from_config(
         start, end = map(int, row_range.split("-"))
         teams_data = teams_data[start - 1 : end]
 
-    teams = []
+    def render_optional(template: str | None, row: list[str]) -> str | None:
+        if not template or not template.strip():
+            return None
+        return parse_from_template(template, row).strip() or None
 
+    teams = []
     for idx, row in enumerate(teams_data, start=1):
         try:
             team_name = parse_from_template(team_config.name, row).strip()
-            affiliation = (
-                parse_from_template(team_config.affiliation, row).strip()
-                if team_config.affiliation.strip()
-                else None
-            )
-            country = None
-            if team_config.country and team_config.country.strip():
-                # Fall back to None for blank values so Team applies its default country code
-                country = parse_from_template(team_config.country, row).strip() or None
-
             teams.append(
                 Team(
                     name=team_name,
-                    password=secrets.generate_deterministic_password(
-                        seed=team_name.strip(), length=10
-                    ),
-                    affiliation=affiliation.strip() or None,  # type: ignore[union-attr]
-                    country=country,
+                    password=secrets.generate_deterministic_password(seed=team_name, length=10),
+                    affiliation=render_optional(team_config.affiliation, row),
+                    country=render_optional(team_config.country, row),
                 )
             )
-
         except Exception as e:
             logger.error(f"Failed to prepare team from row {idx}: {e}")
             raise
 
-    # Validate no duplicate team names within this contest
-    team_names = [team.name for team in teams]
-    if len(team_names) != len(set(team_names)):
-        duplicates = {name for name in team_names if team_names.count(name) > 1}
-        raise ValueError(
-            f"Duplicate team names detected within the same contest: {', '.join(duplicates)}. "
-            f"Teams within a contest must have unique names to avoid ambiguity on the leaderboard."
-        )
-
+    _check_unique_team_names(teams)
     logger.info(f"Loaded {len(teams)} teams from {file_path}")
     return teams

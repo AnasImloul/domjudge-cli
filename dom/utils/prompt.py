@@ -1,5 +1,5 @@
 from collections.abc import Callable, Iterable
-from typing import TypeVar
+from typing import TypeVar, overload
 
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
@@ -7,6 +7,30 @@ from rich.prompt import Confirm, Prompt
 from dom.utils.validators import Invalid
 
 T = TypeVar("T")
+
+
+@overload
+def ask(
+    message: str,
+    *,
+    console: Console,
+    default: str | None = ...,
+    parser: Callable[[str], T],
+    password: bool = ...,
+    show_default: bool = ...,
+) -> T: ...
+
+
+@overload
+def ask(
+    message: str,
+    *,
+    console: Console,
+    default: str | None = ...,
+    parser: None = ...,
+    password: bool = ...,
+    show_default: bool = ...,
+) -> str: ...
 
 
 def ask(
@@ -28,8 +52,7 @@ def ask(
             console=console,
         )
         try:
-            value: T | str = parser(raw) if parser else raw
-            return value
+            return parser(raw) if parser else raw
         except Invalid as e:
             console.print(f"[red]{e}[/red]")
         except Exception as e:

@@ -1,5 +1,6 @@
 import tempfile
 import zipfile
+from collections import Counter
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Union
@@ -253,35 +254,28 @@ def load_problems_from_config(
                 except FileNotFoundError as e:
                     logger.error(str(e))
                     raise
-    elif isinstance(problem_config, list) and all(
-        isinstance(p, RawProblem) for p in problem_config
-    ):
-        # Inline problems list
+    elif isinstance(problem_config, list):
         problems = problem_config
-        # Skip file loading, go directly to validation
         file_path = None
     else:
         logger.error("Invalid problem configuration.")
         raise TypeError("Invalid problem configuration type.")
 
-    # Load from file if file_path is set
     if file_path is not None:
         try:
             with file_path.open() as f:
                 loaded_data = yaml.safe_load(f)
-                if not isinstance(loaded_data, list):
-                    logger.error(f"Problems file '{file_path}' must contain a list.")
-                    raise ValueError(f"Problems file must contain a list of problems: {file_path}")
-                problems = [RawProblem(**problem) for problem in loaded_data]
-        except Exception:
+            if not isinstance(loaded_data, list):
+                logger.error(f"Problems file '{file_path}' must contain a list.")
+                raise ValueError(f"Problems file must contain a list of problems: {file_path}")
+            problems = [RawProblem(**problem) for problem in loaded_data]
+        except (OSError, yaml.YAMLError, ValueError, TypeError):
             logger.error(f"Failed to load problems from '{file_path}'", exc_info=True)
             raise
 
-    # Validate archives are unique and convert to Path objects
     archive_paths = [Path(problem.archive).resolve() for problem in problems]
-    archive_paths_str = [str(p) for p in archive_paths]
-    if len(archive_paths_str) != len(set(archive_paths_str)):
-        duplicates = {x for x in archive_paths_str if archive_paths_str.count(x) > 1}
+    duplicates = [p for p, n in Counter(map(str, archive_paths)).items() if n > 1]
+    if duplicates:
         raise ValueError(f"Duplicate archives detected: {', '.join(duplicates)}")
 
     for archive_path in archive_paths:
@@ -302,21 +296,13 @@ def load_problems_from_config(
             for i, (problem, archive_path) in enumerate(zip(problems, archive_paths, strict=False))
         }
 
-        # Load problems without additional progress display to avoid redundancy
-        # The parent operation already shows "Loading contests and problem archives..."
-        problem_packages_with_idx = []
-        for future in as_completed(futures):
-            problem_packages_with_idx.append(future.result())
+        # The parent operation already shows progress; no inner display needed.
+        results = [future.result() for future in as_completed(futures)]
+        problem_packages = [pkg for pkg, _ in sorted(results, key=lambda r: r[1])]
 
-        # Sort by index and extract just the packages
-        problem_packages = [
-            package for package, _ in sorted(problem_packages_with_idx, key=lambda x: x[1])
-        ]
-
-    # Validate short_names are unique
     short_names = [problem_package.ini.short_name for problem_package in problem_packages]
-    if len(short_names) != len(set(short_names)):
-        duplicates = {x for x in short_names if short_names.count(x) > 1}
+    duplicates = [name for name, n in Counter(short_names).items() if n > 1]
+    if duplicates:
         raise ValueError(f"Duplicate problem short_names detected: {', '.join(duplicates)}")
 
     return problem_packages

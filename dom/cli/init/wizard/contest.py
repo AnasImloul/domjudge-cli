@@ -41,17 +41,12 @@ def initialize_contest():
         parser=ValidatorBuilder.datetime("%Y-%m-%d %H:%M:%S").build(),
     )
 
-    duration_result = ask(
+    h, m, s = ask(
         "Duration (HH:MM:SS)",
         console=console,
         default="05:00:00",
         parser=ValidatorBuilder.duration_hms().build(),
     )
-    if isinstance(duration_result, tuple):
-        h, m, s = duration_result
-    else:
-        # Fallback if not a tuple
-        h, m, s = 5, 0, 0
     duration_str = f"{h:02d}:{m:02d}:{s:02d}"
 
     penalty_minutes = ask(
@@ -75,15 +70,21 @@ def initialize_contest():
     )
     suggested_delim = "," if teams_path.endswith(".csv") else "\t"
 
+    delimiter_aliases = {
+        ",": ",",
+        ";": ";",
+        "\t": "\t",
+        "comma": ",",
+        "semicolon": ";",
+        "tab": "\t",
+    }
     delimiter = ask(
         f"Field delimiter (Enter for default: {suggested_delim!r})",
         console=console,
         default=suggested_delim,
         parser=ValidatorBuilder.string()
-        .one_of([",", ";", "\t", "comma", "semicolon", "tab"])
-        .replace("comma", ",")
-        .replace("semicolon", ";")
-        .replace("tab", "\t")
+        .one_of(delimiter_aliases)
+        .map(delimiter_aliases.__getitem__)
         .build(),
         show_default=False,
     )
@@ -95,31 +96,19 @@ def initialize_contest():
     # Initial preview with auto-detection
     has_header = preview_csv(teams_file_path, delimiter, max_rows=10, show_column_numbers=True)
 
-    # Ask user to confirm header detection
-    if has_header:
-        header_confirmed = ask_bool(
-            "Does the first row contain headers?",
-            console=console,
-            default=True,
+    # Confirm header detection; re-render preview only if the user disagrees.
+    confirmed = ask_bool("Does the first row contain headers?", console=console, default=has_header)
+    if confirmed != has_header:
+        has_header = confirmed
+        label = "with header" if has_header else "no header"
+        console.print(f"\n[bold cyan]Updated CSV Preview ({label})[/bold cyan]")
+        preview_csv(
+            teams_file_path,
+            delimiter,
+            max_rows=10,
+            show_column_numbers=True,
+            has_header=has_header,
         )
-        if not header_confirmed:
-            has_header = False
-            console.print("\n[bold cyan]Updated CSV Preview (no header)[/bold cyan]")
-            preview_csv(
-                teams_file_path, delimiter, max_rows=10, show_column_numbers=True, has_header=False
-            )
-    else:
-        header_exists = ask_bool(
-            "Does the first row contain headers?",
-            console=console,
-            default=False,
-        )
-        if header_exists:
-            has_header = True
-            console.print("\n[bold cyan]Updated CSV Preview (with header)[/bold cyan]")
-            preview_csv(
-                teams_file_path, delimiter, max_rows=10, show_column_numbers=True, has_header=True
-            )
 
     # Get column count for validation
     num_columns = get_column_count(teams_file_path, delimiter)
@@ -130,44 +119,22 @@ def initialize_contest():
         "Specify which columns contain team information (use column numbers from preview)"
     )
 
-    name_column = None
-    while name_column is None:
-        name_input = ask(
-            "Name column",
-            console=console,
-            default="1",
-            parser=ValidatorBuilder.string().strip().non_empty().build(),
-        )
-        name_column = validate_column_index(name_input, num_columns)
+    def ask_column(prompt: str, default: str, *, optional: bool = False) -> int | None:
+        builder = ValidatorBuilder.string().strip()
+        if not optional:
+            builder = builder.non_empty()
+        parser = builder.build()
+        while True:
+            raw = ask(prompt, console=console, default=default, parser=parser)
+            if optional and not raw:
+                return None
+            col = validate_column_index(raw, num_columns)
+            if col is not None:
+                return col
 
-    affiliation_column = None
-    while affiliation_column is None:
-        affiliation_input = ask(
-            "Affiliation column",
-            console=console,
-            default="2",
-            parser=ValidatorBuilder.string().strip().non_empty().build(),
-        )
-        affiliation_column = validate_column_index(affiliation_input, num_columns)
-
-    country_column = None
-    country_input = ask(
-        "Country column (optional, press Enter to skip)",
-        console=console,
-        default="",
-        parser=ValidatorBuilder.string().strip().build(),
-    )
-    if country_input:
-        country_column = validate_column_index(country_input, num_columns)
-        while country_column is None and country_input:
-            country_input = ask(
-                "Country column (optional, press Enter to skip)",
-                console=console,
-                default="",
-                parser=ValidatorBuilder.string().strip().build(),
-            )
-            if country_input:
-                country_column = validate_column_index(country_input, num_columns)
+    name_column = ask_column("Name column", "1")
+    affiliation_column = ask_column("Affiliation column", "2")
+    country_column = ask_column("Country column (optional, press Enter to skip)", "", optional=True)
 
     # Auto-detect row range based on confirmed header status
     total_rows = count_csv_rows(teams_file_path, delimiter)
@@ -186,21 +153,12 @@ def initialize_contest():
 
     if not rows_confirmed:
         console.print("Please specify the correct row range:")
-        start_row = int(
-            ask(
-                "Start row (1-indexed)",
-                console=console,
-                default=str(start_row),
-                parser=ValidatorBuilder.integer().positive().build(),
-            )
+        positive_int = ValidatorBuilder.integer().positive().build()
+        start_row = ask(
+            "Start row (1-indexed)", console=console, default=str(start_row), parser=positive_int
         )
-        end_row = int(
-            ask(
-                "End row (1-indexed)",
-                console=console,
-                default=str(end_row),
-                parser=ValidatorBuilder.integer().positive().build(),
-            )
+        end_row = ask(
+            "End row (1-indexed)", console=console, default=str(end_row), parser=positive_int
         )
 
     rows = f"{start_row}-{end_row}"
@@ -211,10 +169,8 @@ def initialize_contest():
     table.add_column("Value", style="green")
     table.add_row("Name", name)
     table.add_row("Shortname", shortname)
-    table.add_row(
-        "Start time",
-        start_dt.strftime("%Y-%m-%d %H:%M:%S") if hasattr(start_dt, "strftime") else str(start_dt),
-    )
+    start_str = start_dt.strftime("%Y-%m-%d %H:%M:%S")
+    table.add_row("Start time", start_str)
     table.add_row("Duration", duration_str)
     table.add_row("Penalty time", f"{penalty_minutes} minutes")
     table.add_row("Allow submit", "Yes" if allow_submit else "No")
@@ -228,11 +184,7 @@ def initialize_contest():
     rendered = contest_template.render(
         name=name,
         shortname=shortname,
-        start_time=format_datetime(
-            start_dt.strftime("%Y-%m-%d %H:%M:%S")
-            if hasattr(start_dt, "strftime")
-            else str(start_dt)
-        ),
+        start_time=format_datetime(start_str),
         duration=format_duration(duration_str),
         penalty_time=str(penalty_minutes),
         allow_submit=str(allow_submit).lower(),

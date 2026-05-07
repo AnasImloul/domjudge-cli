@@ -143,51 +143,33 @@ def preview_csv(
         console.print("[yellow]Warning: CSV file is empty[/yellow]")
         return False
 
-    # Determine column count
-    num_columns = max(len(row) for row in rows) if rows else 0
+    num_columns = max(len(row) for row in rows)
 
-    # Create Rich table
     table = Table(
         title=f"CSV Preview: {file_path.name}",
         caption=f"Showing {len(rows)} of {total_rows} rows",
         show_header=True,
         header_style="bold cyan",
     )
-
-    # Add columns based on whether first row is header
     table.add_column("Row", style="dim", width=4)
 
-    if has_header and rows:
-        # Use first row as column headers
-        first_row = rows[0]
-        for col_idx, header_name in enumerate(first_row):
-            col_label = f"{header_name} (Col {col_idx + 1})" if show_column_numbers else header_name
-            table.add_column(col_label, style="green" if col_idx == 0 else "")
-        # Pad if necessary
-        for col_idx in range(len(first_row), num_columns):
-            col_label = f"Col {col_idx + 1}" if show_column_numbers else f"Column {col_idx + 1}"
-            table.add_column(col_label)
+    header_row = rows[0] if has_header else []
+    data_rows = rows[1:] if has_header else rows
+    start_index = 2 if has_header else 1
 
-        # Add data rows (skip first row since it's the header)
-        for row_idx, row in enumerate(rows[1:], start=2):
-            padded_row = row + [""] * (num_columns - len(row))
-            table.add_row(str(row_idx), *padded_row)
-    else:
-        # Use generic column numbers
-        if show_column_numbers:
-            for col_idx in range(num_columns):
-                table.add_column(f"Col {col_idx + 1}", style="green" if col_idx == 0 else "")
+    for col_idx in range(num_columns):
+        if col_idx < len(header_row):
+            base = header_row[col_idx]
+            label = f"{base} (Col {col_idx + 1})" if show_column_numbers else base
         else:
-            for col_idx in range(num_columns):
-                table.add_column(f"Column {col_idx + 1}")
+            label = f"Col {col_idx + 1}" if show_column_numbers else f"Column {col_idx + 1}"
+        table.add_column(label, style="green" if col_idx == 0 else "")
 
-        # Add all rows as data
-        for row_idx, row in enumerate(rows, start=1):
-            padded_row = row + [""] * (num_columns - len(row))
-            table.add_row(str(row_idx), *padded_row)
+    for offset, row in enumerate(data_rows):
+        padded = row + [""] * (num_columns - len(row))
+        table.add_row(str(start_index + offset), *padded)
 
     console.print(table)
-
     return has_header
 
 
