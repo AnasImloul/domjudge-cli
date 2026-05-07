@@ -6,10 +6,10 @@ import typer
 
 from dom.cli.contest.helpers import load_config_with_secrets
 from dom.cli.contest.render import render_planned_changes
+from dom.cli.decorators import add_global_options, cli_command
 from dom.cli.validators import validate_file_path
 from dom.core.operations import Context, run
 from dom.core.operations.contest import plan_contest_changes_op
-from dom.utils.cli import add_global_options, cli_command
 
 
 @add_global_options

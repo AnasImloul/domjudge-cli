@@ -3,9 +3,10 @@
 import typer
 
 from dom import ui
+from dom.cli.decorators import add_global_options, cli_command
 from dom.core.operations import Context, run
 from dom.core.operations.infrastructure import destroy_infrastructure_op
-from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
+from dom.utils.cli import get_secrets_manager
 
 
 @add_global_options

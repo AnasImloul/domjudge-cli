@@ -50,12 +50,6 @@ forbidden_modules =
 ignore_imports =
     # logging_config wires the shared Console into RichHandler — it needs the singleton.
     dom.logging_config -> dom.ui.console
-    # The operations framework prints plan/dry-run/success/error lines and drives the
-    # rich.Progress widget. TODO: move presentation into dom.cli renderers.
-    dom.core.operations.framework -> dom.ui
-    dom.core.operations.framework -> dom.ui.console
-    # The cli_command decorator renders user-facing error output for every CLI command.
-    dom.utils.cli -> dom.ui
     # preview_csv renders a Rich table for the user during the init wizard.
     dom.utils.csv_preview -> dom.ui
     # warn_if_privileged_port surfaces a user-visible warning before infra apply.

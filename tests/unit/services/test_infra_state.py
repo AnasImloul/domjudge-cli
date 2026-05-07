@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 from pydantic import SecretStr
 
 from dom.core.services.infra.state import (
-    InfraChangeSet,
     InfraChangeType,
     InfraStateComparator,
 )
@@ -164,32 +163,3 @@ class TestInfraStateComparator:
             state = comparator._load_current_state()
 
             assert state is None
-
-    def test_change_set_summary_for_create(self):
-        """Test summary message for CREATE change."""
-        change_set = InfraChangeSet(
-            change_type=InfraChangeType.CREATE,
-            old_config=None,
-            new_config=InfraConfig(port=8080, judges=4, password=SecretStr("test")),
-        )
-
-        summary = change_set.summary()
-
-        assert "CREATE" in summary
-        assert "new infrastructure" in summary
-
-    def test_change_set_summary_for_scale_up(self):
-        """Test summary message for scaling up judges."""
-        old = InfraConfig(port=8080, judges=4, password=SecretStr("test"))
-        new = InfraConfig(port=8080, judges=8, password=SecretStr("test"))
-
-        change_set = InfraChangeSet(
-            change_type=InfraChangeType.SCALE_JUDGES, old_config=old, new_config=new, judge_diff=4
-        )
-
-        summary = change_set.summary()
-
-        assert "SCALE UP" in summary
-        assert "4" in summary
-        assert "8" in summary
-        assert "safe live change" in summary

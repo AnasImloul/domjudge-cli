@@ -3,9 +3,9 @@
 import typer
 
 from dom import ui
+from dom.cli.decorators import add_global_options, cli_command
 from dom.cli.init.wizard import run_wizard
 from dom.logging_config import get_logger
-from dom.utils.cli import add_global_options, cli_command
 
 logger = get_logger(__name__)
 

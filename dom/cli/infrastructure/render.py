@@ -1,4 +1,8 @@
-"""CLI-side renderers for infrastructure output."""
+"""CLI-side renderers for infrastructure output.
+
+The service layer returns a plain :class:`InfraChangeSet`; this module
+owns the Rich markup that turns it into a coloured CLI line.
+"""
 
 import json
 
@@ -6,8 +10,38 @@ from rich import box
 from rich.table import Table
 
 from dom import ui
-from dom.core.services.infra.state import InfraChangeSet
+from dom.core.services.infra.state import InfraChangeSet, InfraChangeType
 from dom.types.infra import InfrastructureStatus, ServiceStatus
+
+
+def format_change_summary(change_set: InfraChangeSet) -> str:
+    """Render an :class:`InfraChangeSet` as a Rich-markup-decorated line."""
+    ct = change_set.change_type
+
+    if ct is InfraChangeType.CREATE:
+        return "[green]CREATE[/green] new infrastructure"
+    if ct is InfraChangeType.NO_CHANGE:
+        return "[dim]NO CHANGES[/dim] to infrastructure"
+    if ct is InfraChangeType.SCALE_JUDGES:
+        direction = (
+            "[green]SCALE UP[/green]"
+            if change_set.judge_diff > 0
+            else "[yellow]SCALE DOWN[/yellow]"
+        )
+        old = change_set.old_config.judges if change_set.old_config else "?"
+        return f"{direction} judgehosts: {old} → {change_set.new_config.judges} (safe live change)"
+    if ct is InfraChangeType.PORT_CHANGE:
+        old = change_set.old_config.port if change_set.old_config else "?"
+        return (
+            f"[red]PORT CHANGE[/red]: {old} → {change_set.new_config.port} "
+            "[bold](requires restart)[/bold]"
+        )
+    if ct is InfraChangeType.PASSWORD_CHANGE:
+        return "[yellow]PASSWORD CHANGE[/yellow] [bold](requires restart)[/bold]"
+    if ct is InfraChangeType.FULL_RESTART:
+        return "[red]MULTIPLE CHANGES[/red] [bold](requires full restart)[/bold]"
+
+    raise ValueError(f"Unknown infra change type: {ct}")
 
 
 def render_planned_changes(change_set: InfraChangeSet | None) -> None:
@@ -20,7 +54,7 @@ def render_planned_changes(change_set: InfraChangeSet | None) -> None:
     ui.blank()
     ui.write("Planned Infrastructure Changes:", style="bold")
     ui.blank()
-    ui.info(f"  {change_set.summary()}")
+    ui.info(f"  {format_change_summary(change_set)}")
     ui.blank()
 
     if change_set.requires_restart:
@@ -116,6 +150,4 @@ def render_status(status: InfrastructureStatus, *, json_output: bool = False) ->
         ui.success("[OK] Ready to accept commands")
     else:
         ui.blank()
-        ui.warn(
-            "[**] Some services are not healthy. " "Infrastructure may not be fully operational."
-        )
+        ui.warn("[**] Some services are not healthy. Infrastructure may not be fully operational.")

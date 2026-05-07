@@ -10,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
 
+from dom import ui
 from dom.core.operations import Context, run
 from dom.core.operations.framework import Operation
 from dom.types.secrets import SecretsProvider
@@ -40,3 +41,21 @@ def load_with_secrets(
             "load operations must be single-step and produce a config object"
         )
     return config, secrets
+
+
+def ask_override_if_exists(output_file: Path) -> bool:
+    """Prompt the user to confirm overriding ``output_file`` if it exists.
+
+    Returns ``True`` if the caller should proceed (file absent, or user
+    confirmed override), ``False`` if the caller should skip.
+    """
+    if not output_file.exists():
+        return True
+    override = ui.ask_bool(
+        f"File '{output_file}' exists. Do you want to override it?",
+        default=False,
+    )
+    if not override:
+        ui.warn("Skipping problem initialization.")
+        return False
+    return True

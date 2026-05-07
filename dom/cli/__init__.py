@@ -6,6 +6,7 @@ from pathlib import Path
 import typer
 
 from dom import __version__, ui
+from dom.cli import runner
 from dom.cli.contest import contest_command
 from dom.cli.infrastructure import infra_command
 from dom.cli.init import init_command

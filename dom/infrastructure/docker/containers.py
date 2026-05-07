@@ -1,8 +1,20 @@
 """Docker container management for DOMjudge infrastructure.
 
-This module provides a DockerClient class to manage Docker containers for DOMjudge,
-including starting services, checking health, and managing passwords.
+The Docker concerns are split by responsibility:
+
+* :class:`_DockerCli` — validates docker is reachable, holds the base
+  command and the per-project container prefix.
+* :class:`DockerComposeManager` — service lifecycle via ``docker compose``.
+* :class:`DockerHealthChecker` — container health polling.
+* :class:`DockerCredentialManager` — password fetch / update flows.
+
+:class:`DockerClient` is a thin facade composed of the above. It
+preserves the previous flat API so existing callers don't need to
+change; new code can depend on the smaller subclients directly when
+that's clearer (easier to mock in isolation).
 """
+
+from __future__ import annotations
 
 import re
 import subprocess  # nosec B404
@@ -18,39 +30,26 @@ from dom.utils.cli import get_container_prefix
 logger = get_logger(__name__)
 
 
-class DockerClient:
-    """
-    Docker client for managing containers and services.
+class _DockerCli:
+    """Probes the docker CLI on construction and holds the base command + prefix."""
 
-    Encapsulates Docker command execution with proper error handling and logging.
-    """
+    def __init__(self) -> None:
+        self._cmd = self._probe()
+        self.prefix = get_container_prefix()
+        logger.info(f"Docker client initialized successfully with prefix '{self.prefix}'")
 
-    def __init__(self):
-        """
-        Initialize Docker client.
+    @property
+    def cmd(self) -> list[str]:
+        return list(self._cmd)
 
-        Raises:
-            DockerError: If Docker is not accessible
-        """
-        self._cmd = self._initialize_docker_cmd()
-        self._container_prefix = get_container_prefix()
-        logger.info(
-            f"Docker client initialized successfully with prefix '{self._container_prefix}'"
-        )
-
-    def _initialize_docker_cmd(self) -> list[str]:
-        """
-        Initialize and validate Docker command.
-
-        Returns:
-            List containing the docker command
-
-        Raises:
-            DockerError: If docker is not accessible
-        """
+    @staticmethod
+    def _probe() -> list[str]:
         try:
             subprocess.run(  # nosec B603 B607
-                ["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True
+                ["docker", "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
             )
             logger.debug("Docker is accessible")
             return ["docker"]
@@ -65,20 +64,17 @@ class DockerClient:
                 "  3. Check if Docker daemon is running: 'sudo systemctl status docker'"
             ) from None
 
+
+class DockerComposeManager:
+    """Start and stop services via ``docker compose``."""
+
+    def __init__(self, cli: _DockerCli) -> None:
+        self._cli = cli
+
     def start_services(self, services: list[str], compose_file: Path) -> None:
-        """
-        Start Docker services using docker compose.
-
-        Args:
-            services: List of service names to start
-            compose_file: Path to docker-compose.yml file
-
-        Raises:
-            DockerError: If services fail to start
-        """
         logger.info(f"Starting services: {', '.join(services)}")
         cmd = [
-            *self._cmd,
+            *self._cli.cmd,
             "compose",
             "-f",
             str(compose_file),
@@ -87,7 +83,6 @@ class DockerClient:
             "--remove-orphans",
             *services,
         ]
-
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)  # nosec B603
             logger.info(f"Successfully started services: {', '.join(services)}")
@@ -98,27 +93,15 @@ class DockerClient:
             )
             raise DockerError(f"Failed to start services: {e}") from e
 
-    def stop_all_services(self, compose_file: Path, remove_volumes: bool = False) -> None:
-        """
-        Stop all Docker services.
-
-        Args:
-            compose_file: Path to docker-compose.yml file
-            remove_volumes: Whether to remove volumes (WARNING: deletes all data)
-
-        Raises:
-            DockerError: If services fail to stop
-        """
+    def stop_all(self, compose_file: Path, remove_volumes: bool = False) -> None:
         logger.info("Stopping all services")
-        cmd = [*self._cmd, "compose", "-f", str(compose_file), "down"]
-
+        cmd = [*self._cli.cmd, "compose", "-f", str(compose_file), "down"]
         if remove_volumes:
             cmd.append("-v")
             logger.warning(
                 "Removing volumes - all contest data will be PERMANENTLY DELETED",
                 extra={"remove_volumes": True},
             )
-
         try:
             subprocess.run(cmd, check=True, capture_output=True, text=True)  # nosec B603
             logger.info("Successfully stopped all services")
@@ -126,26 +109,29 @@ class DockerClient:
             logger.error(f"Failed to stop services: {e}", extra={"returncode": e.returncode})
             raise DockerError(f"Failed to stop services: {e}") from e
 
+
+class DockerHealthChecker:
+    """Poll a container's health status until ready or timeout."""
+
+    def __init__(self, cli: _DockerCli) -> None:
+        self._cli = cli
+
     def wait_for_container_healthy(
         self, container_name: str, timeout: int = HEALTH_CHECK_TIMEOUT
     ) -> None:
-        """
-        Wait for a container to become healthy.
-
-        Args:
-            container_name: Name of the container to wait for (with prefix)
-            timeout: Maximum time to wait in seconds
-
-        Raises:
-            DockerError: If container becomes unhealthy or times out
-        """
         logger.info(f"Waiting for container '{container_name}' to become healthy...")
         start_time = time.time()
 
         while True:
-            cmd = [*self._cmd, "inspect", "--format={{.State.Health.Status}}", container_name]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # nosec B603
-
+            cmd = [
+                *self._cli.cmd,
+                "inspect",
+                "--format={{.State.Health.Status}}",
+                container_name,
+            ]
+            result = subprocess.run(  # nosec B603
+                cmd, capture_output=True, text=True, check=False
+            )
             status = result.stdout.strip()
             if status == "healthy":
                 elapsed = time.time() - start_time
@@ -154,7 +140,7 @@ class DockerClient:
                     extra={"container": container_name, "elapsed_seconds": elapsed},
                 )
                 return
-            elif status == "unhealthy":
+            if status == "unhealthy":
                 logger.error(f"Container '{container_name}' became unhealthy")
                 raise DockerError(f"Container '{container_name}' became unhealthy!")
 
@@ -169,153 +155,96 @@ class DockerClient:
 
             time.sleep(HEALTH_CHECK_INTERVAL)
 
+
+class DockerCredentialManager:
+    """Fetch and rotate DOMjudge credentials via ``docker exec``."""
+
+    _JUDGEDAEMON_RE = re.compile(r"^\S+\s+\S+\s+\S+\s+(\S+)$", re.MULTILINE)
+    _ADMIN_INIT_RE = re.compile(r"^\S+$", re.MULTILINE)
+
+    def __init__(self, cli: _DockerCli) -> None:
+        self._cli = cli
+
     def fetch_judgedaemon_password(self) -> str:
-        """
-        Fetch the judgedaemon password from the domserver container.
-
-        Returns:
-            The judgedaemon password
-
-        Raises:
-            DockerError: If password cannot be fetched or parsed
-        """
         logger.info("Fetching judgedaemon password from domserver")
-        cmd = [
-            *self._cmd,
-            "exec",
-            ContainerNames.DOMSERVER.with_prefix(self._container_prefix),
-            "cat",
+        output = self._exec_in_domserver(
             "/opt/domjudge/domserver/etc/restapi.secret",
-        ]
-
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # nosec B603
-
-            pattern = re.compile(r"^\S+\s+\S+\s+\S+\s+(\S+)$", re.MULTILINE)
-            match = pattern.search(result.stdout.strip())
-            if not match:
-                logger.error("Failed to parse judgedaemon password from output")
-                raise DockerError("Failed to parse judgedaemon password from output")
-
-            logger.debug("Successfully fetched judgedaemon password")
-            return match.group(1)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to fetch judgedaemon password: {e}")
-            raise DockerError(f"Failed to fetch judgedaemon password: {e}") from e
+            error_msg="Failed to fetch judgedaemon password",
+        )
+        match = self._JUDGEDAEMON_RE.search(output)
+        if not match:
+            logger.error("Failed to parse judgedaemon password from output")
+            raise DockerError("Failed to parse judgedaemon password from output")
+        logger.debug("Successfully fetched judgedaemon password")
+        return match.group(1)
 
     def fetch_admin_init_password(self) -> str:
-        """
-        Fetch the initial admin password from the domserver container.
-
-        Returns:
-            The initial admin password
-
-        Raises:
-            DockerError: If password cannot be fetched or parsed
-        """
         logger.info("Fetching initial admin password from domserver")
-        cmd = [
-            *self._cmd,
-            "exec",
-            ContainerNames.DOMSERVER.with_prefix(self._container_prefix),
-            "cat",
+        output = self._exec_in_domserver(
             "/opt/domjudge/domserver/etc/initial_admin_password.secret",
-        ]
-
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # nosec B603
-
-            pattern = re.compile(r"^\S+$", re.MULTILINE)
-            match = pattern.search(result.stdout.strip())
-            if not match:
-                logger.error("Failed to parse admin initial password from output")
-                raise DockerError("Failed to parse admin initial password from output")
-
-            logger.debug("Successfully fetched initial admin password")
-            return match.group(0)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to fetch admin initial password: {e}")
-            raise DockerError(f"Failed to fetch admin initial password: {e}") from e
+            error_msg="Failed to fetch admin initial password",
+        )
+        match = self._ADMIN_INIT_RE.search(output)
+        if not match:
+            logger.error("Failed to parse admin initial password from output")
+            raise DockerError("Failed to parse admin initial password from output")
+        logger.debug("Successfully fetched initial admin password")
+        return match.group(0)
 
     def update_admin_password(self, new_password: str, db_user: str, db_password: str) -> None:
-        """
-        Update admin password in the database using docker exec.
-
-        This method uses docker exec to connect to the database from within the mysql-client
-        container, which is more reliable than direct host connections.
-
-        Args:
-            new_password: New admin password (will be bcrypt hashed)
-            db_user: Database user
-            db_password: Database password
-
-        Raises:
-            DockerError: If password update fails or database connection fails
-        """
-        hashed_password = generate_bcrypt_password(new_password)
-
-        # Validate the hash format to ensure it's a valid bcrypt hash
-        if not hashed_password.startswith("$2") or len(hashed_password) != 60:
+        hashed = generate_bcrypt_password(new_password)
+        if not hashed.startswith("$2") or len(hashed) != 60:
             logger.error("Invalid bcrypt hash format detected")
             raise DockerError("Generated bcrypt hash has unexpected format")
 
         logger.info("Updating admin password in database")
+        self._update_admin_password_via_docker(hashed, db_user, db_password)
 
-        # Use docker exec method directly since it's more reliable
-        # The mysql-client container is already running and connected to the same network
-        self._update_admin_password_via_docker(hashed_password, db_user, db_password)
+    def _exec_in_domserver(self, path: str, *, error_msg: str) -> str:
+        cmd = [
+            *self._cli.cmd,
+            "exec",
+            ContainerNames.DOMSERVER.with_prefix(self._cli.prefix),
+            "cat",
+            path,
+        ]
+        try:
+            result = subprocess.run(  # nosec B603
+                cmd, capture_output=True, text=True, check=True
+            )
+            return result.stdout.strip()
+        except subprocess.CalledProcessError as e:
+            logger.error(f"{error_msg}: {e}")
+            raise DockerError(f"{error_msg}: {e}") from e
 
     def _update_admin_password_via_docker(
         self, hashed_password: str, db_user: str, db_password: str
     ) -> None:
-        """
-        Update admin password via docker exec as fallback.
-
-        Uses parameterized query via mysql CLI with proper escaping for bcrypt hashes.
-        Bcrypt hashes contain $ characters that need special handling.
-
-        Args:
-            hashed_password: Bcrypt hashed password (contains $ characters)
-            db_user: Database user
-            db_password: Database password
-
-        Raises:
-            DockerError: If password update fails
-        """
         try:
-            # Escape the bcrypt hash properly:
-            # 1. Replace single quotes with doubled single quotes for SQL
-            # 2. Escape backslashes for MySQL string literals
+            # Escape the bcrypt hash for a MySQL string literal:
+            # backslashes first (so the next replace doesn't re-escape them), then quotes.
             escaped_password = hashed_password.replace("\\", "\\\\").replace("'", "\\'")
-
-            # Build SQL query with escaped password
-            sql_query = f"UPDATE domjudge.user SET password = '{escaped_password}' WHERE username = 'admin';"  # nosec B608
-
+            sql_query = (
+                f"UPDATE domjudge.user SET password = '{escaped_password}' "  # nosec B608
+                "WHERE username = 'admin';"
+            )
             cmd = [
-                *self._cmd,
+                *self._cli.cmd,
                 "exec",
                 "-e",
                 f"MYSQL_PWD={db_password}",
-                ContainerNames.MYSQL_CLIENT.with_prefix(self._container_prefix),
+                ContainerNames.MYSQL_CLIENT.with_prefix(self._cli.prefix),
                 "mysql",
                 "-h",
-                ContainerNames.MARIADB.with_prefix(self._container_prefix),
+                ContainerNames.MARIADB.with_prefix(self._cli.prefix),
                 "-u",
                 db_user,
                 "domjudge",
                 "--execute",
                 sql_query,
             ]
-
-            subprocess.run(
-                cmd,
-                capture_output=True,
-                check=True,
-                text=True,
-            )  # nosec B603
-
+            subprocess.run(cmd, capture_output=True, check=True, text=True)  # nosec B603
             logger.info("Admin password successfully updated via docker exec")
-
         except subprocess.CalledProcessError as e:
             logger.error(
                 f"Failed to update admin password via docker: {e}",
@@ -326,3 +255,52 @@ class DockerClient:
                 },
             )
             raise DockerError(f"Failed to update admin password: {e}") from e
+
+
+class DockerClient:
+    """Facade exposing the legacy flat Docker API, composed of focused subclients.
+
+    New code should prefer depending on a specific subclient (compose,
+    health, credentials) for clearer mocking and SRP. The facade is
+    retained so existing callers continue to work; it can be removed
+    once all call sites migrate.
+    """
+
+    def __init__(self) -> None:
+        self._cli = _DockerCli()
+        self.compose = DockerComposeManager(self._cli)
+        self.health = DockerHealthChecker(self._cli)
+        self.credentials = DockerCredentialManager(self._cli)
+
+    @property
+    def _cmd(self) -> list[str]:
+        return self._cli.cmd
+
+    # ------------------------------------------------------------------ compose
+    def start_services(self, services: list[str], compose_file: Path) -> None:
+        self.compose.start_services(services, compose_file)
+
+    def stop_all_services(self, compose_file: Path, remove_volumes: bool = False) -> None:
+        self.compose.stop_all(compose_file, remove_volumes=remove_volumes)
+
+    # ------------------------------------------------------------------ health
+    def wait_for_container_healthy(
+        self, container_name: str, timeout: int = HEALTH_CHECK_TIMEOUT
+    ) -> None:
+        self.health.wait_for_container_healthy(container_name, timeout)
+
+    # ------------------------------------------------------------------ credentials
+    def fetch_judgedaemon_password(self) -> str:
+        return self.credentials.fetch_judgedaemon_password()
+
+    def fetch_admin_init_password(self) -> str:
+        return self.credentials.fetch_admin_init_password()
+
+    def update_admin_password(self, new_password: str, db_user: str, db_password: str) -> None:
+        self.credentials.update_admin_password(new_password, db_user, db_password)
+
+    def _update_admin_password_via_docker(
+        self, hashed_password: str, db_user: str, db_password: str
+    ) -> None:
+        # Retained for tests that exercise the SQL-escaping logic directly.
+        self.credentials._update_admin_password_via_docker(hashed_password, db_user, db_password)
