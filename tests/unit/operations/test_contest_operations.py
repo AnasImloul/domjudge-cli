@@ -39,9 +39,9 @@ def _make_dom_config(num_contests: int = 1, problems: int = 2, teams: int = 3):
 
 def test_apply_runs_service_and_returns_steps(context):
     config = _make_dom_config()
-    with patch("dom.core.operations.contest.apply.apply_contests") as svc:
+    with patch("dom.core.operations.contest.apply._apply_all") as svc:
         run(apply_contests_op(config), context)
-    svc.assert_called_once_with(config, context.secrets)
+    svc.assert_called_once_with(config, context)
 
 
 def test_apply_rejects_empty_contests(context):
@@ -52,7 +52,7 @@ def test_apply_rejects_empty_contests(context):
 
 def test_apply_summary_for_single_contest(context, capsys):
     config = _make_dom_config(num_contests=1, problems=4, teams=10)
-    with patch("dom.core.operations.contest.apply.apply_contests"):
+    with patch("dom.core.operations.contest.apply._apply_all"):
         run(apply_contests_op(config), context)
     out = capsys.readouterr().out
     assert "C0" in out
@@ -62,7 +62,7 @@ def test_apply_summary_for_single_contest(context, capsys):
 
 def test_apply_summary_for_multiple_contests(context, capsys):
     config = _make_dom_config(num_contests=2)
-    with patch("dom.core.operations.contest.apply.apply_contests"):
+    with patch("dom.core.operations.contest.apply._apply_all"):
         run(apply_contests_op(config), context)
     out = capsys.readouterr().out
     assert "2 contests" in out
@@ -78,7 +78,7 @@ def test_plan_returns_per_contest_change_sets(context):
     fake_change = MagicMock(has_changes=True)
 
     with (
-        patch("dom.core.operations.contest.plan_changes.APIClientFactory"),
+        patch("dom.core.operations.contest.plan_changes.wire_admin_api"),
         patch("dom.core.operations.contest.plan_changes.ContestStateComparator") as comparator_cls,
         patch("dom.core.operations.contest.plan_changes._print_planned_changes"),
     ):
@@ -94,7 +94,7 @@ def test_plan_invokes_presenter(context):
     fake_change = MagicMock(has_changes=True)
 
     with (
-        patch("dom.core.operations.contest.plan_changes.APIClientFactory"),
+        patch("dom.core.operations.contest.plan_changes.wire_admin_api"),
         patch("dom.core.operations.contest.plan_changes.ContestStateComparator") as comparator_cls,
         patch("dom.core.operations.contest.plan_changes._print_planned_changes") as presenter,
     ):
@@ -109,7 +109,7 @@ def test_plan_summary_counts_changes(context, capsys):
     changes = [MagicMock(has_changes=True), MagicMock(has_changes=False)]
 
     with (
-        patch("dom.core.operations.contest.plan_changes.APIClientFactory"),
+        patch("dom.core.operations.contest.plan_changes.wire_admin_api"),
         patch("dom.core.operations.contest.plan_changes.ContestStateComparator") as comparator_cls,
         patch("dom.core.operations.contest.plan_changes._print_planned_changes"),
     ):
@@ -243,15 +243,15 @@ def test_verify_loads_and_delegates_to_service(context, tmp_path):
             "dom.core.operations.contest.verify_problemset.load_infrastructure_config",
             return_value=infra,
         ) as load_infra,
-        patch("dom.core.operations.contest.verify_problemset.APIClientFactory") as factory_cls,
+        patch("dom.core.operations.contest.verify_problemset.wire_admin_api") as wire,
         patch("dom.core.operations.contest.verify_problemset.verify_problemset") as verify,
     ):
-        factory_cls.return_value.create_admin_client.return_value = client
+        wire.return_value = client
         result = run(verify_problemset_op(contest_path, "ContestA", infra_path), context)
 
     load_contest.assert_called_once_with(contest_path, "ContestA", context.secrets)
     load_infra.assert_called_once_with(infra_path)
-    factory_cls.return_value.create_admin_client.assert_called_once_with(infra, context.secrets)
+    wire.assert_called_once_with(infra, context.secrets)
     verify.assert_called_once_with(client=client, contest=contest, secrets=context.secrets)
     assert result is contest
 

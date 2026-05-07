@@ -72,39 +72,45 @@ class ContestService:
             response = self.client.post(
                 "/api/v4/contests", files=files, invalidate_cache="contests_list"
             )
-
-            logger.info(
-                "Created new contest",
-                extra={
-                    "contest_shortname": contest_data.shortname,
-                    "contest_name": contest_data.name,
-                },
-            )
-
-            contest_id = response
-            contest_data.id = contest_id  # type: ignore[assignment]
-
-            return CreateResult(id=contest_id, created=True, data=contest_data)  # type: ignore[arg-type]
-
-        except Exception as e:
-            # Check if contest already exists
-            if "shortname" in str(e).lower():
-                existing_contests = self.list_all()
-                for contest in existing_contests:
-                    if contest.get("shortname") == contest_data.shortname:
-                        logger.info(
-                            "Contest already exists",
-                            extra={"contest_shortname": contest_data.shortname},
-                        )
-                        contest_data.id = contest["id"]
-                        return CreateResult(id=contest["id"], created=False, data=contest_data)
-
+        except APIError as e:
+            # DOMjudge returns HTTP 400 when a contest with the same
+            # shortname already exists. Re-fetch and return the existing
+            # row instead of failing — keeps creation idempotent for
+            # initial-setup flows. Any other APIError propagates.
+            if e.status_code == 400 and contest_data.shortname:
+                existing = self._find_by_shortname(contest_data.shortname)
+                if existing is not None:
+                    logger.info(
+                        "Contest already exists",
+                        extra={"contest_shortname": contest_data.shortname},
+                    )
+                    contest_data.id = existing["id"]
+                    return CreateResult(id=existing["id"], created=False, data=contest_data)
                 logger.error(
-                    f"Contest with shortname '{contest_data.shortname}' not found after error"
+                    f"Contest creation rejected (400) but no contest "
+                    f"with shortname '{contest_data.shortname}' was found",
                 )
                 raise APIError(
-                    f"Contest with shortname '{contest_data.shortname}' exists but could not fetch it."
-                ) from None
-
-            logger.error(f"Failed to create contest: {e}")
+                    f"Contest creation rejected: {e}",
+                    status_code=e.status_code,
+                    response_body=e.response_body,
+                ) from e
             raise
+
+        logger.info(
+            "Created new contest",
+            extra={
+                "contest_shortname": contest_data.shortname,
+                "contest_name": contest_data.name,
+            },
+        )
+        contest_id = response
+        contest_data.id = contest_id  # type: ignore[assignment]
+        return CreateResult(id=contest_id, created=True, data=contest_data)  # type: ignore[arg-type]
+
+    def _find_by_shortname(self, shortname: str) -> dict[str, Any] | None:
+        """Return the contest dict matching the given shortname, if any."""
+        for contest in self.list_all():
+            if contest.get("shortname") == shortname:
+                return contest
+        return None

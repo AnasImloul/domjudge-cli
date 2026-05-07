@@ -58,12 +58,14 @@ def test_single_step_failure_raises_typer_exit(context, capsys):
 
 
 @operation("Multi step")
-def _multi(_ctx: Context, sink: list[str]) -> list[Step]:
-    return [
-        Step("first", lambda: sink.append("a")),
-        Step("second", lambda: sink.append("b")),
-        Step("third", lambda: sink.append("c")),
-    ]
+def _multi(_ctx: Context, sink: list[str]) -> Steps:
+    return Steps(
+        steps=[
+            Step("first", lambda: sink.append("a")),
+            Step("second", lambda: sink.append("b")),
+            Step("third", lambda: sink.append("c")),
+        ]
+    )
 
 
 def test_multi_step_executes_steps_in_order(context):
@@ -87,12 +89,14 @@ def test_multi_step_with_steps_wrapper_uses_summary(context, capsys):
 
 
 @operation("Multi step with failing step")
-def _multi_failing(_ctx: Context, sink: list[str]) -> list[Step]:
-    return [
-        Step("ok", lambda: sink.append("ok")),
-        Step("bad", lambda: (_ for _ in ()).throw(ValueError("step boom"))),
-        Step("never", lambda: sink.append("never")),
-    ]
+def _multi_failing(_ctx: Context, sink: list[str]) -> Steps:
+    return Steps(
+        steps=[
+            Step("ok", lambda: sink.append("ok")),
+            Step("bad", lambda: (_ for _ in ()).throw(ValueError("step boom"))),
+            Step("never", lambda: sink.append("never")),
+        ]
+    )
 
 
 def test_multi_step_failure_stops_at_failing_step(context):
@@ -146,8 +150,8 @@ def test_build_errors_become_typer_exit(context, capsys):
 
 
 @operation("No-progress op", show_progress=False)
-def _no_progress(_ctx: Context, sink: list[int]) -> list[Step]:
-    return [Step("only", lambda: sink.append(1))]
+def _no_progress(_ctx: Context, sink: list[int]) -> Steps:
+    return Steps(steps=[Step("only", lambda: sink.append(1))])
 
 
 def test_show_progress_false_still_executes(context):
