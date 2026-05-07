@@ -2,15 +2,12 @@ from pathlib import Path
 
 import typer
 from jinja2 import Template
-from rich.console import Console
 from rich.table import Table
 
+from dom import ui
 from dom.templates.init import problems_template
 from dom.utils.cli import ask_override_if_exists
 from dom.utils.color import get_hex_color
-from dom.utils.prompt import ask, ask_bool, ask_choice
-
-console = Console()
 
 
 def check_existing_files() -> str:
@@ -19,8 +16,8 @@ def check_existing_files() -> str:
     yaml_exists = Path("problems.yaml").exists()
 
     if yml_exists and yaml_exists:
-        console.print("[bold red]Both 'problems.yml' and 'problems.yaml' exist.[/bold red]")
-        console.print("[yellow]Please remove one of the files and run this wizard again.[/yellow]")
+        ui.error("Both 'problems.yml' and 'problems.yaml' exist.", style="bold red")
+        ui.warn("Please remove one of the files and run this wizard again.")
         raise typer.Exit(code=1)
 
     return "problems.yml" if yml_exists else "problems.yaml"
@@ -29,22 +26,22 @@ def check_existing_files() -> str:
 def ensure_archive_dir(archive: str) -> str:
     """Ensure the archive directory exists or create it."""
     archive_path = Path(archive).expanduser().resolve()
-    console.print(f"Checking directory: [bold]{archive_path}[/bold]")
+    ui.write(f"Checking directory: [bold]{archive_path}[/bold]")
 
     if not archive_path.exists():
-        console.print(f"[bold red]Directory not found:[/bold red] {archive_path}")
-        if ask_bool(f"Create directory {archive_path}?", default=True, console=console):
+        ui.error(f"Directory not found: {archive_path}", style="bold red")
+        if ui.ask_bool(f"Create directory {archive_path}?", default=True):
             try:
                 archive_path.mkdir(parents=True, exist_ok=True)
-                console.print(f"[green]+ Created directory {archive_path}[/green]")
+                ui.success(f"+ Created directory {archive_path}")
             except Exception as e:
-                console.print(f"[bold red]Error creating directory:[/bold red] {e!s}")
+                ui.error(f"Error creating directory: {e!s}", style="bold red")
                 raise typer.Exit(code=1) from e
         else:
-            console.print("[yellow]Please create the directory and run this wizard again.[/yellow]")
+            ui.warn("Please create the directory and run this wizard again.")
             raise typer.Exit(code=1) from None
     else:
-        console.print(f"[green]+ Directory found: {archive_path}[/green]")
+        ui.success(f"+ Directory found: {archive_path}")
 
     return str(archive_path)
 
@@ -58,10 +55,10 @@ def list_problem_files(archive: str) -> list[str]:
             for f in archive_path.iterdir()
             if f.is_file() and f.name.lower().endswith(".zip") and not f.name.startswith(".")
         ]
-        console.print(f"Found {len(problems)} files in directory")
+        ui.info(f"Found {len(problems)} files in directory")
         return problems
     except Exception as e:
-        console.print(f"[bold red]Error listing directory contents:[/bold red] {e!s}")
+        ui.error(f"Error listing directory contents: {e!s}", style="bold red")
         return []
 
 
@@ -91,25 +88,24 @@ def choose_problem_colors(problems: list[str]) -> list[tuple[str, str]]:
     for name, hex_code in ((color, get_hex_color(color)) for color in all_colors):
         color_table.add_row(name, f"[on {hex_code}]      [/]")
 
-    console.print(color_table)
+    ui.render(color_table)
 
     configs: list[tuple[str, str]] = []
     for problem in problems:
         available_colors = [c for c in all_colors if c not in used_colors] or list(all_colors)
         default_color = available_colors[0]
-        console.print(f"\nChoose a color for problem: [bold]{problem}[/bold]")
-        console.print("Available colors: " + ", ".join(f"[{c}]{c}[/{c}]" for c in available_colors))
+        ui.write(f"\nChoose a color for problem: [bold]{problem}[/bold]")
+        ui.info("Available colors: " + ", ".join(f"[{c}]{c}[/{c}]" for c in available_colors))
 
-        color_name = ask_choice(
+        color_name = ui.ask_choice(
             "Color",
-            console=console,
             choices=list(all_colors),
             default=default_color,
         )
         color_hex = get_hex_color(color_name)
         used_colors.add(color_name)
 
-        console.print(f"Selected: [{color_name}]{color_name}[/] ({color_hex})")
+        ui.write(f"Selected: [{color_name}]{color_name}[/] ({color_hex})")
         configs.append((problem, color_hex))
 
     return configs
@@ -127,23 +123,23 @@ def render_problems_yaml(
 
 
 def initialize_problems():
-    console.print("\n[bold cyan]Problems Configuration[/bold cyan]")
-    console.print("Add the problems for your contest")
+    ui.header("Problems Configuration")
+    ui.info("Add the problems for your contest")
 
     output_file = check_existing_files()
     if not ask_override_if_exists(Path(output_file)):
         return None
 
-    archive = ask("Problems directory path", default="./problems", console=console)
+    archive = ui.ask("Problems directory path", default="./problems")
     archive = ensure_archive_dir(archive)
     problems = list_problem_files(archive)
 
     if not problems:
-        console.print(f"[yellow]No problem files found in {archive}[/yellow]")
-        if not ask_bool("Continue without problems?", default=True, console=console):
+        ui.warn(f"No problem files found in {archive}")
+        if not ui.ask_bool("Continue without problems?", default=True):
             raise typer.Exit(code=1)
 
-    platform = ask("Platform name", console=console, default="Polygon")
+    platform = ui.ask("Platform name", default="Polygon")
 
     problem_configs: list[tuple[str, str]] = []
     if problems:

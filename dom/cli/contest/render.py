@@ -7,17 +7,21 @@ concerns.
 
 from typing import Any
 
+from dom import ui
 from dom.core.services.contest.apply import ContestApplyResult
 from dom.core.services.contest.changes import ChangeType
-from dom.logging_config import console
 
 
 def render_planned_changes(changes: list[dict[str, Any]]) -> None:
     if not changes:
-        console.print("\n[dim]No changes detected.[/dim]\n")
+        ui.blank()
+        ui.hint("No changes detected.")
+        ui.blank()
         return
 
-    console.print("\n[bold]Planned Changes:[/bold]\n")
+    ui.blank()
+    ui.write("Planned Changes:", style="bold")
+    ui.blank()
 
     any_field_changes = False
     any_resource_changes = False
@@ -29,43 +33,42 @@ def render_planned_changes(changes: list[dict[str, Any]]) -> None:
         if change_set.change_type == ChangeType.CREATE:
             any_creates = True
 
-        console.print(f"  {change_set.summary()}")
+        ui.info(f"  {change_set.summary()}")
 
         if change_set.field_changes:
             any_field_changes = True
-            console.print(
-                "    [yellow]⚠ Contest field changes (cannot be applied via API):[/yellow]"
-            )
+            ui.warn("    ⚠ Contest field changes (cannot be applied via API):")
             for field_change in change_set.field_changes:
-                console.print(f"      • {field_change}")
+                ui.info(f"      • {field_change}")
 
         for resource_change in change_set.resource_changes:
             if not resource_change.has_changes:
                 continue
             any_resource_changes = True
-            console.print(f"    • {resource_change}")
+            ui.info(f"    • {resource_change}")
             if resource_change.to_add and len(resource_change.to_add) <= 10:
                 for item_name in resource_change.to_add:
-                    console.print(f"      + {item_name}")
+                    ui.info(f"      + {item_name}")
             elif resource_change.to_add:
-                console.print(f"      + {len(resource_change.to_add)} items (showing first 10):")
+                ui.info(f"      + {len(resource_change.to_add)} items (showing first 10):")
                 for item_name in resource_change.to_add[:10]:
-                    console.print(f"      + {item_name}")
+                    ui.info(f"      + {item_name}")
 
-        console.print()
+        ui.blank()
 
     if any_field_changes:
-        console.print("[yellow]⚠ DOMjudge API Limitation:[/yellow]")
-        console.print("[yellow]  Contest field changes CANNOT be applied via API.[/yellow]")
-        console.print(
-            "[yellow]  → Please update manually in DOMjudge web UI (Jury > Contests)[/yellow]\n"
-        )
+        ui.warn("⚠ DOMjudge API Limitation:")
+        ui.warn("  Contest field changes CANNOT be applied via API.")
+        ui.warn("  → Please update manually in DOMjudge web UI (Jury > Contests)")
+        ui.blank()
 
     if any_creates or any_resource_changes:
-        console.print("[green]✓ Changes CAN be applied by 'dom contest apply'[/green]\n")
+        ui.success("✓ Changes CAN be applied by 'dom contest apply'")
+        ui.blank()
 
     if not any_field_changes and not any_resource_changes and not any_creates:
-        console.print("[green]✓ All contests are up to date[/green]\n")
+        ui.success("✓ All contests are up to date")
+        ui.blank()
 
 
 def render_apply_warnings(results: list[ContestApplyResult]) -> None:
@@ -76,9 +79,9 @@ def render_apply_warnings(results: list[ContestApplyResult]) -> None:
 
     for result in affected:
         changed_fields = ", ".join(fc.field for fc in result.skipped_field_changes)
-        console.print(f"\n[yellow]⚠ Contest '{result.contest_shortname}' already exists[/yellow]")
-        console.print(f"[yellow]  Changed fields detected: {changed_fields}[/yellow]")
-        console.print("[yellow]  → DOMjudge API does not support updating contests[/yellow]")
-        console.print(
-            "[yellow]  → Please update manually in DOMjudge web UI (Jury > Contests)[/yellow]\n"
-        )
+        ui.blank()
+        ui.warn(f"⚠ Contest '{result.contest_shortname}' already exists")
+        ui.warn(f"  Changed fields detected: {changed_fields}")
+        ui.warn("  → DOMjudge API does not support updating contests")
+        ui.warn("  → Please update manually in DOMjudge web UI (Jury > Contests)")
+        ui.blank()

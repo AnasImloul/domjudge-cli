@@ -5,11 +5,11 @@ from pathlib import Path
 from typing import TypeVar
 
 import typer
-from rich.prompt import Confirm
 
+from dom import ui
 from dom.exceptions import DomJudgeCliError
 from dom.infrastructure.secrets.manager import SecretsManager
-from dom.logging_config import console, get_logger, setup_logging
+from dom.logging_config import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
@@ -138,13 +138,14 @@ def cli_command(func: Callable[..., T]) -> Callable[..., T]:
         except KeyboardInterrupt:
             # User interrupted
             logger.info("Command interrupted by user")
-            console.print("\n[yellow]** Operation cancelled by user[/yellow]")
+            ui.blank()
+            ui.warn("** Operation cancelled by user")
             raise typer.Exit(code=130) from None
         except Exception as e:
             # Unexpected errors - log with full traceback
             logger.error(f"Unexpected error: {e}", exc_info=True)
-            console.print(f"[red]x Unexpected error: {e}[/red]")
-            console.print("[dim]Check logs at .dom/domjudge-cli.log for details[/dim]")
+            ui.error(f"x Unexpected error: {e}")
+            ui.hint("Check logs at .dom/domjudge-cli.log for details")
             raise typer.Exit(code=1) from e
 
     return wrapper
@@ -268,12 +269,11 @@ def ask_override_if_exists(output_file: Path) -> bool:
         True if should proceed, False if should skip
     """
     if output_file.exists():
-        override = Confirm.ask(
+        override = ui.ask_bool(
             f"File '{output_file}' exists. Do you want to override it?",
             default=False,
-            console=console,
         )
         if not override:
-            console.print("[yellow]Skipping problem initialization.[/yellow]")
+            ui.warn("Skipping problem initialization.")
             return False
     return True

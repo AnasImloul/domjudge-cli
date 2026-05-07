@@ -4,12 +4,13 @@ import pytest
 
 from dom.utils.csv_preview import (
     auto_detect_data_range,
+    column_index_parser,
     count_csv_rows,
     detect_header_row,
     get_column_count,
     read_csv_rows,
-    validate_column_index,
 )
+from dom.utils.validators import Invalid
 
 
 @pytest.fixture
@@ -179,33 +180,40 @@ class TestGetColumnCount:
         assert count == 0
 
 
-class TestValidateColumnIndex:
-    """Tests for validate_column_index function."""
+class TestColumnIndexParser:
+    """Tests for column_index_parser — parser raises Invalid on bad input."""
 
-    def test_validate_valid_index(self):
-        """Test validating a valid column index."""
-        assert validate_column_index("2", 5) == 2
-        assert validate_column_index("1", 5) == 1
-        assert validate_column_index("5", 5) == 5
+    def test_parses_valid_index(self):
+        parse = column_index_parser(5)
+        assert parse("2") == 2
+        assert parse("1") == 1
+        assert parse("5") == 5
 
-    def test_validate_with_dollar_sign(self):
-        """Test validating index with $ prefix."""
-        assert validate_column_index("$2", 5) == 2
-        assert validate_column_index("$4", 5) == 4
+    def test_strips_dollar_prefix(self):
+        parse = column_index_parser(5)
+        assert parse("$2") == 2
+        assert parse("$4") == 4
 
-    def test_validate_with_whitespace(self):
-        """Test validating index with whitespace."""
-        assert validate_column_index("  3  ", 5) == 3
-        assert validate_column_index(" $2 ", 5) == 2
+    def test_tolerates_whitespace(self):
+        parse = column_index_parser(5)
+        assert parse("  3  ") == 3
+        assert parse(" $2 ") == 2
 
-    def test_validate_out_of_range(self):
-        """Test validating out of range index."""
-        assert validate_column_index("0", 5) is None
-        assert validate_column_index("6", 5) is None
-        assert validate_column_index("100", 5) is None
+    def test_out_of_range_raises(self):
+        parse = column_index_parser(5)
+        for value in ("0", "6", "100"):
+            with pytest.raises(Invalid):
+                parse(value)
 
-    def test_validate_invalid_input(self):
-        """Test validating invalid input."""
-        assert validate_column_index("abc", 5) is None
-        assert validate_column_index("", 5) is None
-        assert validate_column_index("1.5", 5) is None
+    def test_non_integer_raises(self):
+        parse = column_index_parser(5)
+        for value in ("abc", "1.5"):
+            with pytest.raises(Invalid):
+                parse(value)
+
+    def test_empty_required_raises(self):
+        with pytest.raises(Invalid):
+            column_index_parser(5)("")
+
+    def test_empty_optional_returns_none(self):
+        assert column_index_parser(5, optional=True)("") is None

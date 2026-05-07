@@ -224,11 +224,15 @@ class TestWarnIfPrivilegedPort:
     """Tests for warn_if_privileged_port."""
 
     def test_warns_for_privileged_port(self):
-        with patch("dom.utils.prerequisites.console") as mock_console:
+        from dom import ui
+
+        with patch.object(ui.console, "print") as mock_print:
             warn_if_privileged_port(80)
-        assert mock_console.print.called
+        assert mock_print.called
 
     def test_silent_for_unprivileged_port(self):
-        with patch("dom.utils.prerequisites.console") as mock_console:
+        from dom import ui
+
+        with patch.object(ui.console, "print") as mock_print:
             warn_if_privileged_port(8080)
-        mock_console.print.assert_not_called()
+        mock_print.assert_not_called()

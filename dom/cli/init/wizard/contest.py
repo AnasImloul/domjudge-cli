@@ -1,66 +1,57 @@
 import datetime as dt
 from pathlib import Path
 
-from rich.console import Console
 from rich.table import Table
 
+from dom import ui
 from dom.templates.init import contest_template
 from dom.utils.csv_preview import (
+    column_index_parser,
     count_csv_rows,
     get_column_count,
     preview_csv,
-    validate_column_index,
 )
-from dom.utils.prompt import ask, ask_bool
 from dom.utils.time import format_datetime, format_duration
 from dom.utils.validators import ValidatorBuilder
 
-console = Console()
-
 
 def initialize_contest():
-    console.print("\n[bold cyan]Contest Configuration[/bold cyan]")
-    console.print("Set up the parameters for your coding contest")
+    ui.header("Contest Configuration")
+    ui.info("Set up the parameters for your coding contest")
 
-    name = ask(
+    name = ui.ask(
         "Contest name",
-        console=console,
         parser=ValidatorBuilder.string(none_as_empty=True).strip().non_empty().build(),
     )
-    shortname = ask(
+    shortname = ui.ask(
         "Contest shortname",
-        console=console,
         parser=ValidatorBuilder.string(none_as_empty=True).strip().non_empty().build(),
     )
 
     default_start = (dt.datetime.now() + dt.timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
-    start_dt = ask(
+    start_dt = ui.ask(
         "Start time (YYYY-MM-DD HH:MM:SS)",
-        console=console,
         default=default_start,
         parser=ValidatorBuilder.datetime("%Y-%m-%d %H:%M:%S").build(),
     )
 
-    h, m, s = ask(
+    h, m, s = ui.ask(
         "Duration (HH:MM:SS)",
-        console=console,
         default="05:00:00",
         parser=ValidatorBuilder.duration_hms().build(),
     )
     duration_str = f"{h:02d}:{m:02d}:{s:02d}"
 
-    penalty_minutes = ask(
+    penalty_minutes = ui.ask(
         "Penalty time (minutes)",
-        console=console,
         default="20",
         parser=ValidatorBuilder.integer().positive().build(),
     )
 
-    allow_submit = ask_bool("Allow submissions?", console=console, default=True)
+    allow_submit = ui.ask_bool("Allow submissions?", default=True)
 
-    teams_path = ask(
+    teams_path = ui.ask(
         "Teams file path (CSV/TSV)",
-        console=console,
         default="teams.csv",
         parser=ValidatorBuilder.path()
         .must_exist()
@@ -78,9 +69,8 @@ def initialize_contest():
         "semicolon": ";",
         "tab": "\t",
     }
-    delimiter = ask(
+    delimiter = ui.ask(
         f"Field delimiter (Enter for default: {suggested_delim!r})",
-        console=console,
         default=suggested_delim,
         parser=ValidatorBuilder.string()
         .one_of(delimiter_aliases)
@@ -89,19 +79,16 @@ def initialize_contest():
         show_default=False,
     )
 
-    # Show CSV preview
-    console.print("\n[bold cyan]CSV Preview[/bold cyan]")
+    ui.header("CSV Preview")
     teams_file_path = Path(teams_path)
 
-    # Initial preview with auto-detection
     has_header = preview_csv(teams_file_path, delimiter, max_rows=10, show_column_numbers=True)
 
-    # Confirm header detection; re-render preview only if the user disagrees.
-    confirmed = ask_bool("Does the first row contain headers?", console=console, default=has_header)
+    confirmed = ui.ask_bool("Does the first row contain headers?", default=has_header)
     if confirmed != has_header:
         has_header = confirmed
         label = "with header" if has_header else "no header"
-        console.print(f"\n[bold cyan]Updated CSV Preview ({label})[/bold cyan]")
+        ui.header(f"Updated CSV Preview ({label})")
         preview_csv(
             teams_file_path,
             delimiter,
@@ -110,60 +97,41 @@ def initialize_contest():
             has_header=has_header,
         )
 
-    # Get column count for validation
     num_columns = get_column_count(teams_file_path, delimiter)
 
-    # Interactive column mapping
-    console.print("\n[bold cyan]Column Mapping[/bold cyan]")
-    console.print(
-        "Specify which columns contain team information (use column numbers from preview)"
+    ui.header("Column Mapping")
+    ui.info("Specify which columns contain team information (use column numbers from preview)")
+
+    name_column = ui.ask("Name column", default="1", parser=column_index_parser(num_columns))
+    affiliation_column = ui.ask(
+        "Affiliation column", default="2", parser=column_index_parser(num_columns)
+    )
+    country_column = ui.ask(
+        "Country column (optional, press Enter to skip)",
+        default="",
+        parser=column_index_parser(num_columns, optional=True),
     )
 
-    def ask_column(prompt: str, default: str, *, optional: bool = False) -> int | None:
-        builder = ValidatorBuilder.string().strip()
-        if not optional:
-            builder = builder.non_empty()
-        parser = builder.build()
-        while True:
-            raw = ask(prompt, console=console, default=default, parser=parser)
-            if optional and not raw:
-                return None
-            col = validate_column_index(raw, num_columns)
-            if col is not None:
-                return col
-
-    name_column = ask_column("Name column", "1")
-    affiliation_column = ask_column("Affiliation column", "2")
-    country_column = ask_column("Country column (optional, press Enter to skip)", "", optional=True)
-
-    # Auto-detect row range based on confirmed header status
     total_rows = count_csv_rows(teams_file_path, delimiter)
     start_row = 2 if has_header else 1
     end_row = total_rows
     detected_teams_count = end_row - start_row + 1
 
-    console.print(
-        f"\n[bold green]Detected {detected_teams_count} teams in rows {start_row}-{end_row}[/bold green]"
+    ui.blank()
+    ui.success(
+        f"Detected {detected_teams_count} teams in rows {start_row}-{end_row}",
+        style="bold green",
     )
-    rows_confirmed = ask_bool(
-        "Is this row range correct?",
-        console=console,
-        default=True,
-    )
+    rows_confirmed = ui.ask_bool("Is this row range correct?", default=True)
 
     if not rows_confirmed:
-        console.print("Please specify the correct row range:")
+        ui.info("Please specify the correct row range:")
         positive_int = ValidatorBuilder.integer().positive().build()
-        start_row = ask(
-            "Start row (1-indexed)", console=console, default=str(start_row), parser=positive_int
-        )
-        end_row = ask(
-            "End row (1-indexed)", console=console, default=str(end_row), parser=positive_int
-        )
+        start_row = ui.ask("Start row (1-indexed)", default=str(start_row), parser=positive_int)
+        end_row = ui.ask("End row (1-indexed)", default=str(end_row), parser=positive_int)
 
     rows = f"{start_row}-{end_row}"
 
-    # Summary
     table = Table(title="Contest Configuration")
     table.add_column("Setting", style="cyan")
     table.add_column("Value", style="green")
@@ -179,7 +147,7 @@ def initialize_contest():
     table.add_row("Name column", f"{name_column}")
     table.add_row("Affiliation column", f"{affiliation_column}")
     table.add_row("Country column", f"{country_column}" if country_column else "(not specified)")
-    console.print(table)
+    ui.render(table)
 
     rendered = contest_template.render(
         name=name,

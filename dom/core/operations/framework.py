@@ -54,8 +54,10 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from dom.logging_config import console, get_logger
+from dom import ui
+from dom.logging_config import get_logger
 from dom.types.secrets import SecretsProvider
+from dom.ui import console
 
 logger = get_logger(__name__)
 
@@ -214,10 +216,10 @@ def _resolve_summary(op: Operation[T], value: T) -> str:
 
 def _execute_steps(label: str, steps: list[Step], *, show_progress: bool, verbose: bool) -> None:
     if verbose:
-        console.print(f"[cyan]Execution plan ({len(steps)} steps):[/cyan]")
+        ui.write(f"Execution plan ({len(steps)} steps):", style="cyan")
         for i, step in enumerate(steps, 1):
-            console.print(f"[cyan]  {i}. {step.label}[/cyan]")
-        console.print()
+            ui.write(f"  {i}. {step.label}", style="cyan")
+        ui.blank()
 
     if not show_progress or not steps:
         for step in steps:
@@ -244,19 +246,19 @@ def _execute_steps(label: str, steps: list[Step], *, show_progress: bool, verbos
 
 
 def _print_dry_run(label: str, steps: list[Step] | None) -> None:
-    console.print(f"[yellow]* Dry run:[/yellow] {label}")
+    ui.write(f"[yellow]* Dry run:[/yellow] {label}")
     if steps:
-        console.print("[yellow]  Steps that would be executed:[/yellow]")
+        ui.warn("  Steps that would be executed:")
         for i, step in enumerate(steps, 1):
-            console.print(f"[yellow]    {i}. {step.label}[/yellow]")
+            ui.warn(f"    {i}. {step.label}")
 
 
 def _print_success(label: str, message: str) -> None:
-    console.print(f"[green]+[/green] {message or label}")
+    ui.write(f"[green]+[/green] {message or label}")
 
 
 def _fail(label: str, exc: Exception) -> NoReturn:
     logger.error(f"Operation failed: {label}", exc_info=exc, extra={"operation": label})
-    console.print(f"[red]x[/red] {label}")
-    console.print(f"[red]  Error:[/red] {exc}")
+    ui.write(f"[red]x[/red] {label}")
+    ui.write(f"[red]  Error:[/red] {exc}")
     raise typer.Exit(code=1)
