@@ -106,50 +106,16 @@ class Service(ABC, Generic[TEntity]):
 
 
 class BulkOperationMixin(Generic[TEntity]):
+    """Aggregation helpers for services that operate on many entities at once.
+
+    Concrete services (``ProblemService``, ``TeamService``) implement
+    their own concurrent ``create_many`` and use this mixin only for
+    summarizing the resulting list.
     """
-    Mixin for services that support bulk operations.
 
-    Provides declarative methods for operating on multiple entities at once.
-    """
-
-    def create_many(
-        self,
-        entities: list[TEntity],
-        context: ServiceContext,
-        stop_on_error: bool = False,
-    ) -> list[ServiceResult[TEntity]]:
-        """
-        Create multiple entities.
-
-        Args:
-            entities: List of entities to create
-            context: Service context
-            stop_on_error: Stop on first error if True
-
-        Returns:
-            List of service results
-        """
-        results: list[ServiceResult[TEntity]] = []
-
-        for entity in entities:
-            result = self.create(entity, context)  # type: ignore[attr-defined]
-            results.append(result)
-
-            if stop_on_error and not result.success:
-                break
-
-        return results
-
-    def get_summary(self, results: list[ServiceResult[TEntity]]) -> dict[str, int]:
-        """
-        Get summary of operation results.
-
-        Args:
-            results: List of service results
-
-        Returns:
-            Summary with success/failure counts
-        """
+    @staticmethod
+    def get_summary(results: list[ServiceResult[TEntity]]) -> dict[str, int]:
+        """Counts of total / successful / failed / created entities."""
         return {
             "total": len(results),
             "successful": sum(1 for r in results if r.success),

@@ -56,17 +56,22 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
                     entity.affiliation, entity.country, context
                 )
 
-            # Use composite key for unique team identification
-            # Teams are uniquely identified by (name, affiliation, country)
-            # This allows different organizations to have teams with the same name
+            # Teams are uniquely identified across (name, affiliation, country)
+            # so different organizations can have teams with the same display name.
             composite_key = entity.composite_key
 
-            # Generate consistent team ID based on composite key
-            # This ensures the same team gets the same ID across contests
+            # NOTE: Python's built-in hash() is salted per process (PYTHONHASHSEED),
+            # so this team_id is stable WITHIN one apply run but NOT across runs.
+            # DOMjudge's idempotency relies on the composite ``name`` below (which
+            # uses entity.username, generated via deterministic_hash) — the API
+            # treats name collisions as the same team, so a fresh team_id on a
+            # re-run is harmless. Don't replace with deterministic_hash without
+            # understanding the migration implications for existing deployments.
             team_id = str(hash(composite_key) % HASH_MODULUS)
 
-            # Use composite key as the global team name for consistency
-            # Username is already set to team{hash} by the config loader
+            # The composite team name IS the join key. ``entity.username`` is
+            # ``team{deterministic_hash}`` set by the config loader, so this
+            # form is stable across runs.
             team_name = f"{entity.username}|{composite_key}"
 
             # Use original team name as display_name for clean scoreboard
@@ -134,21 +139,6 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
             )
             return ServiceResult.fail(TeamError(error_msg), f"Team '{entity.name}' failed")
 
-        except Exception as e:
-            error_msg = (
-                f"Unexpected error adding team '{entity.name}' to contest {context.contest_id}: {e}"
-            )
-            logger.error(
-                error_msg,
-                exc_info=True,
-                extra={
-                    "team_name": entity.name,
-                    "contest_id": context.contest_id,
-                    "error_type": type(e).__name__,
-                },
-            )
-            return ServiceResult.fail(TeamError(error_msg), f"Unexpected error for '{entity.name}'")
-
     def _create_organization(
         self, affiliation: str, country: str | None, context: ServiceContext
     ) -> str:
@@ -166,11 +156,10 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
         Returns:
             Organization ID
         """
-        # Use country or default to ensure consistent org ID generation
         org_country = country or DEFAULT_COUNTRY_CODE
-
-        # Generate unique org ID based on affiliation + country
-        # This ensures "MIT|USA" and "MIT|GBR" are treated as different organizations
+        # ``MIT|USA`` and ``MIT|GBR`` are different organizations.
+        # Same caveat as team_id: hash() is per-process, so org_id is stable
+        # within a run but not across runs. DOMjudge dedupes by name + country.
         org_composite_key = f"{affiliation}|{org_country}"
         org_id = str(hash(org_composite_key) % HASH_MODULUS)
 

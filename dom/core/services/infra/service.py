@@ -150,17 +150,18 @@ class InfraService:
         try:
             with Path(self._compose_file).open() as f:
                 compose_data = yaml.safe_load(f)
-            services = {
-                name: cfg.get("container_name", name)
-                for name, cfg in compose_data.get("services", {}).items()
-            }
-            logger.debug(
-                f"Found {len(services)} services in docker-compose.yml: {list(services.keys())}"
-            )
-            return services
-        except Exception as e:
+        except (OSError, yaml.YAMLError) as e:
             logger.error(f"Failed to parse docker-compose.yml: {e}", exc_info=True)
             return {}
+
+        services = {
+            name: cfg.get("container_name", name)
+            for name, cfg in (compose_data or {}).get("services", {}).items()
+        }
+        logger.debug(
+            f"Found {len(services)} services in docker-compose.yml: {list(services.keys())}"
+        )
+        return services
 
     def _container_status(self, container_name: str) -> tuple[ServiceStatus, dict]:
         """Inspect a container and classify its state + health."""
@@ -211,7 +212,7 @@ class InfraService:
                 return ServiceStatus.UNHEALTHY, base_details
             return ServiceStatus.HEALTHY, base_details
 
-        except Exception as e:
+        except (FileNotFoundError, OSError, subprocess.SubprocessError) as e:
             logger.error(
                 f"Failed to check container status: {e}",
                 exc_info=True,

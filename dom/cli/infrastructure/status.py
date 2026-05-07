@@ -4,9 +4,10 @@ from pathlib import Path
 
 import typer
 
+from dom.cli.infrastructure.render import render_status
 from dom.cli.validators import validate_file_path
 from dom.core.operations import Context, run
-from dom.core.operations.infrastructure import print_infra_status_op
+from dom.core.operations.infrastructure import check_infra_status_op
 from dom.utils.cli import add_global_options, cli_command, get_secrets_manager
 
 
@@ -32,8 +33,11 @@ def status_command(
     """
     secrets = get_secrets_manager()
     status = run(
-        print_infra_status_op(json_output=json_output),
+        check_infra_status_op(),
         Context(secrets=secrets, verbose=verbose),
     )
-    if status is not None and not status.is_healthy():
+    if status is None:
+        return
+    render_status(status, json_output=json_output)
+    if not status.is_healthy():
         raise typer.Exit(code=1)
