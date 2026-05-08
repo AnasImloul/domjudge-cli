@@ -5,11 +5,9 @@ Keeping presentation here means the core layers stay free of console
 concerns.
 """
 
-from typing import Any
-
 from dom import ui
 from dom.core.services.contest.apply import ContestApplyResult
-from dom.core.services.contest.changes import ChangeType, ContestChangeSet
+from dom.core.services.contest.changes import ChangeType, ContestChangeSet, ContestPlan
 
 
 def format_contest_change_summary(change_set: ContestChangeSet) -> str:
@@ -22,8 +20,8 @@ def format_contest_change_summary(change_set: ContestChangeSet) -> str:
     return f"[yellow]UPDATE[/yellow] contest '{shortname}': {', '.join(parts)}"
 
 
-def render_planned_changes(changes: list[dict[str, Any]]) -> None:
-    if not changes:
+def render_planned_changes(plan: ContestPlan) -> None:
+    if not plan.items:
         ui.blank()
         ui.hint("No changes detected.")
         ui.blank()
@@ -37,8 +35,8 @@ def render_planned_changes(changes: list[dict[str, Any]]) -> None:
     any_resource_changes = False
     any_creates = False
 
-    for item in changes:
-        change_set = item["change_set"]
+    for item in plan.items:
+        change_set = item.change_set
 
         if change_set.change_type == ChangeType.CREATE:
             any_creates = True

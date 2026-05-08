@@ -4,7 +4,7 @@ Kept separate from the comparator service so callers can consume the change
 shapes without depending on the comparison logic.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -58,12 +58,19 @@ class ResourceChange:
 
 @dataclass
 class ContestChangeSet:
-    """Represents all detected changes for a contest."""
+    """Represents all detected changes for a contest.
+
+    ``existing_contest_id`` is set by the comparator when a contest was
+    found on the platform (i.e. ``change_type`` is ``UPDATE`` or
+    ``NO_CHANGE``); it lets the apply path resolve the contest without
+    re-fetching the listing.
+    """
 
     contest_shortname: str
     change_type: ChangeType
     field_changes: list[FieldChange]
     resource_changes: list[ResourceChange]
+    existing_contest_id: str | None = None
 
     @property
     def has_changes(self) -> bool:
@@ -92,3 +99,22 @@ class ContestChangeSet:
             if rc.has_changes:
                 parts.append(rc.resource_type)
         return self.change_type, self.contest_shortname, parts
+
+
+@dataclass(frozen=True)
+class ContestPlanItem:
+    """One contest's planned change set, returned by the plan operation."""
+
+    shortname: str
+    change_set: ContestChangeSet
+
+
+@dataclass(frozen=True)
+class ContestPlan:
+    """Aggregate plan across all contests in a configuration."""
+
+    items: list[ContestPlanItem] = field(default_factory=list)
+
+    @property
+    def changed_count(self) -> int:
+        return sum(1 for item in self.items if item.change_set.has_changes)

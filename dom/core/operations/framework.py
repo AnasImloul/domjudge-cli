@@ -71,10 +71,19 @@ class Step:
 
 @dataclass(frozen=True)
 class Steps:
-    """Multi-step plan with an optional final success message."""
+    """Multi-step plan with an optional final success message.
+
+    Multi-step operations normally return ``None``. When a :class:`Steps`
+    plan provides ``result``, the runner calls it after all steps finish
+    and forwards the value as the operation's return — so multi-step ops
+    can produce a typed result (e.g. an aggregate built up by step
+    closures) and their ``@operation(summary=...)`` callback can format it
+    just like a single-step op.
+    """
 
     steps: list[Step] = field(default_factory=list)
     summary: str = ""
+    result: Callable[[], Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -234,9 +243,11 @@ def run(
             _execute_steps(r, op.label, plan.steps, op.show_progress, ctx.verbose)
         except Exception as exc:
             _fail(r, op.label, exc)
-        r.success(op.label, plan.summary)
+        value = plan.result() if plan.result is not None else None
+        message = _resolve_summary(op, value) if value is not None else plan.summary
+        r.success(op.label, message)
         logger.info(f"Operation completed: {op.label}", extra={"operation": op.label})
-        return None
+        return value
 
     message = _resolve_summary(op, plan.value)
     r.success(op.label, message)

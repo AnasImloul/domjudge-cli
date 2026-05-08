@@ -142,7 +142,7 @@ class ContestStateComparator:
             )
 
         field_changes = self._diff_fields(desired, current)
-        contest_id = current["id"]
+        contest_id = str(current["id"])
         return ContestChangeSet(
             contest_shortname=shortname,
             change_type=ChangeType.UPDATE if field_changes else ChangeType.NO_CHANGE,
@@ -151,6 +151,7 @@ class ContestStateComparator:
                 self._diff_problems(desired, contest_id),
                 self._diff_teams(desired, contest_id),
             ],
+            existing_contest_id=contest_id,
         )
 
     # ------------------------------------------------------------------ fetch
