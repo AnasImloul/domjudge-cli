@@ -20,11 +20,6 @@ def verify_problemset_op(
     contest_name: str,
     infra_config_path: Path | None = None,
 ) -> ContestConfig:
-    if config_path is not None and not config_path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
-    if infra_config_path is not None and not infra_config_path.exists():
-        raise FileNotFoundError(f"Infrastructure config file not found: {infra_config_path}")
-
     contest = load_contest_config(config_path, contest_name, ctx.secrets)
     infra = load_infrastructure_config(infra_config_path)
     client = wire_admin_api(infra, ctx.secrets)

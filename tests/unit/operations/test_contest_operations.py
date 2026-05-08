@@ -11,6 +11,12 @@ from dom.core.operations.contest.load_config import load_config_op
 from dom.core.operations.contest.load_contest_config import load_contest_config_op
 from dom.core.operations.contest.plan_changes import plan_contest_changes_op
 from dom.core.operations.contest.verify_problemset import verify_problemset_op
+from dom.core.services.contest.changes import (
+    ChangeType,
+    ContestChangeSet,
+    ContestPlan,
+    ContestPlanItem,
+)
 from dom.types.secrets import SecretsProvider
 
 
@@ -36,26 +42,48 @@ def _make_dom_config(num_contests: int = 1, problems: int = 2, teams: int = 3):
 # ---------------------------------------------------------------- ApplyContests
 
 
-def _result(shortname="C0", skipped=()):
-    from dom.core.services.contest.apply import ContestApplyResult
+def _stub_service(skipped_per_contest: dict[str, list] | None = None):
+    """Service stub whose toolkit methods record per-contest state.
 
-    return ContestApplyResult(
-        contest_shortname=shortname,
-        contest_id=f"id-{shortname}",
-        skipped_field_changes=list(skipped),
+    Returns ``(svc, calls)`` where ``calls`` is the per-method invocation log.
+    """
+    skipped_per_contest = skipped_per_contest or {}
+    svc = MagicMock()
+    svc.client = MagicMock()
+    svc.compare.side_effect = lambda contest: ContestChangeSet(
+        contest_shortname=contest.shortname,
+        change_type=ChangeType.CREATE,
+        field_changes=[],
+        resource_changes=[],
     )
+    svc.resolve_or_create.side_effect = lambda contest, _cs: (
+        f"id-{contest.shortname}",
+        skipped_per_contest.get(contest.shortname, []),
+    )
+    svc.provision_team_group.side_effect = lambda contest_id, _sn: f"group-{contest_id}"
+    svc.apply_problems.return_value = None
+    svc.apply_teams.return_value = None
+    return svc
 
 
-def test_apply_runs_service_and_returns_results(context):
-    config = _make_dom_config()
-    with patch(
-        "dom.core.operations.contest.apply._apply_all",
-        return_value=[_result("C0")],
-    ) as svc:
-        result = run(apply_contests_op(config), context)
-    svc.assert_called_once_with(config, context)
-    assert len(result) == 1
-    assert result[0].contest_shortname == "C0"
+def test_apply_runs_five_steps_per_contest(context):
+    config = _make_dom_config(num_contests=2)
+    svc = _stub_service()
+    with (
+        patch("dom.core.operations.contest.apply.wire_admin_api"),
+        patch("dom.core.operations.contest.apply.ContestApplicationService", return_value=svc),
+        patch("dom.core.operations.contest.apply.ProblemService"),
+        patch("dom.core.operations.contest.apply.TeamService"),
+    ):
+        results = run(apply_contests_op(config), context)
+
+    assert svc.compare.call_count == 2
+    assert svc.resolve_or_create.call_count == 2
+    assert svc.provision_team_group.call_count == 2
+    assert svc.apply_problems.call_count == 2
+    assert svc.apply_teams.call_count == 2
+    assert [r.contest_shortname for r in results] == ["C0", "C1"]
+    assert [r.contest_id for r in results] == ["id-C0", "id-C1"]
 
 
 def test_apply_rejects_empty_contests(context):
@@ -66,20 +94,31 @@ def test_apply_rejects_empty_contests(context):
 
 def test_apply_summary_for_single_contest(context, capsys):
     config = _make_dom_config(num_contests=1)
-    with patch(
-        "dom.core.operations.contest.apply._apply_all",
-        return_value=[_result("C0")],
+    with (
+        patch("dom.core.operations.contest.apply.wire_admin_api"),
+        patch(
+            "dom.core.operations.contest.apply.ContestApplicationService",
+            return_value=_stub_service(),
+        ),
+        patch("dom.core.operations.contest.apply.ProblemService"),
+        patch("dom.core.operations.contest.apply.TeamService"),
     ):
         run(apply_contests_op(config), context)
     out = capsys.readouterr().out
     assert "C0" in out
+    assert "Applied" in out
 
 
 def test_apply_summary_for_multiple_contests(context, capsys):
     config = _make_dom_config(num_contests=2)
-    with patch(
-        "dom.core.operations.contest.apply._apply_all",
-        return_value=[_result("C0"), _result("C1")],
+    with (
+        patch("dom.core.operations.contest.apply.wire_admin_api"),
+        patch(
+            "dom.core.operations.contest.apply.ContestApplicationService",
+            return_value=_stub_service(),
+        ),
+        patch("dom.core.operations.contest.apply.ProblemService"),
+        patch("dom.core.operations.contest.apply.TeamService"),
     ):
         run(apply_contests_op(config), context)
     out = capsys.readouterr().out
@@ -91,21 +130,39 @@ def test_apply_summary_flags_skipped_field_changes(context, capsys):
 
     config = _make_dom_config(num_contests=1)
     skipped = [FieldChange(field="duration", old_value="5:00", new_value="6:00")]
-    with patch(
-        "dom.core.operations.contest.apply._apply_all",
-        return_value=[_result("C0", skipped=skipped)],
+    with (
+        patch("dom.core.operations.contest.apply.wire_admin_api"),
+        patch(
+            "dom.core.operations.contest.apply.ContestApplicationService",
+            return_value=_stub_service(skipped_per_contest={"C0": skipped}),
+        ),
+        patch("dom.core.operations.contest.apply.ProblemService"),
+        patch("dom.core.operations.contest.apply.TeamService"),
     ):
         run(apply_contests_op(config), context)
     out = capsys.readouterr().out
     assert "skipped" in out
 
 
+def test_apply_op_is_multi_step_with_summary_callback(context):
+    """apply_contests_op now returns Steps; framework forwards the result."""
+    config = _make_dom_config()
+    op = apply_contests_op(config)
+    assert op.summary is not None
+    assert op.show_progress is True
+
+
 # ---------------------------------------------------------------- PlanChanges
 
 
-def test_plan_returns_per_contest_change_sets(context):
+def test_plan_returns_typed_plan_with_one_item_per_contest(context):
     config = _make_dom_config(num_contests=2)
-    fake_change = MagicMock(has_changes=True)
+    fake_change = ContestChangeSet(
+        contest_shortname="C",
+        change_type=ChangeType.CREATE,
+        field_changes=[],
+        resource_changes=[],
+    )
 
     with (
         patch("dom.core.operations.contest.plan_changes.wire_admin_api"),
@@ -114,13 +171,28 @@ def test_plan_returns_per_contest_change_sets(context):
         comparator_cls.return_value.compare_contest.return_value = fake_change
         result = run(plan_contest_changes_op(config), context)
 
-    assert len(result) == 2
-    assert all(item["change_set"] is fake_change for item in result)
+    assert isinstance(result, ContestPlan)
+    assert len(result.items) == 2
+    assert all(isinstance(item, ContestPlanItem) for item in result.items)
+    assert all(item.change_set is fake_change for item in result.items)
 
 
 def test_plan_summary_counts_changes(context, capsys):
     config = _make_dom_config(num_contests=2)
-    changes = [MagicMock(has_changes=True), MagicMock(has_changes=False)]
+    changes = [
+        ContestChangeSet(
+            contest_shortname="C0",
+            change_type=ChangeType.CREATE,
+            field_changes=[],
+            resource_changes=[],
+        ),
+        ContestChangeSet(
+            contest_shortname="C1",
+            change_type=ChangeType.NO_CHANGE,
+            field_changes=[],
+            resource_changes=[],
+        ),
+    ]
 
     with (
         patch("dom.core.operations.contest.plan_changes.wire_admin_api"),
@@ -132,26 +204,26 @@ def test_plan_summary_counts_changes(context, capsys):
     assert "1 with changes" in capsys.readouterr().out
 
 
-def test_render_planned_changes_handles_no_changes(capsys):
+def test_render_planned_changes_handles_empty_plan(capsys):
     from dom.cli.contest.render import render_planned_changes
 
-    render_planned_changes([])
+    render_planned_changes(ContestPlan())
     output = capsys.readouterr().out
     assert "No changes" in output
 
 
 def test_render_planned_changes_renders_creates(capsys):
     from dom.cli.contest.render import render_planned_changes
-    from dom.core.services.contest.changes import ChangeType
 
-    change_set = MagicMock(
+    cs = ContestChangeSet(
+        contest_shortname="C0",
         change_type=ChangeType.CREATE,
         field_changes=[],
         resource_changes=[],
     )
-    change_set.summary_parts.return_value = (ChangeType.CREATE, "C0", [])
+    plan = ContestPlan(items=[ContestPlanItem(shortname="C0", change_set=cs)])
 
-    render_planned_changes([{"shortname": "C0", "change_set": change_set}])
+    render_planned_changes(plan)
     output = capsys.readouterr().out
     assert "Planned Changes" in output
     assert "C0" in output
@@ -275,12 +347,3 @@ def test_verify_rejects_missing_files(context, tmp_path):
     missing_infra = tmp_path / "i.yaml"
     with pytest.raises(typer.Exit):
         run(verify_problemset_op(missing_contest, "ContestA", missing_infra), context)
-
-
-def test_apply_op_is_single_step_with_summary_callback(context):
-    """apply_contests_op is a single-step op returning ContestApplyResult list."""
-    config = _make_dom_config()
-    op = apply_contests_op(config)
-    assert op.summary is not None
-    # Single-step ops auto-wrap their return; show_progress is disabled.
-    assert op.show_progress is False

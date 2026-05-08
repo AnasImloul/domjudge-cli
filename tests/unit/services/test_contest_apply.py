@@ -1,11 +1,21 @@
-"""Tests for ContestApplicationService."""
+"""Tests for ContestApplicationService.
 
-from unittest.mock import MagicMock, patch
+The service is a flat toolkit — orchestration lives in
+``dom.core.operations.contest.apply``. These tests exercise each
+toolkit method in isolation.
+"""
+
+from unittest.mock import MagicMock
 
 import pytest
 
+from dom.core.services.base import ServiceContext
 from dom.core.services.contest.apply import ContestApplicationService
-from dom.core.services.contest.changes import ChangeType
+from dom.core.services.contest.changes import (
+    ChangeType,
+    ContestChangeSet,
+    FieldChange,
+)
 from dom.exceptions import ContestError
 from dom.types.secrets import SecretsProvider
 
@@ -17,7 +27,6 @@ def secrets():
 
 @pytest.fixture
 def client():
-    """API client with the call paths used by ContestApplicationService."""
     c = MagicMock()
     c.contests.create.return_value = MagicMock(id="contest-1", created=True)
     c.groups.create_for_contest.return_value = MagicMock(id="group-1")
@@ -25,31 +34,28 @@ def client():
 
 
 @pytest.fixture
-def service(client, secrets):
-    """ContestApplicationService with all collaborators stubbed."""
-    with (
-        patch("dom.core.services.contest.apply.ProblemService") as ps_cls,
-        patch("dom.core.services.contest.apply.TeamService") as ts_cls,
-        patch("dom.core.services.contest.apply.ContestStateComparator") as cmp_cls,
-    ):
-        problem_service = MagicMock()
-        problem_service.create_many.return_value = []
-        problem_service.get_summary.return_value = {"failed": 0, "succeeded": 0}
-        ps_cls.return_value = problem_service
+def collaborators():
+    problem = MagicMock()
+    problem.create_many.return_value = []
+    problem.get_summary.return_value = {"failed": 0, "successful": 0}
+    team = MagicMock()
+    team.create_many.return_value = []
+    team.get_summary.return_value = {"failed": 0, "successful": 0}
+    comparator = MagicMock()
+    return problem, team, comparator
 
-        team_service = MagicMock()
-        team_service.create_many.return_value = []
-        team_service.get_summary.return_value = {"failed": 0, "succeeded": 0}
-        ts_cls.return_value = team_service
 
-        comparator = MagicMock()
-        cmp_cls.return_value = comparator
-
-        svc = ContestApplicationService(client, secrets)
-        svc._problem_mock = problem_service  # type: ignore[attr-defined]
-        svc._team_mock = team_service  # type: ignore[attr-defined]
-        svc._comparator_mock = comparator  # type: ignore[attr-defined]
-        yield svc
+@pytest.fixture
+def service(client, secrets, collaborators):
+    problem, team, comparator = collaborators
+    svc = ContestApplicationService(
+        client,
+        secrets,
+        problem_service=problem,
+        team_service=team,
+        state_comparator=comparator,
+    )
+    return svc
 
 
 def _contest(shortname="C0", name="Contest 0", problems=None, teams=None):
@@ -65,70 +71,145 @@ def _contest(shortname="C0", name="Contest 0", problems=None, teams=None):
     return c
 
 
-def _change_set(change_type=ChangeType.CREATE, field_changes=None):
-    cs = MagicMock()
-    cs.change_type = change_type
-    cs.field_changes = field_changes or []
-    return cs
+def _change_set(change_type=ChangeType.CREATE, field_changes=None, existing_id=None):
+    return ContestChangeSet(
+        contest_shortname="C0",
+        change_type=change_type,
+        field_changes=field_changes or [],
+        resource_changes=[],
+        existing_contest_id=existing_id,
+    )
 
 
-# ---------------------------------------------------------------- apply_contest
+# ---------------------------------------------------------------- compare
 
 
-def test_apply_contest_creates_when_change_type_is_create(service, client):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    contest = _contest()
+def test_compare_delegates_to_state_comparator(service, collaborators):
+    _, _, comparator = collaborators
+    expected = _change_set()
+    comparator.compare_contest.return_value = expected
 
-    result = service.apply_contest(contest)
+    result = service.compare(_contest())
 
-    assert result.contest_id == "contest-1"
-    assert result.contest_shortname == "C0"
-    assert result.skipped_field_changes == []
+    assert result is expected
+    comparator.compare_contest.assert_called_once()
+
+
+def test_compare_requires_shortname(service):
+    contest = _contest(shortname=None)
+    with pytest.raises(ContestError, match="shortname"):
+        service.compare(contest)
+
+
+# ---------------------------------------------------------------- resolve_or_create
+
+
+def test_resolve_or_create_creates_new_contest(service, client):
+    cs = _change_set(ChangeType.CREATE)
+    contest_id, skipped = service.resolve_or_create(_contest(), cs)
+
+    assert contest_id == "contest-1"
+    assert skipped == []
     client.contests.create.assert_called_once()
     create_arg = client.contests.create.call_args.kwargs["contest_data"]
     assert create_arg.shortname == "C0"
 
 
-def test_apply_contest_skips_creation_when_no_change(service, client):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.NO_CHANGE)
-    service._comparator_mock._fetch_current_contest.return_value = {"id": "existing-1"}
-    contest = _contest()
+def test_resolve_or_create_uses_existing_id_with_no_changes(service, client):
+    cs = _change_set(ChangeType.NO_CHANGE, existing_id="existing-1")
+    contest_id, skipped = service.resolve_or_create(_contest(), cs)
 
-    result = service.apply_contest(contest)
-
-    assert result.contest_id == "existing-1"
-    assert result.skipped_field_changes == []
+    assert contest_id == "existing-1"
+    assert skipped == []
     client.contests.create.assert_not_called()
 
 
-def test_apply_contest_returns_skipped_field_changes(service):
-    from dom.core.services.contest.changes import FieldChange
-
+def test_resolve_or_create_returns_skipped_field_changes(service):
     fc = FieldChange(field="duration", old_value="5:00", new_value="6:00")
-    service._comparator_mock.compare_contest.return_value = _change_set(
-        ChangeType.NO_CHANGE, field_changes=[fc]
-    )
-    service._comparator_mock._fetch_current_contest.return_value = {"id": "existing-1"}
+    cs = _change_set(ChangeType.UPDATE, field_changes=[fc], existing_id="existing-1")
 
-    result = service.apply_contest(_contest())
+    contest_id, skipped = service.resolve_or_create(_contest(), cs)
 
-    assert result.skipped_field_changes == [fc]
+    assert contest_id == "existing-1"
+    assert skipped == [fc]
 
 
-def test_apply_contest_accepts_injected_collaborators(client, secrets):
-    """Constructor injection: passing services directly bypasses module-level patches."""
-    from unittest.mock import MagicMock
+def test_resolve_or_create_raises_when_existing_id_missing(service):
+    cs = _change_set(ChangeType.UPDATE, existing_id=None)
+    with pytest.raises(ContestError, match="no id was resolved"):
+        service.resolve_or_create(_contest(), cs)
 
-    from dom.core.services.contest.apply import ContestApplicationService
 
-    problem = MagicMock()
-    problem.create_many.return_value = []
-    problem.get_summary.return_value = {"failed": 0}
-    team = MagicMock()
-    team.create_many.return_value = []
-    team.get_summary.return_value = {"failed": 0}
-    comparator = MagicMock()
-    comparator.compare_contest.return_value = _change_set(ChangeType.CREATE)
+def test_resolve_or_create_wraps_create_error_as_contest_error(service, client):
+    client.contests.create.side_effect = RuntimeError("upstream 500")
+    cs = _change_set(ChangeType.CREATE)
+
+    with pytest.raises(ContestError) as exc_info:
+        service.resolve_or_create(_contest(), cs)
+    assert "upstream 500" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------- provision_team_group
+
+
+def test_provision_team_group_uses_contest_naming(service, client):
+    group_id = service.provision_team_group("contest-1", "finals")
+
+    assert group_id == "group-1"
+    kwargs = client.groups.create_for_contest.call_args.kwargs
+    assert kwargs["contest_id"] == "contest-1"
+    assert kwargs["group_id"] == "finals-teams"
+    assert "FINALS" in kwargs["name"]
+
+
+# ---------------------------------------------------------------- apply_problems / apply_teams
+
+
+def _ctx(client):
+    return ServiceContext(client=client, contest_id="contest-1", contest_shortname="C0")
+
+
+def test_apply_problems_invokes_service(service, collaborators, client):
+    problem, _, _ = collaborators
+    contest = _contest(problems=["p1", "p2"])
+
+    service.apply_problems(contest, _ctx(client))
+
+    problem.create_many.assert_called_once()
+    assert problem.create_many.call_args.args[0] == ["p1", "p2"]
+
+
+def test_apply_problems_raises_on_failure(service, collaborators, client):
+    problem, _, _ = collaborators
+    problem.get_summary.return_value = {"failed": 2, "successful": 1}
+
+    with pytest.raises(ContestError):
+        service.apply_problems(_contest(), _ctx(client))
+
+
+def test_apply_teams_invokes_service(service, collaborators, client):
+    _, team, _ = collaborators
+    contest = _contest(teams=["t1", "t2", "t3"])
+
+    service.apply_teams(contest, _ctx(client))
+
+    team.create_many.assert_called_once()
+    assert team.create_many.call_args.args[0] == ["t1", "t2", "t3"]
+
+
+def test_apply_teams_raises_on_failure(service, collaborators, client):
+    _, team, _ = collaborators
+    team.get_summary.return_value = {"failed": 1, "successful": 0}
+
+    with pytest.raises(ContestError):
+        service.apply_teams(_contest(), _ctx(client))
+
+
+# ---------------------------------------------------------------- constructor injection
+
+
+def test_constructor_injection_wires_collaborators(client, secrets, collaborators):
+    problem, team, comparator = collaborators
 
     svc = ContestApplicationService(
         client,
@@ -141,93 +222,3 @@ def test_apply_contest_accepts_injected_collaborators(client, secrets):
     assert svc.problem_service is problem
     assert svc.team_service is team
     assert svc.state_comparator is comparator
-
-    result = svc.apply_contest(_contest())
-    assert result.contest_id == "contest-1"
-
-
-def test_apply_contest_creates_team_group_for_scoreboard(service, client):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    contest = _contest(shortname="finals")
-
-    service.apply_contest(contest)
-
-    client.groups.create_for_contest.assert_called_once()
-    kwargs = client.groups.create_for_contest.call_args.kwargs
-    assert kwargs["group_id"] == "finals-teams"
-    assert "FINALS" in kwargs["name"]
-
-
-def test_apply_contest_invokes_problem_and_team_services(service):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    problems = ["p1", "p2"]
-    teams = ["t1", "t2", "t3"]
-
-    service.apply_contest(_contest(problems=problems, teams=teams))
-
-    service._problem_mock.create_many.assert_called_once()
-    service._team_mock.create_many.assert_called_once()
-    assert service._problem_mock.create_many.call_args.args[0] == problems
-    assert service._team_mock.create_many.call_args.args[0] == teams
-
-
-def test_apply_contest_raises_when_problems_fail(service):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    service._problem_mock.get_summary.return_value = {"failed": 2, "succeeded": 1}
-
-    with pytest.raises(ContestError) as exc_info:
-        service.apply_contest(_contest())
-    assert "fail" in str(exc_info.value).lower()
-
-
-def test_apply_contest_raises_when_teams_fail(service):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    service._team_mock.get_summary.return_value = {"failed": 1, "succeeded": 0}
-
-    with pytest.raises(ContestError):
-        service.apply_contest(_contest())
-
-
-def test_apply_contest_wraps_create_error_as_contest_error(service, client):
-    service._comparator_mock.compare_contest.return_value = _change_set(ChangeType.CREATE)
-    client.contests.create.side_effect = RuntimeError("upstream 500")
-
-    with pytest.raises(ContestError) as exc_info:
-        service.apply_contest(_contest())
-    assert "upstream 500" in str(exc_info.value)
-
-
-# ---------------------------------------------------------------- apply orchestration entrypoint
-
-
-def test_apply_all_iterates_over_all_contests(secrets):
-    """The operations-layer orchestrator wires a client and calls the
-    service once per contest. Wiring lives in operations now, not
-    services, so we exercise it from there."""
-    from dom.core.operations.contest.apply import _apply_all
-    from dom.core.operations.framework import Context
-    from dom.core.services.contest.apply import ContestApplyResult
-
-    config = MagicMock()
-    config.infra = MagicMock()
-    config.contests = [_contest("A"), _contest("B"), _contest("C")]
-    ctx = Context(secrets=secrets)
-
-    with (
-        patch("dom.core.operations.contest.apply.wire_admin_api") as wire,
-        patch("dom.core.operations.contest.apply.ContestApplicationService") as service_cls,
-        patch("dom.core.operations.contest.apply.ProblemService"),
-        patch("dom.core.operations.contest.apply.TeamService"),
-        patch("dom.core.operations.contest.apply.ContestStateComparator"),
-    ):
-        instance = MagicMock()
-        instance.apply_contest.side_effect = [
-            ContestApplyResult(contest_shortname=s, contest_id=f"id-{s}") for s in ("A", "B", "C")
-        ]
-        service_cls.return_value = instance
-        wire.return_value = MagicMock()
-
-        results = _apply_all(config, ctx)
-
-    assert instance.apply_contest.call_count == 3
-    assert [r.contest_shortname for r in results] == ["A", "B", "C"]

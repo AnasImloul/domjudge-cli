@@ -16,6 +16,4 @@ def _summary(contest: ContestConfig) -> str:
 
 @operation("Load contest configuration", summary=_summary)
 def load_contest_config_op(ctx: Context, path: Path | None, contest_name: str) -> ContestConfig:
-    if path is not None and not path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {path}")
     return load_contest_config(path, contest_name, ctx.secrets)

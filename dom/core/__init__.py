@@ -13,10 +13,13 @@ This package is split into two sublayers with a strict boundary:
 
 **`dom.core.services`** — declarative business logic.
     A *Service* knows HOW. It owns the API client / Docker client / secrets
-    interaction and exposes intent-named methods (``apply_contest``,
+    interaction and exposes a flat collection of intent-named, single-purpose
+    methods (``compare``, ``resolve_or_create``, ``provision_team_group``,
     ``start_service``, ``regenerate_compose``, ``check_status``, etc.).
-    Services may compose other services. Services MUST NOT import from
-    ``dom.core.operations`` or ``dom.cli`` (enforced by import-linter).
+    Services MUST NOT internally orchestrate multi-step workflows — that
+    belongs in operations. Services may compose other services and MUST NOT
+    import from ``dom.core.operations`` or ``dom.cli`` (enforced by
+    import-linter).
 
 The reference implementation of this split is the infrastructure pipeline:
 ``dom.core.services.infra.service.InfraService`` exposes all infrastructure

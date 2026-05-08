@@ -1,12 +1,19 @@
-"""Declarative contest application service.
+"""Contest application toolkit.
 
-The orchestrator (:meth:`ContestApplicationService.apply_contest`) reads
-top-down as a sequence of named steps. Each step is implemented as a
-small, single-purpose private method below the orchestrator.
+This service is intentionally a flat collection of single-purpose
+methods. The orchestration that turns these methods into a workflow
+lives one layer up, in :mod:`dom.core.operations.contest.apply`, where
+each step is named and executed via the operations framework. Keeping
+the orchestration there gives the user step-by-step progress, useful
+``--dry-run`` listings, and a single place to read the contest-apply
+flow.
+
+The DOMjudge API does not support contest updates, so when a contest
+already exists with different fields the deltas are surfaced via
+:class:`ContestApplyResult.skipped_field_changes` rather than applied.
+Resource reconciliation (problems, teams) is always idempotent.
 """
 
-from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from dom.core.services.base import ServiceContext
@@ -30,8 +37,7 @@ class ContestApplyResult:
 
     ``skipped_field_changes`` lists field deltas that were detected on an
     existing contest but could not be applied (DOMjudge API does not
-    support contest updates). The CLI layer renders these to the user;
-    the service stays free of presentation concerns.
+    support contest updates). The CLI layer renders these to the user.
     """
 
     contest_shortname: str
@@ -39,14 +45,24 @@ class ContestApplyResult:
     skipped_field_changes: list[FieldChange] = field(default_factory=list)
 
 
-class ContestApplicationService:
-    """Declarative service for applying contest configurations.
+def _team_group_naming(shortname: str) -> tuple[str, str]:
+    """Return ``(group_name, group_id)`` for a contest's scoreboard team group."""
+    return f"{shortname.upper()} Teams", f"{shortname}-teams"
 
-    Idempotent and intended for INITIAL SETUP only. The DOMjudge API
-    does not support contest updates: if a contest already exists with
-    different fields, the deltas are surfaced via
-    :class:`ContestApplyResult.skipped_field_changes` rather than applied.
-    Resources (problems, teams) are always reconciled idempotently.
+
+def _require_shortname(contest: ContestConfig) -> str:
+    """Treat shortname as a precondition. Loaders must guarantee it."""
+    if contest.shortname is None:
+        raise ContestError("Contest configuration is missing required 'shortname'")
+    return contest.shortname
+
+
+class ContestApplicationService:
+    """Toolkit for applying contest configurations.
+
+    Each public method corresponds to one step of the contest-apply
+    workflow. The operations layer composes these into a named, ordered
+    plan; this class never orchestrates them itself.
     """
 
     def __init__(
@@ -64,59 +80,25 @@ class ContestApplicationService:
         self.team_service = team_service or TeamService(client, secrets)
         self.state_comparator = state_comparator or ContestStateComparator(client, secrets)
 
-    # ------------------------------------------------------------------ public
-
-    def apply_contest(self, contest: ContestConfig) -> ContestApplyResult:
-        """Apply a single contest configuration.
-
-        Reads top-down as a sequence of steps:
-        compare → create-or-resolve → provision team group → apply resources.
-        """
-        shortname = _require_shortname(contest)
-        logger.info(
-            "Applying contest configuration",
-            extra={"contest_name": contest.name, "contest_shortname": shortname},
-        )
-
-        change_set = self.state_comparator.compare_contest(contest)
-        contest_id, skipped = self._resolve_or_create(contest, change_set)
-        team_group_id = self._provision_team_group(contest_id, shortname)
-
-        self._apply_resources(
-            contest,
-            ServiceContext(
-                client=self.client,
-                contest_id=contest_id,
-                contest_shortname=shortname,
-                team_group_id=team_group_id,
-            ),
-        )
-
-        logger.info(
-            f"Successfully configured contest '{shortname}'",
-            extra={
-                "contest_id": contest_id,
-                "contest_shortname": shortname,
-                "problems_count": len(contest.problems),
-                "teams_count": len(contest.teams),
-            },
-        )
-        return ContestApplyResult(
-            contest_shortname=shortname,
-            contest_id=contest_id,
-            skipped_field_changes=skipped,
-        )
-
     # ------------------------------------------------------------------ steps
 
-    def _resolve_or_create(
+    def compare(self, contest: ContestConfig) -> ContestChangeSet:
+        """Compare desired vs. current contest state."""
+        shortname = _require_shortname(contest)
+        logger.info(
+            "Comparing contest state",
+            extra={"contest_name": contest.name, "contest_shortname": shortname},
+        )
+        return self.state_comparator.compare_contest(contest)
+
+    def resolve_or_create(
         self, contest: ContestConfig, change_set: ContestChangeSet
     ) -> tuple[str, list[FieldChange]]:
-        """Return ``(contest_id, skipped_field_changes)`` for the contest.
+        """Return ``(contest_id, skipped_field_changes)``.
 
         Creates a new contest when the change set says so; otherwise
-        resolves the existing one and reports any field deltas that
-        cannot be applied via the API.
+        uses ``change_set.existing_contest_id`` and reports any field
+        deltas that cannot be applied via the API.
         """
         shortname = change_set.contest_shortname
 
@@ -125,7 +107,11 @@ class ContestApplicationService:
             logger.info(f"✓ Created new contest '{shortname}' (ID: {contest_id})")
             return contest_id, []
 
-        contest_id = self._resolve_existing_contest_id(shortname)
+        if change_set.existing_contest_id is None:
+            raise ContestError(
+                f"Contest '{shortname}' was expected to exist but no id was resolved"
+            )
+        contest_id = change_set.existing_contest_id
 
         if not change_set.field_changes:
             logger.info(f"✓ Contest '{shortname}' exists with no field changes")
@@ -141,13 +127,30 @@ class ContestApplicationService:
         )
         return contest_id, skipped
 
-    def _resolve_existing_contest_id(self, shortname: str) -> str:
-        current = self.state_comparator._fetch_current_contest(shortname)
-        if current is None:
-            raise ContestError(
-                f"Contest '{shortname}' was expected to exist but could not be fetched"
-            )
-        return str(current["id"])
+    def provision_team_group(self, contest_id: str, shortname: str) -> str:
+        """Create the contest-specific team group used for scoreboard filtering."""
+        group_name, group_id = _team_group_naming(shortname)
+        result = self.client.groups.create_for_contest(
+            contest_id=contest_id, name=group_name, group_id=group_id
+        )
+        logger.info(f"Created team group '{group_name}' (ID: {result.id}) for contest {shortname}")
+        return str(result.id)
+
+    def apply_problems(self, contest: ContestConfig, context: ServiceContext) -> None:
+        """Add the contest's problems via :class:`ProblemService`."""
+        results = self.problem_service.create_many(contest.problems, context, stop_on_error=False)
+        summary = self.problem_service.get_summary(results)
+        if summary["failed"] > 0:
+            raise ContestError(f"{summary['failed']} problem(s) failed to add")
+
+    def apply_teams(self, contest: ContestConfig, context: ServiceContext) -> None:
+        """Add the contest's teams via :class:`TeamService`."""
+        results = self.team_service.create_many(contest.teams, context, stop_on_error=False)
+        summary = self.team_service.get_summary(results)
+        if summary["failed"] > 0:
+            raise ContestError(f"{summary['failed']} team(s) failed to add")
+
+    # ------------------------------------------------------------------ helpers
 
     def _create_contest(self, contest: ContestConfig) -> str:
         shortname = _require_shortname(contest)
@@ -180,80 +183,3 @@ class ContestApplicationService:
             },
         )
         return str(result.id)
-
-    def _provision_team_group(self, contest_id: str, shortname: str) -> str:
-        """Create the contest-specific team group used for scoreboard filtering."""
-        group_name = f"{shortname.upper()} Teams"
-        result = self.client.groups.create_for_contest(
-            contest_id=contest_id, name=group_name, group_id=f"{shortname}-teams"
-        )
-        logger.info(f"Created team group '{group_name}' (ID: {result.id}) for contest {shortname}")
-        return str(result.id)
-
-    def _apply_resources(self, contest: ContestConfig, context: ServiceContext) -> None:
-        """Apply problems and teams concurrently, collecting any failures."""
-        tasks: dict[str, Callable[[], None]] = {
-            "problems": lambda: self._apply_problems(contest.problems, context),
-            "teams": lambda: self._apply_teams(contest.teams, context),
-        }
-        failures = _run_concurrent(tasks, context, contest.shortname or "?")
-        if failures:
-            details = ", ".join(f"{name}: {exc!s}" for name, exc in failures)
-            raise ContestError(
-                f"Failed to fully configure contest '{contest.shortname}': {details}"
-            )
-
-    def _apply_problems(self, problems, context: ServiceContext) -> None:
-        results = self.problem_service.create_many(problems, context, stop_on_error=False)
-        summary = self.problem_service.get_summary(results)
-        if summary["failed"] > 0:
-            raise ContestError(f"{summary['failed']} problem(s) failed to add")
-
-    def _apply_teams(self, teams, context: ServiceContext) -> None:
-        results = self.team_service.create_many(teams, context, stop_on_error=False)
-        summary = self.team_service.get_summary(results)
-        if summary["failed"] > 0:
-            raise ContestError(f"{summary['failed']} team(s) failed to add")
-
-
-# ---------------------------------------------------------------- helpers
-
-
-def _require_shortname(contest: ContestConfig) -> str:
-    """Treat shortname as a precondition. Loaders must guarantee it."""
-    if contest.shortname is None:
-        raise ContestError("Contest configuration is missing required 'shortname'")
-    return contest.shortname
-
-
-def _run_concurrent(
-    tasks: dict[str, Callable[[], None]],
-    context: ServiceContext,
-    contest_shortname: str,
-) -> list[tuple[str, Exception]]:
-    """Run named tasks in parallel, returning ``(name, exc)`` for each failure.
-
-    All tasks run to completion even if some fail, so the caller sees
-    every problem at once instead of fixing them one round-trip at a time.
-    """
-    failures: list[tuple[str, Exception]] = []
-    with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
-        futures = {executor.submit(fn): name for name, fn in tasks.items()}
-        for future in as_completed(futures):
-            name = futures[future]
-            try:
-                future.result()
-            except Exception as exc:
-                logger.error(
-                    f"Failed to apply {name} for contest {contest_shortname}",
-                    exc_info=True,
-                    extra={
-                        "task": name,
-                        "contest_shortname": contest_shortname,
-                        "contest_id": context.contest_id,
-                    },
-                )
-                failures.append((name, exc))
-            else:
-                logger.info(f"Successfully applied {name} for contest {contest_shortname}")
-    return failures

@@ -13,6 +13,4 @@ def _summary(config: InfraConfig) -> str:
 
 @operation("Load infrastructure configuration", summary=_summary)
 def load_infra_config_op(_ctx: Context, path: Path | None = None) -> InfraConfig:
-    if path is not None and not path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {path}")
     return load_infrastructure_config(path)

@@ -17,6 +17,4 @@ def _summary(config: DomConfig) -> str:
 
 @operation("Load configuration", summary=_summary)
 def load_config_op(ctx: Context, path: Path | None = None) -> DomConfig:
-    if path is not None and not path.exists():
-        raise FileNotFoundError(f"Configuration file not found: {path}")
     return load_config(path, ctx.secrets)
