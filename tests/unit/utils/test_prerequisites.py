@@ -10,11 +10,11 @@ import pytest
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
 from dom.utils.prerequisites import (
     is_port_used_by_domjudge,
+    is_privileged_port,
     validate_config_file,
     validate_docker_available,
     validate_infrastructure_prerequisites,
     validate_port_available,
-    warn_if_privileged_port,
 )
 
 
@@ -220,19 +220,13 @@ class TestValidateInfrastructurePrerequisites:
         mock_port.assert_not_called()
 
 
-class TestWarnIfPrivilegedPort:
-    """Tests for warn_if_privileged_port."""
+class TestIsPrivilegedPort:
+    """Tests for is_privileged_port."""
 
-    def test_warns_for_privileged_port(self):
-        from dom import ui
+    def test_returns_true_for_privileged_port(self):
+        assert is_privileged_port(80) is True
+        assert is_privileged_port(1023) is True
 
-        with patch.object(ui.console, "print") as mock_print:
-            warn_if_privileged_port(80)
-        assert mock_print.called
-
-    def test_silent_for_unprivileged_port(self):
-        from dom import ui
-
-        with patch.object(ui.console, "print") as mock_print:
-            warn_if_privileged_port(8080)
-        mock_print.assert_not_called()
+    def test_returns_false_for_unprivileged_port(self):
+        assert is_privileged_port(1024) is False
+        assert is_privileged_port(8080) is False

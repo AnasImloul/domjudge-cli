@@ -25,7 +25,7 @@ from dom.constants import HEALTH_CHECK_INTERVAL, HEALTH_CHECK_TIMEOUT, Container
 from dom.exceptions import DockerError
 from dom.logging_config import get_logger
 from dom.utils.bcrypt import generate_bcrypt_password
-from dom.utils.cli import get_container_prefix
+from dom.utils.project import get_container_prefix
 
 logger = get_logger(__name__)
 

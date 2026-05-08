@@ -6,10 +6,10 @@ from rich.table import Table
 from dom import ui
 from dom.templates.init import contest_template
 from dom.utils.csv_preview import (
+    build_csv_preview,
     column_index_parser,
     count_csv_rows,
     get_column_count,
-    preview_csv,
 )
 from dom.utils.time import format_datetime, format_duration
 from dom.utils.validators import ValidatorBuilder
@@ -82,20 +82,28 @@ def initialize_contest():
     ui.header("CSV Preview")
     teams_file_path = Path(teams_path)
 
-    has_header = preview_csv(teams_file_path, delimiter, max_rows=10, show_column_numbers=True)
+    table, has_header = build_csv_preview(
+        teams_file_path, delimiter, max_rows=10, show_column_numbers=True
+    )
+    if table is None:
+        ui.warn("Warning: CSV file is empty")
+    else:
+        ui.render(table)
 
     confirmed = ui.ask_bool("Does the first row contain headers?", default=has_header)
     if confirmed != has_header:
         has_header = confirmed
         label = "with header" if has_header else "no header"
         ui.header(f"Updated CSV Preview ({label})")
-        preview_csv(
+        table, _ = build_csv_preview(
             teams_file_path,
             delimiter,
             max_rows=10,
             show_column_numbers=True,
             has_header=has_header,
         )
+        if table is not None:
+            ui.render(table)
 
     num_columns = get_column_count(teams_file_path, delimiter)
 

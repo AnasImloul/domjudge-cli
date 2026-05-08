@@ -34,10 +34,6 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
         super().__init__(client)
         self.secrets = secrets
 
-    def entity_name(self) -> str:
-        """Return entity name."""
-        return "Team"
-
     def create(self, entity: Team, context: ServiceContext) -> ServiceResult[Team]:
         """
         Add a single team to a contest.

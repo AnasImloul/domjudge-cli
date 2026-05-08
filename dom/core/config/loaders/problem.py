@@ -18,8 +18,8 @@ from dom.types.problem import (
     ProblemYAML,
     Submissions,
 )
-from dom.utils.cli import find_file_with_extensions
 from dom.utils.color import get_hex_color
+from dom.utils.project import find_file_with_extensions
 from dom.utils.sys import load_folder_as_dict
 
 logger = get_logger(__name__)

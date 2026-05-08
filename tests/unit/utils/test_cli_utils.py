@@ -8,7 +8,7 @@ import typer
 
 from dom.cli.decorators import cli_command
 from dom.exceptions import DomJudgeCliError
-from dom.utils.cli import (
+from dom.utils.project import (
     check_file_exists,
     ensure_dom_directory,
     find_config_or_default,

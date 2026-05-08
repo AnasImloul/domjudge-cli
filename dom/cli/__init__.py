@@ -11,7 +11,7 @@ from dom.cli.contest import contest_command
 from dom.cli.infrastructure import infra_command
 from dom.cli.init import init_command
 from dom.logging_config import get_logger, setup_logging
-from dom.utils.cli import ensure_dom_directory
+from dom.utils.project import ensure_dom_directory
 
 logger = get_logger(__name__)
 

@@ -5,7 +5,7 @@ import yaml
 from dom.types.config.processed import ContestConfig, DomConfig, InfraConfig
 from dom.types.config.raw import RawDomConfig
 from dom.types.secrets import SecretsProvider
-from dom.utils.cli import find_config_or_default
+from dom.utils.project import find_config_or_default
 
 from .contest import load_contest_from_config, load_contests_from_config
 from .infra import load_infra_from_config

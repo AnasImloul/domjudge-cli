@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from dom.utils.cli import find_file_with_extensions
+from dom.utils.project import find_file_with_extensions
 
 
 class TestFindFileWithExtensions:

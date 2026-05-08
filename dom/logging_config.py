@@ -80,9 +80,9 @@ def get_logger(name: str) -> logging.Logger:
     Get a logger instance for a specific module.
 
     Args:
-        name: Name of the logger (typically __name__)
+        name: Name of the logger (typically __name__, which already starts with "dom.")
 
     Returns:
         Logger instance
     """
-    return logging.getLogger(f"dom.{name}")
+    return logging.getLogger(name)

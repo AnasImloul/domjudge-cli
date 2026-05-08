@@ -19,10 +19,6 @@ class ProblemService(Service[ProblemPackage], BulkOperationMixin[ProblemPackage]
     proper error handling and concurrency control.
     """
 
-    def entity_name(self) -> str:
-        """Return entity name."""
-        return "Problem"
-
     def create(
         self, entity: ProblemPackage, context: ServiceContext
     ) -> ServiceResult[ProblemPackage]:

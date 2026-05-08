@@ -1,9 +1,8 @@
 """Cross-layer filesystem / project utilities.
 
-These helpers are *not* CLI-specific even though the module name says
-"cli". They're consumed by services and infrastructure (e.g.
-``get_container_prefix``) as well as the CLI. UI-bearing decorators and
-prompts live in :mod:`dom.cli.decorators` and :mod:`dom.cli.helpers`.
+Consumed by CLI, services, and infrastructure (e.g. ``get_container_prefix``,
+``ensure_dom_directory``). UI-bearing decorators and prompts live in
+:mod:`dom.cli.decorators` and :mod:`dom.cli.helpers`.
 """
 
 from hashlib import sha256

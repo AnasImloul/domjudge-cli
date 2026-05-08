@@ -60,7 +60,6 @@ def test_run_executes_full_pipeline_in_order(context, config, mock_service):
     run(apply_infrastructure_op(config), context)
 
     mock_service.validate_prerequisites.assert_called_once_with(8080)
-    mock_service.warn_privileged_port.assert_called_once_with(8080)
     mock_service.generate_compose_bootstrap.assert_called_once_with(config)
     assert mock_service.start_service.call_count == 3  # mariadb, mysql-client, domserver
     mock_service.wait_domserver_healthy.assert_called_once()
