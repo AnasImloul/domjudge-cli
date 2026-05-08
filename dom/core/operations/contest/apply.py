@@ -26,8 +26,8 @@ def _apply_all(config: DomConfig, ctx: Context) -> list[ContestApplyResult]:
         client,
         ctx.secrets,
         problem_service=ProblemService(client),
-        team_service=TeamService(client),
-        state_comparator=ContestStateComparator(client),
+        team_service=TeamService(client, ctx.secrets),
+        state_comparator=ContestStateComparator(client, ctx.secrets),
     )
     return [service.apply_contest(contest) for contest in config.contests]
 

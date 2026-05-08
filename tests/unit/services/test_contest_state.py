@@ -24,9 +24,16 @@ class TestContestStateComparator:
         return client
 
     @pytest.fixture
-    def comparator(self, mock_client):
-        """Create a ContestStateComparator with mocked client."""
-        return ContestStateComparator(mock_client)
+    def mock_secrets(self):
+        """Mocked SecretsProvider — only ``get_or_create_hash_seed`` is exercised."""
+        secrets = MagicMock()
+        secrets.get_or_create_hash_seed.return_value = "test-seed"
+        return secrets
+
+    @pytest.fixture
+    def comparator(self, mock_client, mock_secrets):
+        """Create a ContestStateComparator with mocked client and secrets."""
+        return ContestStateComparator(mock_client, mock_secrets)
 
     def test_compare_contest_detects_new_contest(self, comparator, mock_client):
         """Test that CREATE is detected for new contests."""

@@ -12,7 +12,9 @@ from dom.core.services.base import BulkOperationMixin, Service, ServiceContext, 
 from dom.exceptions import APIError, TeamError
 from dom.logging_config import get_logger
 from dom.types.api.models import AddOrganization, AddTeam, AddUser
+from dom.types.secrets import SecretsProvider
 from dom.types.team import Team
+from dom.utils.hashing import deterministic_hash
 
 logger = get_logger(__name__)
 
@@ -27,6 +29,10 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
     This service is idempotent - running multiple times with the same teams
     will not create duplicates.
     """
+
+    def __init__(self, client, secrets: SecretsProvider):
+        super().__init__(client)
+        self.secrets = secrets
 
     def entity_name(self) -> str:
         """Return entity name."""
@@ -60,14 +66,11 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
             # so different organizations can have teams with the same display name.
             composite_key = entity.composite_key
 
-            # NOTE: Python's built-in hash() is salted per process (PYTHONHASHSEED),
-            # so this team_id is stable WITHIN one apply run but NOT across runs.
-            # DOMjudge's idempotency relies on the composite ``name`` below (which
-            # uses entity.username, generated via deterministic_hash) — the API
-            # treats name collisions as the same team, so a fresh team_id on a
-            # re-run is harmless. Don't replace with deterministic_hash without
-            # understanding the migration implications for existing deployments.
-            team_id = str(hash(composite_key) % HASH_MODULUS)
+            # Stable team_id across runs (uses the persisted hash seed). DOMjudge
+            # still dedupes by composite ``name`` below; making team_id stable
+            # makes log/debug correlation easier and the request payload
+            # reproducible.
+            team_id = str(deterministic_hash(self.secrets, composite_key, modulo=HASH_MODULUS))
 
             # The composite team name IS the join key. ``entity.username`` is
             # ``team{deterministic_hash}`` set by the config loader, so this
@@ -158,10 +161,10 @@ class TeamService(Service[Team], BulkOperationMixin[Team]):
         """
         org_country = country or DEFAULT_COUNTRY_CODE
         # ``MIT|USA`` and ``MIT|GBR`` are different organizations.
-        # Same caveat as team_id: hash() is per-process, so org_id is stable
-        # within a run but not across runs. DOMjudge dedupes by name + country.
+        # Stable across runs via the persisted hash seed; DOMjudge dedupes by
+        # name + country regardless.
         org_composite_key = f"{affiliation}|{org_country}"
-        org_id = str(hash(org_composite_key) % HASH_MODULUS)
+        org_id = str(deterministic_hash(self.secrets, org_composite_key, modulo=HASH_MODULUS))
 
         org_result = self.client.organizations.add_to_contest(
             contest_id=context.contest_id,  # type: ignore[arg-type]

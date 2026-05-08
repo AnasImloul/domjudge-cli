@@ -10,7 +10,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import Any, TypeVar
 
-from dom.exceptions import APIRateLimitError, PermanentAPIError, RetryableAPIError
+from dom.exceptions import PermanentAPIError, RetryableAPIError
 from dom.logging_config import get_logger
 
 logger = get_logger(__name__)
@@ -78,15 +78,13 @@ def is_retryable_error(error: Exception) -> bool:
         True if the error should be retried
 
     Examples:
-        - RetryableAPIError (5xx, network errors) → True
+        - RetryableAPIError (5xx, network errors, 429) → True
         - PermanentAPIError (4xx, auth failures) → False
-        - APIRateLimitError → False (HTTP 429; should respect Retry-After)
+        - APIRateLimitError → True (HTTP 429; sleep honors Retry-After)
     """
-    # Don't blindly retry HTTP 429 — Retry-After must be respected.
-    if isinstance(error, APIRateLimitError):
-        return False
-
-    # Retry errors explicitly marked as retryable
+    # Retry errors explicitly marked as retryable (includes APIRateLimitError).
+    # The actual sleep duration is computed in the wrapper so that 429s respect
+    # the server-supplied Retry-After value instead of pure exponential backoff.
     if isinstance(error, RetryableAPIError):
         return True
 
@@ -153,8 +151,13 @@ def with_retry(config: RetryConfig | None = None) -> Callable[[Callable[..., T]]
                         )
                         raise
 
-                    # Calculate delay and wait
-                    delay = calculate_delay(attempt, config)
+                    # Honor server-supplied Retry-After when present (HTTP 429),
+                    # otherwise fall back to exponential backoff.
+                    retry_after = getattr(e, "retry_after", None)
+                    if isinstance(retry_after, int | float) and retry_after >= 0:
+                        delay = min(float(retry_after), config.max_delay)
+                    else:
+                        delay = calculate_delay(attempt, config)
                     logger.warning(
                         f"Retrying {func.__name__} after error: {e}. "
                         f"Attempt {attempt + 1}/{config.max_retries}, "

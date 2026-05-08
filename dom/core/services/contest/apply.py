@@ -61,8 +61,8 @@ class ContestApplicationService:
         self.client = client
         self.secrets = secrets
         self.problem_service = problem_service or ProblemService(client)
-        self.team_service = team_service or TeamService(client)
-        self.state_comparator = state_comparator or ContestStateComparator(client)
+        self.team_service = team_service or TeamService(client, secrets)
+        self.state_comparator = state_comparator or ContestStateComparator(client, secrets)
 
     # ------------------------------------------------------------------ public
 

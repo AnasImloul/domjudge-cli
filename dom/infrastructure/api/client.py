@@ -5,6 +5,8 @@ retry. Service classes build on top of this for specific resource types.
 """
 
 from collections.abc import Callable
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any, TypeVar
 
 import requests
@@ -16,6 +18,7 @@ from dom.exceptions import (
     APIError,
     APINetworkError,
     APINotFoundError,
+    APIRateLimitError,
     APIServerError,
 )
 from dom.infrastructure.api.cache import TTLCache
@@ -95,6 +98,7 @@ class DomJudgeClient:
         Raises:
             APIAuthenticationError: For 401/403 errors (permanent)
             APINotFoundError: For 404 errors (permanent)
+            APIRateLimitError: For 429 errors (retryable, honors Retry-After)
             APIServerError: For 5xx errors (retryable)
             APIError: For other HTTP errors
         """
@@ -114,6 +118,19 @@ class DomJudgeClient:
                 f"Resource not found: {response.text}",
                 status_code=status,
                 response_body=response.text,
+            )
+
+        elif status == 429:
+            retry_after = _parse_retry_after(response.headers.get("Retry-After"))
+            logger.warning(
+                f"Rate limited (429); Retry-After={retry_after}",
+                extra={"retry_after": retry_after},
+            )
+            raise APIRateLimitError(
+                f"Rate limited: {response.text}",
+                status_code=status,
+                response_body=response.text,
+                retry_after=retry_after,
             )
 
         elif 500 <= status < 600:
@@ -236,3 +253,19 @@ class DomJudgeClient:
     def delete(self, path: str, invalidate_cache: str | None = None, **kwargs) -> None:
         """Perform DELETE request with retry."""
         self._retry(lambda: self._delete_internal(path, invalidate_cache, **kwargs))
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    """Parse a ``Retry-After`` header into seconds. Accepts integer-seconds or HTTP-date."""
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        target = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    now = datetime.now(timezone.utc) if target.tzinfo else datetime.now()
+    return max(0.0, (target - now).total_seconds())

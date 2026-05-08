@@ -17,7 +17,7 @@ def _summary(changes: list[dict[str, Any]]) -> str:
 def plan_contest_changes_op(ctx: Context, config: DomConfig) -> list[dict[str, Any]]:
     """Compute per-contest change sets. Rendering is the CLI's job."""
     client = wire_admin_api(config.infra, ctx.secrets)
-    comparator = ContestStateComparator(client)
+    comparator = ContestStateComparator(client, ctx.secrets)
     return [
         {"shortname": contest.shortname, "change_set": comparator.compare_contest(contest)}
         for contest in config.contests

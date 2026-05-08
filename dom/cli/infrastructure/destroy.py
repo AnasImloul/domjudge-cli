@@ -28,8 +28,8 @@ def destroy_command(
     Use ``--force-delete-volumes`` to permanently delete all data.
     """
     if not dry_run and not confirm:
-        typer.echo("! Use --confirm to actually destroy infrastructure.")
-        typer.echo("   Containers will be stopped. Use --force-delete-volumes to also delete data.")
+        ui.warn("Use --confirm to actually destroy infrastructure.")
+        ui.write("   Containers will be stopped. Use --force-delete-volumes to also delete data.")
         raise typer.Exit(code=1)
 
     if not dry_run:
