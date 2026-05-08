@@ -6,7 +6,7 @@ from dom import ui
 from dom.cli.init.wizard.contest import initialize_contest
 from dom.cli.init.wizard.infra import initialize_infrastructure
 from dom.cli.init.wizard.problems import initialize_problems
-from dom.utils.cli import check_file_exists
+from dom.utils.project import check_file_exists
 
 
 def run_wizard(overwrite: bool) -> None:

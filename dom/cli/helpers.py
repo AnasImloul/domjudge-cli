@@ -14,7 +14,7 @@ from dom import ui
 from dom.core.operations import Context, run
 from dom.core.operations.framework import Operation
 from dom.types.secrets import SecretsProvider
-from dom.utils.cli import get_secrets_manager
+from dom.utils.project import get_secrets_manager
 
 T = TypeVar("T")
 

@@ -4,7 +4,6 @@ This module provides declarative base classes for building services
 that follow clean architecture principles.
 """
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
@@ -77,7 +76,7 @@ class ServiceResult(Generic[TOutput]):
         return self.data
 
 
-class Service(ABC, Generic[TEntity]):
+class Service(Generic[TEntity]):
     """
     Base class for declarative services.
 
@@ -99,10 +98,6 @@ class Service(ABC, Generic[TEntity]):
             client: DOMjudge API client
         """
         self.client = client
-
-    @abstractmethod
-    def entity_name(self) -> str:
-        """Return the name of the entity this service manages."""
 
 
 class BulkOperationMixin(Generic[TEntity]):

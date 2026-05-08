@@ -45,12 +45,6 @@ def test_validate_prerequisites_delegates_to_util(service):
         v.assert_called_once_with(8080)
 
 
-def test_warn_privileged_port_delegates_to_util(service):
-    with patch("dom.core.services.infra.service.warn_if_privileged_port") as w:
-        service.warn_privileged_port(80)
-        w.assert_called_once_with(80)
-
-
 # ---------------------------------------------------------------- Compose
 
 

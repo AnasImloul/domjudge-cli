@@ -28,10 +28,6 @@ forbidden_modules =
 # Only dom.cli (the presentation layer) is allowed to talk to it. Business code
 # (services, infrastructure, types, validation, templates) must NOT import dom.ui;
 # instead, return structured data and let the CLI render it.
-#
-# A handful of legacy modules still import dom.ui — they're listed under
-# ignore_imports below with a note. Each one represents a future refactor; new
-# code must not extend the list.
 [importlinter:contract:ui-only-from-cli]
 name = Only dom.cli may import dom.ui
 type = forbidden
@@ -50,7 +46,3 @@ forbidden_modules =
 ignore_imports =
     # logging_config wires the shared Console into RichHandler — it needs the singleton.
     dom.logging_config -> dom.ui.console
-    # preview_csv renders a Rich table for the user during the init wizard.
-    dom.utils.csv_preview -> dom.ui
-    # warn_if_privileged_port surfaces a user-visible warning before infra apply.
-    dom.utils.prerequisites -> dom.ui

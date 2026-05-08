@@ -17,11 +17,8 @@ from dom.infrastructure.docker.template import generate_docker_compose
 from dom.logging_config import get_logger
 from dom.types.infra import InfraConfig, InfrastructureStatus, ServiceStatus
 from dom.types.secrets import SecretsProvider
-from dom.utils.cli import ensure_dom_directory, get_container_prefix
-from dom.utils.prerequisites import (
-    validate_infrastructure_prerequisites,
-    warn_if_privileged_port,
-)
+from dom.utils.prerequisites import validate_infrastructure_prerequisites
+from dom.utils.project import ensure_dom_directory, get_container_prefix
 
 logger = get_logger(__name__)
 
@@ -40,9 +37,6 @@ class InfraService:
 
     def validate_prerequisites(self, port: int) -> None:
         validate_infrastructure_prerequisites(port)
-
-    def warn_privileged_port(self, port: int) -> None:
-        warn_if_privileged_port(port)
 
     # ------------------------------------------------------------------ Compose
 

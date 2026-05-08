@@ -2,7 +2,7 @@
 
 These belong to the CLI layer (presentation): they configure logging,
 catch errors, and render user-visible messages via ``dom.ui``. They
-were previously in ``dom.utils.cli`` — moved here so utilities stay
+were previously in ``dom.utils.project`` — moved here so utilities stay
 free of UI concerns.
 """
 
@@ -17,7 +17,7 @@ import typer
 from dom import ui
 from dom.exceptions import DomJudgeCliError
 from dom.logging_config import get_logger, setup_logging
-from dom.utils.cli import ensure_dom_directory
+from dom.utils.project import ensure_dom_directory
 
 logger = get_logger(__name__)
 

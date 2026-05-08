@@ -6,7 +6,6 @@ from pathlib import Path
 
 from rich.table import Table
 
-from dom import ui
 from dom.logging_config import get_logger
 from dom.utils.validators import Invalid
 
@@ -115,25 +114,25 @@ def auto_detect_data_range(file_path: Path, delimiter: str) -> tuple[int, int]:
     return start_row, end_row
 
 
-def preview_csv(
+def build_csv_preview(
     file_path: Path,
     delimiter: str,
     max_rows: int = 10,
     show_column_numbers: bool = True,
     has_header: bool | None = None,
-) -> bool:
+) -> tuple[Table | None, bool]:
     """
-    Display a preview of the CSV file with Rich formatting.
+    Build a Rich table previewing a CSV file. Pure data — caller renders.
 
     Args:
         file_path: Path to CSV file
         delimiter: Field delimiter
-        max_rows: Maximum number of rows to display
-        show_column_numbers: Whether to show column numbers
+        max_rows: Maximum number of rows to include
+        show_column_numbers: Whether to label columns with their index
         has_header: Override header detection (None for auto-detect)
 
     Returns:
-        Whether the file has a header row
+        ``(table, has_header)`` — ``table`` is ``None`` if the file is empty.
     """
     rows = read_csv_rows(file_path, delimiter, max_rows=max_rows)
     total_rows = count_csv_rows(file_path, delimiter)
@@ -141,8 +140,7 @@ def preview_csv(
         has_header = detect_header_row(file_path, delimiter)
 
     if not rows:
-        ui.warn("Warning: CSV file is empty")
-        return False
+        return None, False
 
     num_columns = max(len(row) for row in rows)
 
@@ -170,8 +168,7 @@ def preview_csv(
         padded = row + [""] * (num_columns - len(row))
         table.add_row(str(start_index + offset), *padded)
 
-    ui.render(table)
-    return has_header
+    return table, has_header
 
 
 def get_column_count(file_path: Path, delimiter: str) -> int:

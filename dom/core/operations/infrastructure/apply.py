@@ -10,7 +10,7 @@ def apply_infrastructure_op(ctx: Context, config: InfraConfig) -> Steps:
     svc = InfraService(ctx.secrets)
     return Steps(
         steps=[
-            Step("Validate prerequisites", lambda: _validate(svc, config.port)),
+            Step("Validate prerequisites", lambda: svc.validate_prerequisites(config.port)),
             Step("Generate compose file", lambda: svc.generate_compose_bootstrap(config)),
             Step("Start MariaDB", lambda: svc.start_service("mariadb")),
             Step("Start MySQL client", lambda: svc.start_service("mysql-client")),
@@ -28,8 +28,3 @@ def apply_infrastructure_op(ctx: Context, config: InfraConfig) -> Steps:
             f" • {config.judges} judgehost(s) running"
         ),
     )
-
-
-def _validate(svc: InfraService, port: int) -> None:
-    svc.validate_prerequisites(port)
-    svc.warn_privileged_port(port)

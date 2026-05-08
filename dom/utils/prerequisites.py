@@ -8,10 +8,9 @@ import socket
 import subprocess  # nosec B404
 from pathlib import Path
 
-from dom import ui
 from dom.exceptions import ConfigError, DockerError, InfrastructureError
 from dom.logging_config import get_logger
-from dom.utils.cli import get_container_prefix
+from dom.utils.project import get_container_prefix
 
 logger = get_logger(__name__)
 
@@ -246,15 +245,6 @@ def validate_infrastructure_prerequisites(port: int | None = None) -> None:
     logger.info("Prerequisites validated successfully")
 
 
-def warn_if_privileged_port(port: int) -> None:
-    """
-    Warn user if using a privileged port (< 1024).
-
-    Args:
-        port: Port number to check
-    """
-    if port < 1024:
-        ui.warn(f"** Warning: Port {port} is privileged (< 1024)")
-        ui.warn("   You may need to run with sudo or use a port >= 1024")
-        ui.blank()
-        logger.warning(f"Using privileged port: {port}")
+def is_privileged_port(port: int) -> bool:
+    """Return True if ``port`` is privileged (requires elevated permissions on Unix)."""
+    return port < 1024
