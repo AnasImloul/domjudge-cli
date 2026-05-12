@@ -9,5 +9,5 @@ requests>=2.32.5,<2.34.0
 Jinja2~=3.1.6
 jmespath~=1.0.1
 cryptography>=43.0,<48.1
-rich>=13.7,<14.3
+rich>=13.7,<15.1
 pytest>=8.0,<9.1
