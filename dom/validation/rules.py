@@ -42,20 +42,23 @@ class ValidationRules:
     # ============================================================
 
     @staticmethod
-    def port(warn_privileged: bool = True) -> ValidatorBuilder:
+    def port(reject_privileged: bool = False) -> ValidatorBuilder:
         """
         Validate port number.
 
         Rules:
         - Must be 1-65535
-        - Warn if < 1024 (requires privileges)
+        - Privileged ports (< 1024) are allowed by default so users can bind
+          80/443 for direct HTTP/HTTPS access. ``dom infra apply`` still
+          emits a runtime warning when a privileged port is used.
 
         Args:
-            warn_privileged: Whether to warn about privileged ports
+            reject_privileged: Hard-reject ports < 1024. Off by default; opt in
+                if you want validation to fail for privileged ports.
         """
         builder = ValidatorBuilder.port()
 
-        if warn_privileged:
+        if reject_privileged:
             builder = builder.unprivileged()
 
         return builder
