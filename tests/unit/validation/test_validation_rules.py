@@ -11,18 +11,14 @@ class TestPortValidation:
 
     def test_valid_ports(self):
         """Test that valid port numbers pass validation."""
-        # By default, warns about privileged ports (< 1024)
+        # Privileged ports (< 1024) are allowed by default so users can bind 80/443.
         validator = ValidationRules.port().build()
 
-        # Test non-privileged ports
+        assert validator("80") == 80
+        assert validator("443") == 443
         assert validator("1024") == 1024
         assert validator("8080") == 8080
         assert validator("65535") == 65535
-
-        # Test with privileged ports allowed
-        validator_with_privileged = ValidationRules.port(warn_privileged=False).build()
-        assert validator_with_privileged("80") == 80
-        assert validator_with_privileged("443") == 443
 
     def test_invalid_ports(self):
         """Test that invalid port numbers fail validation."""
@@ -36,6 +32,15 @@ class TestPortValidation:
 
         with pytest.raises(Invalid):
             validator("-1")
+
+    def test_reject_privileged_opt_in(self):
+        """Opting in to ``reject_privileged`` should hard-reject ports < 1024."""
+        validator = ValidationRules.port(reject_privileged=True).build()
+
+        with pytest.raises(Invalid):
+            validator("80")
+
+        assert validator("1024") == 1024
 
 
 class TestContestNameValidation:
