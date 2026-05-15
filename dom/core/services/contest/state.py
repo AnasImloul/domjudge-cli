@@ -24,7 +24,6 @@ from dom.exceptions import APIError, ContestError
 from dom.logging_config import get_logger
 from dom.types.config.processed import ContestConfig
 from dom.types.secrets import SecretsProvider
-from dom.utils.hashing import generate_team_username
 
 logger = get_logger(__name__)
 
@@ -216,9 +215,11 @@ class ContestStateComparator:
         seed for stable hashing) so the comparison is an exact string match.
         Display names are projected back through the ``key → name`` map.
         """
+        # ``team.username`` was assigned by the config loader with collision
+        # resolution, so use it directly rather than recomputing the hash here
+        # (recomputing would skip the collision-probing step).
         composite_to_display: dict[str, str] = {
-            f"{generate_team_username(self.secrets, t.composite_key)}|{t.composite_key}": t.name
-            for t in desired.teams
+            f"{t.username}|{t.composite_key}": t.name for t in desired.teams
         }
 
         try:
