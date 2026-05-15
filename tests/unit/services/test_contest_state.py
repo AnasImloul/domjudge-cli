@@ -25,9 +25,9 @@ class TestContestStateComparator:
 
     @pytest.fixture
     def mock_secrets(self):
-        """Mocked SecretsProvider — only ``get_or_create_hash_seed`` is exercised."""
+        """Mocked SecretsProvider — only ``get_username_hash_seed`` is exercised."""
         secrets = MagicMock()
-        secrets.get_or_create_hash_seed.return_value = "test-seed"
+        secrets.get_username_hash_seed.return_value = "test-seed"
         return secrets
 
     @pytest.fixture

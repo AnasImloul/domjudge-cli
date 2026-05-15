@@ -17,7 +17,7 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 from pydantic import SecretStr
 
-from dom.constants import DEFAULT_PASSWORD_LENGTH, SecretKeys
+from dom.constants import DEFAULT_PASSWORD_LENGTH
 from dom.exceptions import SecretsError
 from dom.logging_config import get_logger
 from dom.types.secrets import SecretsProvider
@@ -292,28 +292,29 @@ class SecretsManager(SecretsProvider):
         logger.debug(f"Generated deterministic password for seed '{seed}'")
         return SecretStr(password)
 
-    def get_or_create_hash_seed(self) -> str:
+    def get_username_hash_seed(self) -> str:
         """
-        Get existing hash seed or create a new one.
+        Return the seed used for deterministic team username generation.
 
-        The hash seed is used for deterministic team ID generation.
-        It is generated once and persisted to ensure consistent hashing
-        across runs.
+        Derived from the admin password (the same shared secret used to
+        derive team passwords) so the same config produces identical
+        usernames across machines. No per-machine random state.
 
         Returns:
-            Hash seed (32-character hex string)
-        """
-        # Try to get existing seed
-        existing_seed = self.get(SecretKeys.HASH_SEED.value)
-        if existing_seed:
-            logger.debug("Using existing hash seed")
-            return existing_seed
+            Seed string suitable as a hash salt.
 
-        # Generate new seed
-        seed = secrets.token_hex(16)  # 32 character hex string
-        self.set(SecretKeys.HASH_SEED.value, seed)
-        logger.info("Generated and stored new hash seed")
-        return seed
+        Raises:
+            SecretsError: If admin_password is not set.
+        """
+        admin_password = self.get("admin_password")
+        if not admin_password:
+            raise SecretsError(
+                "Admin password not set, cannot derive deterministic username hash seed"
+            )
+        # Namespace the salt so it cant be confused with the admin password
+        # itself if leaked, and so future tools can derive other deterministic
+        # values from the same root without overlap.
+        return f"username-hash:{admin_password}"
 
 
 def generate_random_string(length: int = DEFAULT_PASSWORD_LENGTH) -> str:
