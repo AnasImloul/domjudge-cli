@@ -125,15 +125,19 @@ class SecretsProvider(ABC):
         ...
 
     @abstractmethod
-    def get_or_create_hash_seed(self) -> str:
+    def get_username_hash_seed(self) -> str:
         """
-        Get existing hash seed or create a new one.
+        Return the seed used for deterministic team username generation.
 
-        The hash seed is used for deterministic team ID generation.
-        It is generated once and persisted to ensure consistent hashing
-        across runs.
+        Derived from the admin password so that the same config produces
+        identical usernames across machines (matching the determinism
+        guarantee already in place for team passwords). No per-machine
+        random state is involved.
 
         Returns:
-            Hash seed (32-character hex string)
+            Seed string suitable for use as a hash salt.
+
+        Raises:
+            SecretsError: If admin_password is not set.
         """
         ...

@@ -51,7 +51,7 @@ class FakeSecretsProvider(SecretsProvider):
     def generate_deterministic_password(self, seed, length=32):
         return SecretStr(f"pw-{seed}")
 
-    def get_or_create_hash_seed(self):
+    def get_username_hash_seed(self):
         return "0" * 32
 
 

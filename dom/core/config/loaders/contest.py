@@ -73,22 +73,41 @@ def load_contests_from_config(
         load_contest_from_config(contest, config_path, secrets) for contest in raw_contests
     ]
 
-    # Assign usernames and passwords to teams
-    # Usernames must be globally unique across all contests
-    # Use composite key hash to ensure uniqueness
+    # Assign usernames and passwords to teams.
+    # Usernames must be globally unique across all contests. The base hash
+    # has only 10000 buckets, so collisions are likely (birthday paradox:
+    # ~14% for 55 teams). Track assigned usernames and probe deterministically
+    # by appending a collision counter to the seed until we land on a free one.
+    used_usernames: set[str] = set()
     for contest in processed_contests:
-        # Sort teams by name for consistent ordering
         contest.teams.sort(key=lambda team: team.name)
 
         for team in contest.teams:
-            # Generate globally unique username based on composite key
-            # This ensures teams with same name but different org/country get different usernames
-            # Uses deterministic hashing with stored seed for consistency across runs
-            team.username = generate_team_username(secrets, team.composite_key)
+            team.username = _assign_unique_team_username(
+                secrets, team.composite_key, used_usernames
+            )
+            used_usernames.add(team.username)
 
-            # Generate password using composite key for uniqueness
             team.password = secrets.generate_deterministic_password(
                 seed=team.composite_key, length=10
             )
 
     return processed_contests
+
+
+def _assign_unique_team_username(
+    secrets: SecretsProvider, composite_key: str, used: set[str]
+) -> str:
+    """Deterministically pick a free ``team####`` handle.
+
+    Re-hashes ``composite_key`` with an incrementing collision suffix until
+    the result is not already in ``used``. Stable across runs as long as the
+    sorted team list is stable.
+    """
+    attempt = 0
+    while True:
+        seed = composite_key if attempt == 0 else f"{composite_key}#collision{attempt}"
+        username = generate_team_username(secrets, seed)
+        if username not in used:
+            return username
+        attempt += 1

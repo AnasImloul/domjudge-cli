@@ -7,22 +7,6 @@ These values can be overridden through configuration files or environment variab
 from enum import Enum
 
 # ============================================================
-# Secret Keys
-# ============================================================
-
-
-class SecretKeys(str, Enum):
-    """Enumeration of secret keys used in the application.
-
-    Note: Most of the codebase passes secret-key string literals directly
-    rather than going through this enum — only HASH_SEED is read via this
-    indirection (see dom/infrastructure/secrets/manager.py).
-    """
-
-    HASH_SEED = "hash_seed"  # nosec B105  # Seed for deterministic team ID generation
-
-
-# ============================================================
 # ID Generation
 # ============================================================
 
